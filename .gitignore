@@ -1,0 +1,8 @@
+
+# Swagger backups
+docs/*.backup
+/md/
+/CLAUDE.md
+/docker-compose.prod.yml
+/.env
+/.claude/
