@@ -1,0 +1,355 @@
+// internal/domain/budget_constraint.go
+package domain
+
+import (
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// ================================================================
+// BUDGET CONSTRAINT DOMAIN
+// ================================================================
+
+// BudgetConstraint represents minimum required spending per category
+// Example: Rent = 2,000,000 VND/month (fixed), Food >= 4,000,000 (flexible)
+type BudgetConstraint struct {
+	ID         uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	UserID     uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"user_id"`
+	CategoryID uuid.UUID `gorm:"type:uuid;not null;index;column:category_id" json:"category_id"`
+	CreatedAt  time.Time `gorm:"autoCreateTime;column:created_at" json:"created_at"`
+	UpdatedAt  time.Time `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`
+
+	// Minimum required amount (lower bound)
+	MinimumAmount float64 `gorm:"type:decimal(15,2);not null;column:minimum_amount" json:"minimum_amount"`
+
+	// Flexibility
+	IsFlexible    bool    `gorm:"default:false;column:is_flexible" json:"is_flexible"`                      // Can DSS allocate more than minimum?
+	MaximumAmount float64 `gorm:"type:decimal(15,2);default:0;column:maximum_amount" json:"maximum_amount"` // Upper bound if flexible (0 = no limit)
+
+	// Priority for allocation (1 = highest priority)
+	Priority int `gorm:"default:99;column:priority" json:"priority"`
+}
+
+// TableName specifies the database table name
+func (BudgetConstraint) TableName() string {
+	return "budget_constraints"
+}
+
+// NewBudgetConstraint creates a new budget constraint
+func NewBudgetConstraint(userID, categoryID uuid.UUID, minimumAmount float64) (*BudgetConstraint, error) {
+	bc := &BudgetConstraint{
+		ID:            uuid.New(),
+		UserID:        userID,
+		CategoryID:    categoryID,
+		MinimumAmount: minimumAmount,
+		IsFlexible:    false,
+		MaximumAmount: 0,
+		Priority:      99, // Default low priority
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := bc.Validate(); err != nil {
+		return nil, err
+	}
+
+	return bc, nil
+}
+
+// NewFlexibleBudgetConstraint creates a flexible budget constraint with range
+func NewFlexibleBudgetConstraint(userID, categoryID uuid.UUID, min, max float64) (*BudgetConstraint, error) {
+	bc := &BudgetConstraint{
+		ID:            uuid.New(),
+		UserID:        userID,
+		CategoryID:    categoryID,
+		MinimumAmount: min,
+		IsFlexible:    true,
+		MaximumAmount: max,
+		Priority:      99,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := bc.Validate(); err != nil {
+		return nil, err
+	}
+
+	return bc, nil
+}
+
+// GetRange returns [min, max] allocation range for this constraint
+func (bc *BudgetConstraint) GetRange() (min, max float64) {
+	min = bc.MinimumAmount
+	max = bc.MinimumAmount // Default: fixed amount
+
+	if bc.IsFlexible {
+		if bc.MaximumAmount > 0 {
+			max = bc.MaximumAmount
+		} else {
+			max = 0 // No upper limit
+		}
+	}
+
+	return min, max
+}
+
+// IsFixed returns true if this is a fixed amount (not flexible)
+func (bc *BudgetConstraint) IsFixed() bool {
+	return !bc.IsFlexible
+}
+
+// HasUpperLimit returns true if there's a maximum amount specified
+func (bc *BudgetConstraint) HasUpperLimit() bool {
+	return bc.IsFlexible && bc.MaximumAmount > 0
+}
+
+// GetFlexibilityRange returns the range of flexibility (max - min)
+func (bc *BudgetConstraint) GetFlexibilityRange() float64 {
+	if !bc.IsFlexible {
+		return 0
+	}
+	if bc.MaximumAmount > 0 {
+		return bc.MaximumAmount - bc.MinimumAmount
+	}
+	return 0 // Unlimited flexibility
+}
+
+// CanAllocate checks if a proposed amount is within valid range
+func (bc *BudgetConstraint) CanAllocate(amount float64) bool {
+	if amount < bc.MinimumAmount {
+		return false // Below minimum
+	}
+
+	if !bc.IsFlexible {
+		return amount == bc.MinimumAmount // Must be exact for fixed
+	}
+
+	if bc.MaximumAmount > 0 && amount > bc.MaximumAmount {
+		return false // Above maximum
+	}
+
+	return true
+}
+
+// UpdateMinimum updates the minimum required amount
+func (bc *BudgetConstraint) UpdateMinimum(amount float64) error {
+	if amount < 0 {
+		return ErrNegativeAmount
+	}
+
+	// If flexible with max, ensure min <= max
+	if bc.IsFlexible && bc.MaximumAmount > 0 && amount > bc.MaximumAmount {
+		return ErrMinimumExceedsMaximum
+	}
+
+	bc.MinimumAmount = amount
+	bc.UpdatedAt = time.Now()
+	return nil
+}
+
+// SetFlexible makes this constraint flexible with optional max
+func (bc *BudgetConstraint) SetFlexible(maxAmount float64) error {
+	if maxAmount > 0 && maxAmount < bc.MinimumAmount {
+		return ErrMaximumBelowMinimum
+	}
+
+	bc.IsFlexible = true
+	bc.MaximumAmount = maxAmount
+	bc.UpdatedAt = time.Now()
+	return nil
+}
+
+// SetFixed makes this constraint fixed (non-flexible)
+func (bc *BudgetConstraint) SetFixed() {
+	bc.IsFlexible = false
+	bc.MaximumAmount = 0
+	bc.UpdatedAt = time.Now()
+}
+
+// SetPriority sets the allocation priority (1 = highest)
+func (bc *BudgetConstraint) SetPriority(priority int) error {
+	if priority < 1 {
+		return ErrInvalidPriority
+	}
+	bc.Priority = priority
+	bc.UpdatedAt = time.Now()
+	return nil
+}
+
+// Validate performs domain validation
+func (bc *BudgetConstraint) Validate() error {
+	if bc.UserID == uuid.Nil {
+		//return ErrInvalidUserID
+	}
+
+	if bc.CategoryID == uuid.Nil {
+		return ErrInvalidCategoryID
+	}
+
+	if bc.MinimumAmount < 0 {
+		return ErrNegativeAmount
+	}
+
+	if bc.IsFlexible {
+		if bc.MaximumAmount > 0 && bc.MaximumAmount < bc.MinimumAmount {
+			return ErrMaximumBelowMinimum
+		}
+	}
+
+	if bc.Priority < 0 {
+		return ErrInvalidPriority
+	}
+
+	return nil
+}
+
+// String returns a human-readable representation
+func (bc *BudgetConstraint) String() string {
+	if bc.IsFixed() {
+		return fmt.Sprintf("Fixed: %.2f", bc.MinimumAmount)
+	}
+
+	if bc.HasUpperLimit() {
+		return fmt.Sprintf("Flexible: [%.2f, %.2f]", bc.MinimumAmount, bc.MaximumAmount)
+	}
+
+	return fmt.Sprintf("Flexible: >= %.2f (no limit)", bc.MinimumAmount)
+}
+
+// ================================================================
+// BUDGET CONSTRAINT COLLECTION
+// ================================================================
+
+// BudgetConstraints represents a collection of budget constraints for a user
+type BudgetConstraints []*BudgetConstraint
+
+// TotalMandatoryExpenses calculates sum of all minimum amounts
+func (bcs BudgetConstraints) TotalMandatoryExpenses() float64 {
+	var total float64
+	for _, bc := range bcs {
+		total += bc.MinimumAmount
+	}
+	return total
+}
+
+// GetByCategory finds constraint by category ID
+func (bcs BudgetConstraints) GetByCategory(categoryID uuid.UUID) *BudgetConstraint {
+	for _, bc := range bcs {
+		if bc.CategoryID == categoryID {
+			return bc
+		}
+	}
+	return nil
+}
+
+// GetFlexible returns only flexible constraints
+func (bcs BudgetConstraints) GetFlexible() BudgetConstraints {
+	var flexible BudgetConstraints
+	for _, bc := range bcs {
+		if bc.IsFlexible {
+			flexible = append(flexible, bc)
+		}
+	}
+	return flexible
+}
+
+// GetFixed returns only fixed constraints
+func (bcs BudgetConstraints) GetFixed() BudgetConstraints {
+	var fixed BudgetConstraints
+	for _, bc := range bcs {
+		if bc.IsFixed() {
+			fixed = append(fixed, bc)
+		}
+	}
+	return fixed
+}
+
+// SortByPriority returns constraints sorted by priority (ascending)
+func (bcs BudgetConstraints) SortByPriority() BudgetConstraints {
+	sorted := make(BudgetConstraints, len(bcs))
+	copy(sorted, bcs)
+
+	// Simple bubble sort (good enough for small lists)
+	for i := 0; i < len(sorted); i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			if sorted[i].Priority > sorted[j].Priority {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+
+	return sorted
+}
+
+// Validate validates all constraints in collection
+func (bcs BudgetConstraints) Validate() error {
+	for i, bc := range bcs {
+		if err := bc.Validate(); err != nil {
+			return fmt.Errorf("constraint %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+// HasDuplicateCategories checks if there are multiple constraints for same category
+func (bcs BudgetConstraints) HasDuplicateCategories() bool {
+	seen := make(map[uuid.UUID]bool)
+	for _, bc := range bcs {
+		if seen[bc.CategoryID] {
+			return true
+		}
+		seen[bc.CategoryID] = true
+	}
+	return false
+}
+
+// ================================================================
+// REPOSITORY INTERFACE
+// ================================================================
+
+// BudgetConstraintRepository defines the interface for budget constraint persistence
+type BudgetConstraintRepository interface {
+	// Create creates a new budget constraint
+	Create(bc *BudgetConstraint) error
+
+	// GetByID retrieves a budget constraint by ID
+	GetByID(id uuid.UUID) (*BudgetConstraint, error)
+
+	// GetByUser retrieves all budget constraints for a user
+	GetByUser(userID uuid.UUID) (BudgetConstraints, error)
+
+	// GetByUserAndCategory retrieves a budget constraint by user and category
+	GetByUserAndCategory(userID, categoryID uuid.UUID) (*BudgetConstraint, error)
+
+	// Update updates an existing budget constraint
+	Update(bc *BudgetConstraint) error
+
+	// Delete deletes a budget constraint
+	Delete(id uuid.UUID) error
+
+	// DeleteByUserAndCategory deletes a budget constraint by user and category
+	DeleteByUserAndCategory(userID, categoryID uuid.UUID) error
+
+	// Exists checks if a budget constraint exists for user and category
+	Exists(userID, categoryID uuid.UUID) (bool, error)
+
+	// GetTotalMandatory calculates total mandatory expenses for user
+	GetTotalMandatory(userID uuid.UUID) (float64, error)
+}
+
+// ================================================================
+// ERRORS
+// ================================================================
+
+var (
+	ErrBudgetConstraintNotFound = errors.New("budget constraint not found")
+	ErrBudgetConstraintExists   = errors.New("budget constraint already exists for this category")
+	ErrInvalidCategoryID        = errors.New("invalid category ID")
+	ErrNegativeAmount           = errors.New("amount cannot be negative")
+	ErrMaximumBelowMinimum      = errors.New("maximum amount must be greater than or equal to minimum")
+	ErrMinimumExceedsMaximum    = errors.New("minimum amount cannot exceed maximum")
+	ErrInvalidPriority          = errors.New("priority must be greater than 0")
+)

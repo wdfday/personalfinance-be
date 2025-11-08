@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goal Achieved!</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: #ffffff;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .success-box {
+            background: #f0fff4;
+            border-left: 4px solid #27ae60;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .success-box h3 {
+            color: #27ae60;
+            margin-top: 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 30px;
+            margin: 25px 0;
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #777;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Congratulations! Goal Achieved!</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{.Name}},</p>
+            <p>Fantastic news! You've successfully achieved your financial goal: <strong>{{.GoalName}}</strong></p>
+            
+            <div class="success-box">
+                <h3>Goal Details</h3>
+                <ul>
+                    <li><strong>Goal:</strong> {{.GoalName}}</li>
+                    <li><strong>Target Amount:</strong> ${{.TargetAmount}}</li>
+                    <li><strong>Amount Saved:</strong> ${{.CurrentAmount}}</li>
+                    <li><strong>Target Date:</strong> {{.TargetDate}}</li>
+                    <li><strong>Achieved Date:</strong> {{.AchievedDate}}</li>
+                </ul>
+            </div>
+            
+            <p>This is a significant milestone in your financial journey. You've demonstrated discipline and commitment to your financial goals.</p>
+            
+            <h3>What's Next?</h3>
+            <ul>
+                <li>Consider setting a new financial goal</li>
+                <li>Review your overall financial plan</li>
+                <li>Celebrate this achievement responsibly</li>
+                <li>Share your success with others who might benefit from your experience</li>
+            </ul>
+            
+            <div style="text-align: center;">
+                <a href="{{.GoalsURL}}" class="button">Set New Goals</a>
+            </div>
+            
+            <p>Keep up the excellent work with your financial planning!</p>
+            <p>Best regards,<br>The Personal Finance DSS Team</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2024 Personal Finance DSS. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+
