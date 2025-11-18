@@ -3,18 +3,17 @@ package service
 import (
 	"context"
 	"fmt"
-	"time"
-
-	"personalfinancedss/internal/broker/client"
-	"personalfinancedss/internal/broker/client/okx"
-	"personalfinancedss/internal/broker/client/ssi"
 	accountDomain "personalfinancedss/internal/module/cashflow/account/domain"
 	accountRepo "personalfinancedss/internal/module/cashflow/account/repository"
+	"personalfinancedss/internal/module/identify/broker/client"
+	"personalfinancedss/internal/module/identify/broker/client/okx"
+	"personalfinancedss/internal/module/identify/broker/client/ssi"
 	assetDomain "personalfinancedss/internal/module/investment/investment_asset/domain"
 	assetRepo "personalfinancedss/internal/module/investment/investment_asset/repository"
 	investmentTxnDomain "personalfinancedss/internal/module/investment/investment_transaction/domain"
 	investmentTxnRepo "personalfinancedss/internal/module/investment/investment_transaction/repository"
 	"personalfinancedss/internal/service"
+	"time"
 )
 
 // SyncService handles syncing data from brokers

@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"personalfinancedss/internal/module/identify/broker/client"
 	"time"
-
-	"personalfinancedss/internal/broker/client"
 )
 
 const (

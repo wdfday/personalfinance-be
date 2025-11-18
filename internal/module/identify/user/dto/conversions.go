@@ -1,10 +1,9 @@
 package dto
 
 import (
+	"personalfinancedss/internal/module/identify/user/domain"
 	"personalfinancedss/internal/shared"
 	"strings"
-
-	"personalfinancedss/internal/module/identify/user/domain"
 
 	"github.com/google/uuid"
 )
@@ -98,7 +97,6 @@ func FromCreateUserRequest(req CreateUserRequest) (*domain.User, error) {
 		AnalyticsConsent: true,
 	}
 
-	// Generate UUID V7
 	user.ID = uuid.New()
 
 	return user, nil

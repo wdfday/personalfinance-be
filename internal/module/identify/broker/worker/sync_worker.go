@@ -2,12 +2,11 @@ package worker
 
 import (
 	"context"
+	"personalfinancedss/internal/module/identify/broker/domain"
+	"personalfinancedss/internal/module/identify/broker/repository"
+	"personalfinancedss/internal/module/identify/broker/service"
 	"sync"
 	"time"
-
-	"personalfinancedss/internal/broker/service"
-	accountDomain "personalfinancedss/internal/module/cashflow/account/domain"
-	accountRepo "personalfinancedss/internal/module/cashflow/account/repository"
 
 	"go.uber.org/zap"
 )
@@ -15,7 +14,7 @@ import (
 // SyncWorkerConfig holds configuration for the sync worker
 type SyncWorkerConfig struct {
 	Enabled       bool          // Enable/disable the worker
-	Interval      time.Duration // How often to check for accounts needing sync
+	Interval      time.Duration // How often to check for connections needing sync
 	MaxConcurrent int           // Max number of concurrent syncs
 	SyncTimeout   time.Duration // Timeout for each sync operation
 }
@@ -30,31 +29,31 @@ func DefaultSyncWorkerConfig() SyncWorkerConfig {
 	}
 }
 
-// SyncWorker handles periodic syncing of broker accounts
+// SyncWorker handles periodic syncing of broker connections
 type SyncWorker struct {
-	config      SyncWorkerConfig
-	accountRepo accountRepo.Repository
-	syncService *service.SyncService
-	logger      *zap.Logger
-	stopChan    chan struct{}
-	wg          sync.WaitGroup
-	semaphore   chan struct{} // Limit concurrent syncs
+	config     SyncWorkerConfig
+	brokerRepo repository.BrokerConnectionRepository
+	brokerSvc  service.BrokerConnectionService
+	logger     *zap.Logger
+	stopChan   chan struct{}
+	wg         sync.WaitGroup
+	semaphore  chan struct{} // Limit concurrent syncs
 }
 
 // NewSyncWorker creates a new sync worker
 func NewSyncWorker(
 	config SyncWorkerConfig,
-	accountRepo accountRepo.Repository,
-	syncService *service.SyncService,
+	brokerRepo repository.BrokerConnectionRepository,
+	brokerSvc service.BrokerConnectionService,
 	logger *zap.Logger,
 ) *SyncWorker {
 	return &SyncWorker{
-		config:      config,
-		accountRepo: accountRepo,
-		syncService: syncService,
-		logger:      logger,
-		stopChan:    make(chan struct{}),
-		semaphore:   make(chan struct{}, config.MaxConcurrent),
+		config:     config,
+		brokerRepo: brokerRepo,
+		brokerSvc:  brokerSvc,
+		logger:     logger.Named("broker.sync.worker"),
+		stopChan:   make(chan struct{}),
+		semaphore:  make(chan struct{}, config.MaxConcurrent),
 	}
 }
 
@@ -112,12 +111,12 @@ func (w *SyncWorker) run(ctx context.Context) {
 	w.logger.Info("✅ Broker sync worker started")
 
 	// Run initial sync immediately
-	w.syncAccounts(ctx)
+	w.syncConnections(ctx)
 
 	for {
 		select {
 		case <-ticker.C:
-			w.syncAccounts(ctx)
+			w.syncConnections(ctx)
 
 		case <-w.stopChan:
 			w.logger.Info("Broker sync worker received stop signal")
@@ -130,40 +129,40 @@ func (w *SyncWorker) run(ctx context.Context) {
 	}
 }
 
-// syncAccounts finds and syncs all accounts that need syncing
-func (w *SyncWorker) syncAccounts(ctx context.Context) {
+// syncConnections finds and syncs all broker connections that need syncing
+func (w *SyncWorker) syncConnections(ctx context.Context) {
 	startTime := time.Now()
 
-	w.logger.Debug("🔍 Checking for accounts needing sync...")
+	w.logger.Debug("🔍 Checking for broker connections needing sync...")
 
-	// Get accounts that need syncing
-	accounts, err := w.accountRepo.GetAccountsNeedingSync(ctx)
+	// Get connections that need syncing
+	connections, err := w.brokerRepo.GetNeedingSync(ctx, 100) // Max 100 per cycle
 	if err != nil {
-		w.logger.Error("Failed to get accounts needing sync", zap.Error(err))
+		w.logger.Error("Failed to get connections needing sync", zap.Error(err))
 		return
 	}
 
-	if len(accounts) == 0 {
-		w.logger.Debug("No accounts need syncing at this time")
+	if len(connections) == 0 {
+		w.logger.Debug("No broker connections need syncing at this time")
 		return
 	}
 
-	w.logger.Info("📊 Found accounts needing sync",
-		zap.Int("count", len(accounts)),
+	w.logger.Info("📊 Found broker connections needing sync",
+		zap.Int("count", len(connections)),
 	)
 
-	// Sync accounts concurrently with rate limiting
+	// Sync connections concurrently with rate limiting
 	var syncWg sync.WaitGroup
 	successCount := 0
 	failureCount := 0
 	var mu sync.Mutex
 
-	for _, account := range accounts {
+	for _, conn := range connections {
 		// Acquire semaphore slot
 		w.semaphore <- struct{}{}
 
 		syncWg.Add(1)
-		go func(acc *accountDomain.Account) {
+		go func(connection *domain.BrokerConnection) {
 			defer syncWg.Done()
 			defer func() { <-w.semaphore }() // Release semaphore slot
 
@@ -172,36 +171,38 @@ func (w *SyncWorker) syncAccounts(ctx context.Context) {
 			defer cancel()
 
 			// Perform sync
-			w.logger.Info("🔄 Syncing account",
-				zap.String("account_id", acc.ID.String()),
-				zap.String("account_name", acc.AccountName),
+			w.logger.Info("🔄 Syncing broker connection",
+				zap.String("connection_id", connection.ID.String()),
+				zap.String("broker_type", string(connection.BrokerType)),
+				zap.String("broker_name", connection.BrokerName),
 			)
 
-			result, err := w.syncService.SyncAccount(syncCtx, acc)
+			// Use SyncNow method from broker service
+			result, err := w.brokerSvc.SyncNow(syncCtx, connection.ID, connection.UserID)
 
 			mu.Lock()
 			defer mu.Unlock()
 
 			if err != nil || !result.Success {
 				failureCount++
-				w.logger.Error("❌ Account sync failed",
-					zap.String("account_id", acc.ID.String()),
-					zap.String("account_name", acc.AccountName),
+				w.logger.Error("❌ Broker connection sync failed",
+					zap.String("connection_id", connection.ID.String()),
+					zap.String("broker_type", string(connection.BrokerType)),
 					zap.Error(err),
 					zap.Any("result", result),
 				)
 			} else {
 				successCount++
-				w.logger.Info("✅ Account synced successfully",
-					zap.String("account_id", acc.ID.String()),
-					zap.String("account_name", acc.AccountName),
+				w.logger.Info("✅ Broker connection synced successfully",
+					zap.String("connection_id", connection.ID.String()),
+					zap.String("broker_type", string(connection.BrokerType)),
 					zap.Int("assets_synced", result.AssetsCount),
 					zap.Int("transactions_synced", result.TransactionsCount),
 					zap.Int("prices_updated", result.UpdatedPricesCount),
 					zap.Bool("balance_updated", result.BalanceUpdated),
 				)
 			}
-		}(account)
+		}(conn)
 	}
 
 	// Wait for all syncs to complete
@@ -209,7 +210,7 @@ func (w *SyncWorker) syncAccounts(ctx context.Context) {
 
 	duration := time.Since(startTime)
 	w.logger.Info("📈 Sync cycle completed",
-		zap.Int("total_accounts", len(accounts)),
+		zap.Int("total_connections", len(connections)),
 		zap.Int("successful", successCount),
 		zap.Int("failed", failureCount),
 		zap.Duration("duration", duration),
@@ -219,5 +220,5 @@ func (w *SyncWorker) syncAccounts(ctx context.Context) {
 // ForceSync triggers an immediate sync check (useful for testing or manual triggers)
 func (w *SyncWorker) ForceSync(ctx context.Context) {
 	w.logger.Info("🔧 Manual sync triggered")
-	w.syncAccounts(ctx)
+	w.syncConnections(ctx)
 }

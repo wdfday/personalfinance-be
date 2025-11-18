@@ -1,15 +1,12 @@
 package dto
 
 import (
+	"personalfinancedss/internal/module/identify/profile/domain"
 	"strings"
 	"time"
 
-	"personalfinancedss/internal/module/identify/profile/domain"
-
 	"github.com/google/uuid"
 )
-
-// ========== Entity to DTO Conversions ==========
 
 // ToResponse converts domain UserProfile to ProfileResponse DTO
 func ToProfileResponse(profile *domain.UserProfile) *ProfileResponse {
@@ -51,8 +48,6 @@ func ToProfileResponse(profile *domain.UserProfile) *ProfileResponse {
 		UpdatedAt:                 profile.UpdatedAt,
 	}
 }
-
-// ========== DTO to Entity Conversions ==========
 
 // FromCreateProfileRequest converts CreateProfileRequest DTO to UserProfile entity
 func FromCreateProfileRequest(req CreateProfileRequest, userID uuid.UUID) (*domain.UserProfile, error) {

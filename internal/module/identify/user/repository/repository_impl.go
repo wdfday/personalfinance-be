@@ -163,7 +163,7 @@ func (r *gormRepo) SoftDelete(ctx context.Context, id string) error {
 }
 
 func (r *gormRepo) Restore(ctx context.Context, id string) error {
-	tx := r.db.WithContext(ctx).Model(&domain.User{}).
+	tx := r.db.WithContext(ctx).Unscoped().Model(&domain.User{}).
 		Where("id = ? AND deleted_at IS NOT NULL", id).
 		Update("deleted_at", nil)
 	if tx.Error != nil {
@@ -176,7 +176,7 @@ func (r *gormRepo) Restore(ctx context.Context, id string) error {
 }
 
 func (r *gormRepo) HardDelete(ctx context.Context, id string) error {
-	tx := r.db.WithContext(ctx).
+	tx := r.db.WithContext(ctx).Unscoped().
 		Where("id = ?", id).
 		Delete(&domain.User{})
 	if tx.Error != nil {

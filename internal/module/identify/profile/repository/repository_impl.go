@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-
+	"errors"
 	"personalfinancedss/internal/module/identify/profile/domain"
 	"personalfinancedss/internal/shared"
 
@@ -21,7 +21,7 @@ func New(db *gorm.DB) Repository {
 func (r *gormRepository) GetByUserID(ctx context.Context, userID string) (*domain.UserProfile, error) {
 	var profile domain.UserProfile
 	if err := r.db.WithContext(ctx).First(&profile, "user_id = ?", userID).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, shared.ErrNotFound
 		}
 		return nil, err

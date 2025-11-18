@@ -10,10 +10,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"personalfinancedss/internal/module/identify/broker/client"
 	"strings"
 	"time"
-
-	"personalfinancedss/internal/broker/client"
 )
 
 const (

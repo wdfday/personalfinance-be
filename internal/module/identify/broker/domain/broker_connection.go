@@ -11,8 +11,9 @@ import (
 type BrokerType string
 
 const (
-	BrokerTypeSSI BrokerType = "ssi" // SSI Securities (Vietnam stocks)
-	BrokerTypeOKX BrokerType = "okx" // OKX Exchange (Crypto)
+	BrokerTypeSSI   BrokerType = "ssi"   // SSI Securities (Vietnam stocks)
+	BrokerTypeOKX   BrokerType = "okx"   // OKX Exchange (Crypto)
+	BrokerTypeSePay BrokerType = "sepay" // SePay (Vietnam payment & banking)
 )
 
 // BrokerConnectionStatus represents the connection status
@@ -66,6 +67,12 @@ type BrokerConnection struct {
 	SyncAssets       bool `gorm:"default:true;column:sync_assets" json:"sync_assets"`
 	SyncTransactions bool `gorm:"default:true;column:sync_transactions" json:"sync_transactions"`
 	SyncPrices       bool `gorm:"default:true;column:sync_prices" json:"sync_prices"`
+	SyncBalance      bool `gorm:"default:true;column:sync_balance" json:"sync_balance"`
+
+	// External account info (fetched from broker)
+	ExternalAccountID     *string `gorm:"type:varchar(100);column:external_account_id" json:"external_account_id,omitempty"`
+	ExternalAccountNumber *string `gorm:"type:varchar(100);column:external_account_number" json:"external_account_number,omitempty"`
+	ExternalAccountName   *string `gorm:"type:varchar(255);column:external_account_name" json:"external_account_name,omitempty"`
 
 	// Metadata
 	Notes *string `gorm:"type:text;column:notes" json:"notes,omitempty"`
@@ -76,7 +83,7 @@ type BrokerConnection struct {
 }
 
 // TableName specifies the database table name
-func (BrokerConnection) TableName() string {
+func (*BrokerConnection) TableName() string {
 	return "broker_connections"
 }
 
