@@ -4,14 +4,13 @@ import (
 	"context"
 	"personalfinancedss/internal/shared"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
-// DeleteIncomeProfile deletes an income profile
+// DeleteIncomeProfile soft deletes an income profile
 func (s *incomeProfileService) DeleteIncomeProfile(ctx context.Context, userID string, profileID string) error {
-	// Parse profile ID
-	profileUUID, err := uuid.Parse(profileID)
+	// Parse IDs
+	profileUUID, err := parseProfileID(profileID)
 	if err != nil {
 		return shared.ErrBadRequest.
 			WithDetails("field", "profile_id").
@@ -30,13 +29,13 @@ func (s *incomeProfileService) DeleteIncomeProfile(ctx context.Context, userID s
 	}
 
 	// Verify it belongs to the user
-	userUUID, _ := uuid.Parse(userID)
+	userUUID, _ := parseUserID(userID)
 	if ip.UserID != userUUID {
 		return shared.ErrForbidden.
 			WithDetails("reason", "income profile does not belong to user")
 	}
 
-	// Delete from repository
+	// Soft delete from repository
 	if err := s.repo.Delete(ctx, profileUUID); err != nil {
 		s.logger.Error("failed to delete income profile",
 			zap.String("user_id", userID),

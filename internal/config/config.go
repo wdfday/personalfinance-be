@@ -66,6 +66,10 @@ type ExternalAPIsConfig struct {
 	GoogleClientID     string
 	GoogleClientSecret string
 
+	// AI APIs
+	GeminiAPIKey string
+	ClaudeAPIKey string
+
 	// Financial Data APIs
 	AlphaVantageAPIKey          string
 	YahooFinanceAPIKey          string
@@ -126,7 +130,7 @@ func Load() *Config {
 	viper.SetConfigType("env")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./server")
-	viper.AddConfigPath("../")
+	viper.AddConfigPath("../../")
 
 	// Enable automatic environment variable reading
 	viper.AutomaticEnv()
@@ -189,6 +193,10 @@ func Load() *Config {
 		ExternalAPIs: ExternalAPIsConfig{
 			GoogleClientID:     viper.GetString("GOOGLE_CLIENT_ID"),
 			GoogleClientSecret: viper.GetString("GOOGLE_CLIENT_SECRET"),
+
+			// AI APIs
+			GeminiAPIKey: viper.GetString("GEMINI_API_KEY"),
+			ClaudeAPIKey: viper.GetString("CLAUDE_API_KEY"),
 
 			// Financial Data APIs
 			AlphaVantageAPIKey:          viper.GetString("ALPHA_VANTAGE_API_KEY"),
@@ -280,6 +288,10 @@ func setDefaults() {
 	// External APIs
 	viper.SetDefault("GOOGLE_CLIENT_ID", "")
 	viper.SetDefault("GOOGLE_CLIENT_SECRET", "")
+
+	// AI APIs
+	viper.SetDefault("GEMINI_API_KEY", "")
+	viper.SetDefault("CLAUDE_API_KEY", "")
 
 	// Financial Data APIs
 	viper.SetDefault("ALPHA_VANTAGE_API_KEY", "")

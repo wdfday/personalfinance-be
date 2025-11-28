@@ -85,3 +85,25 @@ func (cf ContributionFrequency) IsValid() bool {
 	}
 	return false
 }
+
+// DaysPerPeriod returns the number of days in one period
+func (cf ContributionFrequency) DaysPerPeriod() int {
+	switch cf {
+	case FrequencyDaily:
+		return 1
+	case FrequencyWeekly:
+		return 7
+	case FrequencyBiweekly:
+		return 14
+	case FrequencyMonthly:
+		return 30
+	case FrequencyQuarterly:
+		return 90
+	case FrequencyYearly:
+		return 365
+	case FrequencyOneTime:
+		return 0
+	default:
+		return 0
+	}
+}

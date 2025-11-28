@@ -16,16 +16,14 @@ install-tools: ## Cài đặt các công cụ cần thiết
 	@go install github.com/swaggo/swag/cmd/swag@latest
 	@echo "✓ Tools installed successfully"
 
-swagger: ## Generate OpenAPI 3.0 documentation
-	@echo "📚 Generating OpenAPI 3.0 documentation..."
+swagger: ## Generate Swagger documentation
+	@echo "📚 Generating Swagger documentation..."
 	@if [ ! -f "$(SWAG)" ]; then \
 		echo "Installing swag..."; \
 		go install github.com/swaggo/swag/cmd/swag@latest; \
 	fi
-	@$(SWAG) init -g $(MAIN_FILE) --output $(DOCS_DIR) --parseDependency --parseInternal > /dev/null 2>&1
-	@chmod +x ./scripts/convert-to-openapi3.sh
-	@./scripts/convert-to-openapi3.sh
-	@echo "✅ OpenAPI 3.0 documentation ready with Bearer token support"
+	@$(SWAG) init -g $(MAIN_FILE) --output $(DOCS_DIR) --parseDependency --parseInternal
+	@echo "✅ Swagger documentation generated successfully"
 
 build: swagger ## Build với Swagger generation
 	@echo "Building $(BINARY_NAME)..."
@@ -53,8 +51,7 @@ dev: swagger ## Development mode với hot reload (cần cài air)
 		air; \
 	else \
 		echo "Air not installed. Installing..."; \
-		go install github.com/cosmtrek/air@latest; \
-		air; \
+		go install github.com/air-verse/air@latest		air; \
 	fi
 
 clean: ## Xóa file build và cache
@@ -63,9 +60,38 @@ clean: ## Xóa file build và cache
 	@go clean
 	@echo "✓ Cleaned"
 
-test: ## Chạy tests
-	@echo "Running tests..."
+test: ## Chạy tất cả tests
+	@echo "Running all tests..."
+	@go test ./...
+
+test-verbose: ## Chạy tests với output chi tiết
+	@echo "Running tests with verbose output..."
 	@go test -v ./...
+
+test-cover: ## Chạy tests với coverage report
+	@echo "Running tests with coverage..."
+	@go test -cover ./...
+
+test-cover-html: ## Tạo HTML coverage report
+	@echo "Generating HTML coverage report..."
+	@go test -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "✓ Coverage report generated: coverage.html"
+
+test-race: ## Chạy tests với race detector
+	@echo "Running tests with race detector..."
+	@go test -race ./...
+
+test-bench: ## Chạy benchmark tests
+	@echo "Running benchmark tests..."
+	@go test -bench=. -benchmem ./...
+
+test-watch: ## Chạy tests liên tục (cần cài gotestsum)
+	@if command -v gotestsum > /dev/null; then \
+		gotestsum --watch ./...; \
+	else \
+		echo "gotestsum not installed. Run: go install gotest.tools/gotestsum@latest"; \
+	fi
 
 format: ## Format code
 	@echo "Formatting code..."

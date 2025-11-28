@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -51,6 +52,28 @@ type Budget struct {
 	AutoAdjust           bool    `gorm:"default:false;column:auto_adjust" json:"auto_adjust"`
 	AutoAdjustPercentage *int    `gorm:"column:auto_adjust_percentage" json:"auto_adjust_percentage,omitempty"`              // e.g., increase by 10%
 	AutoAdjustBasedOn    *string `gorm:"type:varchar(50);column:auto_adjust_based_on" json:"auto_adjust_based_on,omitempty"` // "average_spending", "inflation"
+
+	// DSS Output Metadata - Result from Goal Programming optimization
+	DSSMetadata datatypes.JSON `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
+	// Structure:
+	// {
+	//   "allocated_amount": 5000000,          // DSS allocated amount (OUTPUT)
+	//   "satisfaction_level": 0.85,           // 0-1, achievement level
+	//   "negative_deviation": 0,              // d⁻ (under allocated - good for expenses)
+	//   "positive_deviation": 500000,         // d⁺ (over allocated - bad for expenses)
+	//   "achievement_rate": 0.95,             // Actual/Allocated ratio
+	//   "penalty_cost": 400000,               // GP penalty for deviation
+	//   "optimization_score": 0.92,           // How well optimized (0-1)
+	//   "allocation_reason": "based_on_constraints_and_priorities",
+	//   "recommended_adjustment": "decrease_by_10_percent",
+	//   "compliance_rate": 0.85,              // Historical compliance
+	//   "avg_monthly_spending": 4800000,      // Historical average
+	//   "spending_trend": "stable",           // increasing, stable, decreasing
+	//   "volatility": 0.15,                   // Spending volatility
+	//   "last_optimized": "2024-01-15T10:00:00Z",
+	//   "last_analyzed": "2024-01-15T10:00:00Z",
+	//   "optimization_version": "v1.0"
+	// }
 
 	CreatedAt time.Time      `gorm:"autoCreateTime;column:created_at" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`

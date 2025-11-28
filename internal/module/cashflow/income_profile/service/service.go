@@ -7,6 +7,7 @@ import (
 	"personalfinancedss/internal/module/cashflow/income_profile/dto"
 	"personalfinancedss/internal/module/cashflow/income_profile/repository"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -18,13 +19,29 @@ type IncomeProfileCreator interface {
 // IncomeProfileReader defines income profile read operations
 type IncomeProfileReader interface {
 	GetIncomeProfile(ctx context.Context, userID string, profileID string) (*domain.IncomeProfile, error)
-	GetIncomeProfileByPeriod(ctx context.Context, userID string, year, month int) (*domain.IncomeProfile, error)
+	GetIncomeProfileWithHistory(ctx context.Context, userID string, profileID string) (*domain.IncomeProfile, []*domain.IncomeProfile, error)
 	ListIncomeProfiles(ctx context.Context, userID string, query dto.ListIncomeProfilesQuery) ([]*domain.IncomeProfile, error)
+	GetActiveIncomes(ctx context.Context, userID string) ([]*domain.IncomeProfile, error)
+	GetArchivedIncomes(ctx context.Context, userID string) ([]*domain.IncomeProfile, error)
+	GetRecurringIncomes(ctx context.Context, userID string) ([]*domain.IncomeProfile, error)
 }
 
-// IncomeProfileUpdater defines income profile update operations
+// IncomeProfileUpdater defines income profile update operations (creates new version)
 type IncomeProfileUpdater interface {
+	// UpdateIncomeProfile creates a NEW version and archives the old one
 	UpdateIncomeProfile(ctx context.Context, userID string, profileID string, req dto.UpdateIncomeProfileRequest) (*domain.IncomeProfile, error)
+
+	// VerifyIncomeProfile marks income as verified by user
+	VerifyIncomeProfile(ctx context.Context, userID string, profileID string, verified bool) (*domain.IncomeProfile, error)
+
+	// UpdateDSSMetadata updates DSS analysis metadata
+	UpdateDSSMetadata(ctx context.Context, userID string, profileID string, req dto.UpdateDSSMetadataRequest) (*domain.IncomeProfile, error)
+
+	// ArchiveIncomeProfile manually archives an income profile
+	ArchiveIncomeProfile(ctx context.Context, userID string, profileID string) error
+
+	// CheckAndArchiveEnded checks and archives ended income profiles
+	CheckAndArchiveEnded(ctx context.Context, userID string) (int, error)
 }
 
 // IncomeProfileDeleter defines income profile delete operations
@@ -52,4 +69,14 @@ func NewService(repo repository.Repository, logger *zap.Logger) Service {
 		repo:   repo,
 		logger: logger,
 	}
+}
+
+// parseUserID parses user ID string to UUID
+func parseUserID(userID string) (uuid.UUID, error) {
+	return uuid.Parse(userID)
+}
+
+// parseProfileID parses profile ID string to UUID
+func parseProfileID(profileID string) (uuid.UUID, error) {
+	return uuid.Parse(profileID)
 }

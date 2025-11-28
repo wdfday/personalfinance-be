@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -43,6 +44,37 @@ type Category struct {
 	// Relationships (not stored in DB, loaded on demand)
 	Parent   *Category   `gorm:"foreignKey:ParentID" json:"parent,omitempty"`
 	Children []*Category `gorm:"foreignKey:ParentID" json:"children,omitempty"`
+
+	// DSS Metadata for Analytics & Budget Recommendations
+	DSSMetadata datatypes.JSON `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
+	// Structure:
+	// {
+	//   "avg_monthly_spending": 5000000,      // Average monthly spending
+	//   "spending_trend": "increasing",       // increasing, stable, decreasing
+	//   "volatility": 0.2,                    // Spending volatility (std dev / mean)
+	//   "transaction_count": 45,              // Avg transactions per month
+	//   "avg_transaction_amount": 111111,     // Average transaction amount
+	//   "last_transaction_date": "2024-01-15",
+	//   "typical_amount_range": [100000, 500000], // [min, max] typical amounts
+	//   "spending_pattern": "regular",        // regular, irregular, seasonal
+	//   "seasonality": {
+	//     "has_seasonality": true,
+	//     "peak_months": [12, 1],             // December, January
+	//     "low_months": [6, 7]                // June, July
+	//   },
+	//   "default_budget_percent": 0.15,       // Recommended % of income
+	//   "recommended_budget": 6000000,        // Recommended monthly budget
+	//   "priority": 5,                        // Priority (1-10)
+	//   "is_necessity": true,                 // Essential vs discretionary
+	//   "is_discretionary": false,
+	//   "optimization_potential": 0.3,        // Potential to reduce (0-1)
+	//   "merchant_diversity": 0.7,            // How many different merchants
+	//   "top_merchants": [
+	//     {"name": "Merchant A", "amount": 2000000, "count": 10},
+	//     {"name": "Merchant B", "amount": 1500000, "count": 8}
+	//   ],
+	//   "last_analyzed": "2024-01-15T10:00:00Z"
+	// }
 
 	CreatedAt time.Time      `gorm:"autoCreateTime;column:created_at" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`

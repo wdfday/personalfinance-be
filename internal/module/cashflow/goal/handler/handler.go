@@ -347,9 +347,16 @@ func (h *Handler) AddContribution(c *gin.Context) {
 		return
 	}
 
-	goal, err := h.service.AddContribution(c.Request.Context(), id, req.Amount)
-	if err != nil {
+	if err := h.service.AddContribution(c.Request.Context(), id, req.Amount); err != nil {
 		h.logger.Error("Failed to add contribution", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Fetch updated goal
+	goal, err := h.service.GetGoalByID(c.Request.Context(), id)
+	if err != nil {
+		h.logger.Error("Failed to fetch updated goal", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

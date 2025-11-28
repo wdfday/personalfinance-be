@@ -45,7 +45,7 @@ func (h *Handler) RegisterRoutes(r *gin.Engine, authMiddleware *middleware.Middl
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param budget_constraint body dto.CreateBudgetConstraintRequest true \"Budget constraint data\"
+// @Param budget_constraint body dto.CreateBudgetConstraintRequest true "Budget constraint data"
 // @Success 201 {object} dto.BudgetConstraintResponse
 // @Failure 400 {object} shared.ErrorResponse
 // @Failure 401 {object} shared.ErrorResponse
@@ -85,8 +85,8 @@ func (h *Handler) createBudgetConstraint(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param category_id query string false \"Filter by category ID\"
-// @Param is_flexible query bool false \"Filter by flexible status\"
+// @Param category_id query string false "Filter by category ID"
+// @Param is_flexible query bool false "Filter by flexible status"
 // @Success 200 {object} dto.BudgetConstraintListResponse
 // @Failure 400 {object} shared.ErrorResponse
 // @Failure 401 {object} shared.ErrorResponse
@@ -114,7 +114,7 @@ func (h *Handler) listBudgetConstraints(c *gin.Context) {
 	}
 
 	// Convert to response
-	response := dto.ToBudgetConstraintListResponse(constraints, true)
+	response := dto.ToBudgetConstraintListResponse(constraints, true, true)
 	shared.RespondWithSuccess(c, http.StatusOK, "Budget constraints retrieved successfully", response)
 }
 
@@ -154,7 +154,7 @@ func (h *Handler) getBudgetConstraintSummary(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path string true \"Budget Constraint ID\"
+// @Param id path string true "Budget Constraint ID"
 // @Success 200 {object} dto.BudgetConstraintResponse
 // @Failure 400 {object} shared.ErrorResponse
 // @Failure 401 {object} shared.ErrorResponse
@@ -190,7 +190,7 @@ func (h *Handler) getBudgetConstraint(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param category_id path string true \"Category ID\"
+// @Param category_id path string true "Category ID"
 // @Success 200 {object} dto.BudgetConstraintResponse
 // @Failure 400 {object} shared.ErrorResponse
 // @Failure 401 {object} shared.ErrorResponse
@@ -226,8 +226,8 @@ func (h *Handler) getBudgetConstraintByCategory(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path string true \"Budget Constraint ID\"
-// @Param budget_constraint body dto.UpdateBudgetConstraintRequest true \"Updated budget constraint data\"
+// @Param id path string true "Budget Constraint ID"
+// @Param budget_constraint body dto.UpdateBudgetConstraintRequest true "Updated budget constraint data"
 // @Success 200 {object} dto.BudgetConstraintResponse
 // @Failure 400 {object} shared.ErrorResponse
 // @Failure 401 {object} shared.ErrorResponse
@@ -271,7 +271,7 @@ func (h *Handler) updateBudgetConstraint(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path string true \"Budget Constraint ID\"
+// @Param id path string true "Budget Constraint ID"
 // @Success 200 {object} shared.Success
 // @Failure 400 {object} shared.ErrorResponse
 // @Failure 401 {object} shared.ErrorResponse

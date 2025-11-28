@@ -3,6 +3,12 @@
 docs/*.backup
 /md/
 /CLAUDE.md
-/docker-compose.prod.yml
+/deploy/docker-compose.prod.yml
 /.env
 /.claude/
+/.idea/
+
+*.md
+/internal/module/calendar/
+/internal/module/analytics/
+/internal/module/chatbot/

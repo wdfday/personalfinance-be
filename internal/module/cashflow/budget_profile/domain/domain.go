@@ -13,14 +13,27 @@ import (
 // BUDGET CONSTRAINT DOMAIN
 // ================================================================
 
-// BudgetConstraint represents minimum required spending per category
+// ConstraintStatus represents the lifecycle status of a budget constraint
+type ConstraintStatus string
+
+const (
+	ConstraintStatusActive   ConstraintStatus = "active"   // Currently in effect
+	ConstraintStatusPending  ConstraintStatus = "pending"  // Scheduled to start
+	ConstraintStatusEnded    ConstraintStatus = "ended"    // Naturally ended
+	ConstraintStatusArchived ConstraintStatus = "archived" // Manually archived
+	ConstraintStatusPaused   ConstraintStatus = "paused"   // Temporarily suspended
+)
+
+// BudgetConstraint represents minimum required spending per category with versioning
 // Example: Rent = 2,000,000 VND/month (fixed), Food >= 4,000,000 (flexible)
 type BudgetConstraint struct {
 	ID         uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
 	UserID     uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"user_id"`
 	CategoryID uuid.UUID `gorm:"type:uuid;not null;index;column:category_id" json:"category_id"`
-	CreatedAt  time.Time `gorm:"autoCreateTime;column:created_at" json:"created_at"`
-	UpdatedAt  time.Time `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`
+
+	// Period tracking
+	StartDate time.Time  `gorm:"not null;column:start_date" json:"start_date"`
+	EndDate   *time.Time `gorm:"column:end_date" json:"end_date,omitempty"`
 
 	// Minimum required amount (lower bound)
 	MinimumAmount float64 `gorm:"type:decimal(15,2);not null;column:minimum_amount" json:"minimum_amount"`
@@ -31,6 +44,29 @@ type BudgetConstraint struct {
 
 	// Priority for allocation (1 = highest priority)
 	Priority int `gorm:"default:99;column:priority" json:"priority"`
+
+	// Status and lifecycle
+	Status      ConstraintStatus `gorm:"type:varchar(20);default:'active';column:status" json:"status"`
+	IsRecurring bool             `gorm:"default:true;column:is_recurring" json:"is_recurring"`
+
+	// DSS metadata for analysis
+	DSSMetadata []byte `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
+
+	// Additional metadata
+	Description string `gorm:"type:text;column:description" json:"description,omitempty"`
+	Tags        []byte `gorm:"type:jsonb;column:tags" json:"tags,omitempty"`
+
+	// Timestamps
+	CreatedAt time.Time  `gorm:"autoCreateTime;column:created_at" json:"created_at"`
+	UpdatedAt time.Time  `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`
+	DeletedAt *time.Time `gorm:"column:deleted_at" json:"deleted_at,omitempty"`
+
+	// Archived tracking
+	ArchivedAt *time.Time `gorm:"column:archived_at" json:"archived_at,omitempty"`
+	ArchivedBy *uuid.UUID `gorm:"type:uuid;column:archived_by" json:"archived_by,omitempty"`
+
+	// Versioning support
+	PreviousVersionID *uuid.UUID `gorm:"type:uuid;column:previous_version_id;index" json:"previous_version_id,omitempty"`
 }
 
 // TableName specifies the database table name
@@ -39,15 +75,18 @@ func (BudgetConstraint) TableName() string {
 }
 
 // NewBudgetConstraint creates a new budget constraint
-func NewBudgetConstraint(userID, categoryID uuid.UUID, minimumAmount float64) (*BudgetConstraint, error) {
+func NewBudgetConstraint(userID, categoryID uuid.UUID, minimumAmount float64, startDate time.Time) (*BudgetConstraint, error) {
 	bc := &BudgetConstraint{
 		ID:            uuid.New(),
 		UserID:        userID,
 		CategoryID:    categoryID,
+		StartDate:     startDate,
 		MinimumAmount: minimumAmount,
 		IsFlexible:    false,
 		MaximumAmount: 0,
 		Priority:      99, // Default low priority
+		Status:        ConstraintStatusActive,
+		IsRecurring:   true,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
@@ -60,15 +99,18 @@ func NewBudgetConstraint(userID, categoryID uuid.UUID, minimumAmount float64) (*
 }
 
 // NewFlexibleBudgetConstraint creates a flexible budget constraint with range
-func NewFlexibleBudgetConstraint(userID, categoryID uuid.UUID, min, max float64) (*BudgetConstraint, error) {
+func NewFlexibleBudgetConstraint(userID, categoryID uuid.UUID, min, max float64, startDate time.Time) (*BudgetConstraint, error) {
 	bc := &BudgetConstraint{
 		ID:            uuid.New(),
 		UserID:        userID,
 		CategoryID:    categoryID,
+		StartDate:     startDate,
 		MinimumAmount: min,
 		IsFlexible:    true,
 		MaximumAmount: max,
 		Priority:      99,
+		Status:        ConstraintStatusActive,
+		IsRecurring:   true,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
 	}
@@ -179,6 +221,73 @@ func (bc *BudgetConstraint) SetPriority(priority int) error {
 	return nil
 }
 
+// Archive archives this budget constraint
+func (bc *BudgetConstraint) Archive(archivedBy uuid.UUID) {
+	now := time.Now()
+	bc.Status = ConstraintStatusArchived
+	bc.ArchivedAt = &now
+	bc.ArchivedBy = &archivedBy
+	bc.UpdatedAt = now
+}
+
+// CreateNewVersion creates a new version from current constraint
+func (bc *BudgetConstraint) CreateNewVersion() *BudgetConstraint {
+	newVersion := &BudgetConstraint{
+		ID:                uuid.New(),
+		UserID:            bc.UserID,
+		CategoryID:        bc.CategoryID,
+		StartDate:         time.Now(),
+		EndDate:           bc.EndDate,
+		MinimumAmount:     bc.MinimumAmount,
+		IsFlexible:        bc.IsFlexible,
+		MaximumAmount:     bc.MaximumAmount,
+		Priority:          bc.Priority,
+		Status:            ConstraintStatusActive,
+		IsRecurring:       bc.IsRecurring,
+		DSSMetadata:       bc.DSSMetadata,
+		Description:       bc.Description,
+		Tags:              bc.Tags,
+		PreviousVersionID: &bc.ID,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	return newVersion
+}
+
+// CheckAndArchiveIfEnded checks if constraint has ended and auto-archives
+func (bc *BudgetConstraint) CheckAndArchiveIfEnded() bool {
+	if bc.EndDate != nil && time.Now().After(*bc.EndDate) {
+		if bc.Status == ConstraintStatusActive {
+			bc.Status = ConstraintStatusEnded
+			now := time.Now()
+			bc.ArchivedAt = &now
+			bc.UpdatedAt = now
+			return true
+		}
+	}
+	return false
+}
+
+// IsActive checks if this constraint is currently active
+func (bc *BudgetConstraint) IsActive() bool {
+	now := time.Now()
+	if bc.Status != ConstraintStatusActive {
+		return false
+	}
+	if bc.StartDate.After(now) {
+		return false
+	}
+	if bc.EndDate != nil && bc.EndDate.Before(now) {
+		return false
+	}
+	return true
+}
+
+// IsArchived checks if this constraint is archived
+func (bc *BudgetConstraint) IsArchived() bool {
+	return bc.ArchivedAt != nil || bc.Status == ConstraintStatusArchived
+}
+
 // Validate performs domain validation
 func (bc *BudgetConstraint) Validate() error {
 	if bc.UserID == uuid.Nil {
@@ -201,6 +310,14 @@ func (bc *BudgetConstraint) Validate() error {
 
 	if bc.Priority < 0 {
 		return ErrInvalidPriority
+	}
+
+	if bc.StartDate.IsZero() {
+		return ErrInvalidStartDate
+	}
+
+	if bc.EndDate != nil && bc.EndDate.Before(bc.StartDate) {
+		return ErrEndDateBeforeStartDate
 	}
 
 	return nil
@@ -310,7 +427,7 @@ func (bcs BudgetConstraints) HasDuplicateCategories() bool {
 // REPOSITORY INTERFACE
 // ================================================================
 
-// BudgetConstraintRepository defines the interface for budget constraint persistence
+// BudgetConstraintRepository defines the interface for budget constraint persistence with versioning
 type BudgetConstraintRepository interface {
 	// Create creates a new budget constraint
 	Create(bc *BudgetConstraint) error
@@ -318,20 +435,35 @@ type BudgetConstraintRepository interface {
 	// GetByID retrieves a budget constraint by ID
 	GetByID(id uuid.UUID) (*BudgetConstraint, error)
 
-	// GetByUser retrieves all budget constraints for a user
+	// GetByUser retrieves all active budget constraints for a user (not archived)
 	GetByUser(userID uuid.UUID) (BudgetConstraints, error)
 
-	// GetByUserAndCategory retrieves a budget constraint by user and category
+	// GetActiveByUser retrieves all currently active budget constraints
+	GetActiveByUser(userID uuid.UUID) (BudgetConstraints, error)
+
+	// GetArchivedByUser retrieves all archived budget constraints
+	GetArchivedByUser(userID uuid.UUID) (BudgetConstraints, error)
+
+	// GetByUserAndCategory retrieves active constraint by user and category
 	GetByUserAndCategory(userID, categoryID uuid.UUID) (*BudgetConstraint, error)
+
+	// GetByStatus retrieves constraints by user and status
+	GetByStatus(userID uuid.UUID, status ConstraintStatus) (BudgetConstraints, error)
+
+	// GetVersionHistory retrieves all versions of a constraint
+	GetVersionHistory(constraintID uuid.UUID) (BudgetConstraints, error)
+
+	// GetLatestVersion retrieves the latest version of a constraint chain
+	GetLatestVersion(constraintID uuid.UUID) (*BudgetConstraint, error)
 
 	// Update updates an existing budget constraint
 	Update(bc *BudgetConstraint) error
 
-	// Delete deletes a budget constraint
+	// Delete soft deletes a budget constraint
 	Delete(id uuid.UUID) error
 
-	// DeleteByUserAndCategory deletes a budget constraint by user and category
-	DeleteByUserAndCategory(userID, categoryID uuid.UUID) error
+	// Archive archives a budget constraint
+	Archive(id uuid.UUID, archivedBy uuid.UUID) error
 
 	// Exists checks if a budget constraint exists for user and category
 	Exists(userID, categoryID uuid.UUID) (bool, error)
@@ -352,4 +484,7 @@ var (
 	ErrMaximumBelowMinimum      = errors.New("maximum amount must be greater than or equal to minimum")
 	ErrMinimumExceedsMaximum    = errors.New("minimum amount cannot exceed maximum")
 	ErrInvalidPriority          = errors.New("priority must be greater than 0")
+	ErrInvalidStartDate         = errors.New("start date is required")
+	ErrEndDateBeforeStartDate   = errors.New("end date cannot be before start date")
+	ErrCannotUpdateArchived     = errors.New("cannot update archived constraint")
 )

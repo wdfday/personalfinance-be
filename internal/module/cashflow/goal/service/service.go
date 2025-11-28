@@ -3,50 +3,37 @@ package service
 import (
 	"context"
 	"personalfinancedss/internal/module/cashflow/goal/domain"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 // Service defines the interface for goal business logic
 type Service interface {
-	// CreateGoal creates a new financial goal
+	// Create operations
 	CreateGoal(ctx context.Context, goal *domain.Goal) error
 
-	// GetGoalByID retrieves a goal by ID
+	// Read operations
 	GetGoalByID(ctx context.Context, goalID uuid.UUID) (*domain.Goal, error)
-
-	// GetUserGoals retrieves all goals for a user
 	GetUserGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error)
-
-	// GetActiveGoals retrieves all active goals for a user
 	GetActiveGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error)
-
-	// GetGoalsByType retrieves goals of a specific type
 	GetGoalsByType(ctx context.Context, userID uuid.UUID, goalType domain.GoalType) ([]domain.Goal, error)
-
-	// GetCompletedGoals retrieves completed goals
 	GetCompletedGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error)
+	GetGoalSummary(ctx context.Context, userID uuid.UUID) (*GoalSummary, error)
+	GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*GoalProgress, error)
+	GetGoalAnalytics(ctx context.Context, goalID uuid.UUID) (*GoalAnalytics, error)
 
-	// UpdateGoal updates an existing goal
+	// Update operations
 	UpdateGoal(ctx context.Context, goal *domain.Goal) error
-
-	// DeleteGoal deletes a goal
-	DeleteGoal(ctx context.Context, goalID uuid.UUID) error
-
-	// AddContribution adds a contribution to a goal
-	AddContribution(ctx context.Context, goalID uuid.UUID, amount float64) (*domain.Goal, error)
-
-	// CalculateProgress recalculates progress for a goal
 	CalculateProgress(ctx context.Context, goalID uuid.UUID) error
-
-	// MarkAsCompleted marks a goal as completed
 	MarkAsCompleted(ctx context.Context, goalID uuid.UUID) error
-
-	// CheckOverdueGoals checks and marks overdue goals
 	CheckOverdueGoals(ctx context.Context, userID uuid.UUID) error
 
-	// GetGoalSummary gets a summary of all goals
-	GetGoalSummary(ctx context.Context, userID uuid.UUID) (*GoalSummary, error)
+	// Delete operations
+	DeleteGoal(ctx context.Context, goalID uuid.UUID) error
+
+	// Contribution operations
+	AddContribution(ctx context.Context, goalID uuid.UUID, amount float64) error
 }
 
 // GoalSummary represents a summary of user's goals
@@ -69,4 +56,39 @@ type GoalTypeSum struct {
 	TargetAmount  float64 `json:"target_amount"`
 	CurrentAmount float64 `json:"current_amount"`
 	Progress      float64 `json:"progress"`
+}
+
+// GoalProgress represents detailed goal progress
+type GoalProgress struct {
+	GoalID                  uuid.UUID           `json:"goal_id"`
+	Name                    string              `json:"name"`
+	Type                    domain.GoalType     `json:"type"`
+	Priority                domain.GoalPriority `json:"priority"`
+	TargetAmount            float64             `json:"target_amount"`
+	CurrentAmount           float64             `json:"current_amount"`
+	RemainingAmount         float64             `json:"remaining_amount"`
+	PercentageComplete      float64             `json:"percentage_complete"`
+	Status                  domain.GoalStatus   `json:"status"`
+	StartDate               time.Time           `json:"start_date"`
+	TargetDate              *time.Time          `json:"target_date,omitempty"`
+	DaysElapsed             int                 `json:"days_elapsed"`
+	DaysRemaining           *int                `json:"days_remaining,omitempty"`
+	TimeProgress            *float64            `json:"time_progress,omitempty"`
+	OnTrack                 *bool               `json:"on_track,omitempty"`
+	SuggestedContribution   *float64            `json:"suggested_contribution,omitempty"`
+	ProjectedCompletionDate *time.Time          `json:"projected_completion_date,omitempty"`
+}
+
+// GoalAnalytics represents goal analytics
+type GoalAnalytics struct {
+	GoalID                  uuid.UUID       `json:"goal_id"`
+	Name                    string          `json:"name"`
+	Type                    domain.GoalType `json:"type"`
+	TargetAmount            float64         `json:"target_amount"`
+	CurrentAmount           float64         `json:"current_amount"`
+	PercentageComplete      float64         `json:"percentage_complete"`
+	Velocity                float64         `json:"velocity"` // Amount per day
+	EstimatedCompletionDate *time.Time      `json:"estimated_completion_date,omitempty"`
+	RiskLevel               string          `json:"risk_level"` // low, medium, high, overdue
+	RecommendedContribution *float64        `json:"recommended_contribution,omitempty"`
 }

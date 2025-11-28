@@ -2,12 +2,9 @@ package handler
 
 import (
 	"net/http"
-
-	"personalfinancedss/internal/broker/service"
 	"personalfinancedss/internal/middleware"
 	accountdto "personalfinancedss/internal/module/cashflow/account/dto"
 	accountservice "personalfinancedss/internal/module/cashflow/account/service"
-	encryptionService "personalfinancedss/internal/service"
 	"personalfinancedss/internal/shared"
 
 	"github.com/gin-gonic/gin"
@@ -16,24 +13,18 @@ import (
 
 // Handler manages account endpoints.
 type Handler struct {
-	service           accountservice.Service
-	encryptionService *encryptionService.EncryptionService
-	syncService       *service.SyncService
-	logger            *zap.Logger
+	service accountservice.Service
+	logger  *zap.Logger
 }
 
 // NewHandler constructs an account handler.
 func NewHandler(
 	service accountservice.Service,
-	encryptionService *encryptionService.EncryptionService,
-	syncService *service.SyncService,
 	logger *zap.Logger,
 ) *Handler {
 	return &Handler{
-		service:           service,
-		encryptionService: encryptionService,
-		syncService:       syncService,
-		logger:            logger.Named("account.handler"),
+		service: service,
+		logger:  logger.Named("account.handler"),
 	}
 }
 
@@ -43,7 +34,8 @@ func (h *Handler) RegisterRoutes(r *gin.Engine, authMiddleware *middleware.Middl
 	accounts.Use(authMiddleware.AuthMiddleware())
 	{
 		accounts.POST("", h.createAccount)
-		accounts.POST("/broker", h.createWithBroker)
+		// DEPRECATED: Broker integration moved to /api/v1/broker-connections
+		// accounts.POST("/broker", h.createWithBroker)
 		accounts.GET("", h.getMyAccounts)
 		accounts.GET("/:id", h.getAccount)
 		accounts.PUT("/:id", h.updateAccount)
@@ -93,67 +85,6 @@ func (h *Handler) createAccount(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body accountdto.CreateAccountWithBrokerRequest true "Account and broker credentials"
-// @Success 201 {object} accountdto.AccountResponse
-// @Failure 400 {object} shared.ErrorResponse
-// @Failure 401 {object} shared.ErrorResponse
-// @Failure 500 {object} shared.ErrorResponse
-// @Router /api/v1/accounts/broker [post]
-func (h *Handler) createWithBroker(c *gin.Context) {
-	currentUser, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		h.logger.Warn("User not found in context")
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
 
-	h.logger.Info("Received create account with broker request",
-		zap.String("user_id", currentUser.ID.String()),
-		zap.String("ip", c.ClientIP()),
-	)
+// DEPRECATED: Broker integration moved to /api/v1/broker-connections
 
-	var req accountdto.CreateAccountWithBrokerRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Invalid request body",
-			zap.Error(err),
-			zap.String("user_id", currentUser.ID.String()),
-		)
-		shared.RespondWithError(c, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
-	h.logger.Debug("Request payload validated",
-		zap.String("broker_type", string(req.BrokerType)),
-		zap.String("account_name", req.AccountName),
-	)
-
-	// Validate request
-	if err := req.Validate(); err != nil {
-		h.logger.Error("Request validation failed",
-			zap.Error(err),
-			zap.String("broker_type", string(req.BrokerType)),
-		)
-		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	// Create account with broker integration
-	account, err := h.service.CreateAccountWithBroker(c.Request.Context(), currentUser.ID.String(), req)
-	if err != nil {
-		h.logger.Error("Failed to create account with broker",
-			zap.Error(err),
-			zap.String("user_id", currentUser.ID.String()),
-			zap.String("broker_type", string(req.BrokerType)),
-		)
-		shared.HandleError(c, err)
-		return
-	}
-
-	h.logger.Info("Account with broker created successfully",
-		zap.String("user_id", currentUser.ID.String()),
-		zap.String("account_id", account.ID.String()),
-		zap.String("broker_type", string(req.BrokerType)),
-	)
-
-	shared.RespondWithSuccess(c, http.StatusCreated, "Account created with broker successfully", accountdto.ToResponse(*account))
-}

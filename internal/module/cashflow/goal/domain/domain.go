@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -54,6 +55,63 @@ type Goal struct {
 	// Metadata
 	Notes *string `gorm:"type:text;column:notes" json:"notes,omitempty"`
 	Tags  *string `gorm:"type:jsonb;column:tags" json:"tags,omitempty"` // JSON array of tags
+
+	// DSS Input/Output Metadata - Both constraint (INPUT) and allocation (OUTPUT)
+	DSSMetadata datatypes.JSON `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
+	// Structure:
+	// {
+	//   // INPUT - User constraints
+	//   "minimum_contribution": 2000000,      // Min monthly contribution (INPUT)
+	//   "target_contribution": 3000000,       // Target monthly contribution (INPUT)
+	//   "maximum_contribution": 5000000,      // Max affordable contribution (INPUT)
+	//   "constraint_type": "soft",            // hard, soft, aspirational (INPUT)
+	//   "is_flexible": true,                  // Can adjust contribution (INPUT)
+	//   "gp_priority": 2,                     // P1, P2, P3... (from AHP) (INPUT)
+	//   "gp_weight": 0.82,                    // Weight from AHP score (INPUT)
+	//
+	//   // OUTPUT - DSS allocation
+	//   "allocated_contribution": 2800000,    // DSS allocated contribution (OUTPUT)
+	//   "satisfaction_level": 0.75,           // 0-1, achievement level (OUTPUT)
+	//   "negative_deviation": 200000,         // d⁻ (under target) (OUTPUT)
+	//   "positive_deviation": 0,              // d⁺ (over target) (OUTPUT)
+	//   "achievement_rate": 0.93,             // Allocated/Target ratio (OUTPUT)
+	//   "allocation_reason": "balanced_with_other_priorities",
+	//
+	//   // ANALYSIS
+	//   "progress_rate": 0.65,                // Overall progress
+	//   "required_monthly_rate": 3500000,     // Required to meet deadline
+	//   "on_track": false,                    // Is on track to complete
+	//   "months_remaining": 12,               // Months until deadline
+	//   "required_acceleration": 1.2,         // Multiplier needed to catch up
+	//   "feasibility_score": 0.85,            // How feasible to complete
+	//   "completion_probability": 0.75,       // Probability of completion
+	//   "estimated_completion_date": "2025-06-30",
+	//   "last_optimized": "2024-01-15T10:00:00Z",
+	//   "last_analyzed": "2024-01-15T10:00:00Z",
+	//   "optimization_version": "v1.0"
+	// }
+
+	// AHP Metadata for Prioritization
+	AHPMetadata datatypes.JSON `gorm:"type:jsonb;column:ahp_metadata" json:"ahp_metadata,omitempty"`
+	// Structure:
+	// {
+	//   "criteria_scores": {
+	//     "urgency": 0.8,                     // How urgent (deadline proximity)
+	//     "importance": 0.9,                  // How important (user priority)
+	//     "feasibility": 0.7,                 // How feasible (income vs target)
+	//     "impact": 0.85                      // Financial impact
+	//   },
+	//   "criteria_weights": {
+	//     "urgency": 0.3,
+	//     "importance": 0.4,
+	//     "feasibility": 0.2,
+	//     "impact": 0.1
+	//   },
+	//   "overall_score": 0.82,                // Weighted sum
+	//   "rank": 2,                            // Rank among all goals
+	//   "consistency_ratio": 0.08,            // AHP consistency check
+	//   "last_evaluated": "2024-01-15T10:00:00Z"
+	// }
 
 	CreatedAt time.Time      `gorm:"autoCreateTime;column:created_at" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`

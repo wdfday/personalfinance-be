@@ -67,6 +67,44 @@ type Transaction struct {
 
 	// Metadata & raw data from bank / wallet / external systems
 	Meta *TransactionMeta `gorm:"type:jsonb;column:meta" json:"meta,omitempty"`
+
+	// DSS Metadata for Analytics & Pattern Detection
+	DSSMetadata *TransactionDSSMetadata `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
+	// Structure:
+	// {
+	//   "is_recurring": true,                 // Detected as recurring
+	//   "recurring_group_id": "uuid",         // Group ID for recurring transactions
+	//   "recurring_frequency": "monthly",     // daily, weekly, monthly, etc.
+	//   "recurring_confidence": 0.95,         // Confidence in recurring detection
+	//   "is_anomaly": false,                  // Flagged as anomaly
+	//   "anomaly_score": 0.05,                // Anomaly score (0-1)
+	//   "anomaly_reason": "",                 // Why flagged as anomaly
+	//   "is_large_transaction": false,        // Unusually large amount
+	//   "amount_percentile": 0.65,            // Percentile in user's transactions
+	//   "category_confidence": 0.92,          // Confidence in categorization
+	//   "suggested_category": "uuid",         // AI suggested category
+	//   "merchant_category": "5411",          // MCC code
+	//   "merchant_id": "merchant_123",        // Merchant identifier
+	//   "location": {
+	//     "city": "Ho Chi Minh",
+	//     "district": "District 1",
+	//     "country": "VN",
+	//     "lat": 10.762622,
+	//     "lng": 106.660172
+	//   },
+	//   "time_of_day": "evening",             // morning, afternoon, evening, night
+	//   "day_of_week": 5,                     // 0-6 (Sunday-Saturday)
+	//   "is_weekend": false,
+	//   "is_holiday": false,
+	//   "spending_pattern": "normal",         // normal, impulse, planned
+	//   "enrichment_data": {
+	//     "merchant_logo": "https://...",
+	//     "merchant_website": "https://...",
+	//     "enriched_at": "2024-01-15T10:00:00Z",
+	//     "enrichment_source": "AI_MODEL_V1"
+	//   },
+	//   "last_analyzed": "2024-01-15T10:00:00Z"
+	// }
 }
 
 // TableName specifies the database table name
@@ -110,4 +148,65 @@ type TransactionLink struct {
 type TransactionMeta struct {
 	CheckImageAvailability string          `json:"checkImageAvailability,omitempty"` // e.g.: "UNAVAILABLE" for bank
 	Raw                    json.RawMessage `json:"raw,omitempty"`                    // Original raw JSON from bank / wallet (if available)
+}
+
+// TransactionDSSMetadata: DSS analytics metadata for pattern detection and insights
+type TransactionDSSMetadata struct {
+	// Recurring Detection
+	IsRecurring         bool    `json:"is_recurring,omitempty"`
+	RecurringGroupID    string  `json:"recurring_group_id,omitempty"`
+	RecurringFrequency  string  `json:"recurring_frequency,omitempty"`  // daily, weekly, monthly, etc.
+	RecurringConfidence float64 `json:"recurring_confidence,omitempty"` // 0-1
+
+	// Anomaly Detection
+	IsAnomaly     bool    `json:"is_anomaly,omitempty"`
+	AnomalyScore  float64 `json:"anomaly_score,omitempty"`  // 0-1
+	AnomalyReason string  `json:"anomaly_reason,omitempty"` // Why flagged
+
+	// Amount Analysis
+	IsLargeTransaction bool    `json:"is_large_transaction,omitempty"`
+	AmountPercentile   float64 `json:"amount_percentile,omitempty"` // Percentile in user's transactions
+
+	// Categorization
+	CategoryConfidence float64 `json:"category_confidence,omitempty"` // 0-1
+	SuggestedCategory  string  `json:"suggested_category,omitempty"`  // AI suggested category ID
+
+	// Merchant Data
+	MerchantCategory string `json:"merchant_category,omitempty"` // MCC code
+	MerchantID       string `json:"merchant_id,omitempty"`
+
+	// Location
+	Location *TransactionLocation `json:"location,omitempty"`
+
+	// Time Analysis
+	TimeOfDay string `json:"time_of_day,omitempty"` // morning, afternoon, evening, night
+	DayOfWeek int    `json:"day_of_week,omitempty"` // 0-6
+	IsWeekend bool   `json:"is_weekend,omitempty"`
+	IsHoliday bool   `json:"is_holiday,omitempty"`
+
+	// Pattern
+	SpendingPattern string `json:"spending_pattern,omitempty"` // normal, impulse, planned
+
+	// Enrichment
+	EnrichmentData *TransactionEnrichment `json:"enrichment_data,omitempty"`
+
+	// Timestamps
+	LastAnalyzed string `json:"last_analyzed,omitempty"` // ISO 8601
+}
+
+// TransactionLocation: Geographic location data
+type TransactionLocation struct {
+	City     string  `json:"city,omitempty"`
+	District string  `json:"district,omitempty"`
+	Country  string  `json:"country,omitempty"`
+	Lat      float64 `json:"lat,omitempty"`
+	Lng      float64 `json:"lng,omitempty"`
+}
+
+// TransactionEnrichment: Enriched data from external sources
+type TransactionEnrichment struct {
+	MerchantLogo     string `json:"merchant_logo,omitempty"`
+	MerchantWebsite  string `json:"merchant_website,omitempty"`
+	EnrichedAt       string `json:"enriched_at,omitempty"`       // ISO 8601
+	EnrichmentSource string `json:"enrichment_source,omitempty"` // AI_MODEL_V1, etc.
 }

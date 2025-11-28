@@ -10,47 +10,33 @@ import (
 
 // Service defines the interface for budget business logic
 type Service interface {
-	// CreateBudget creates a new budget
+	// Create operations
 	CreateBudget(ctx context.Context, budget *domain.Budget) error
 
-	// GetBudgetByID retrieves a budget by ID
+	// Read operations
 	GetBudgetByID(ctx context.Context, budgetID uuid.UUID) (*domain.Budget, error)
-
-	// GetUserBudgets retrieves all budgets for a user
 	GetUserBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error)
-
-	// GetActiveBudgets retrieves all active budgets for a user
 	GetActiveBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error)
-
-	// GetBudgetsByCategory retrieves budgets for a specific category
 	GetBudgetsByCategory(ctx context.Context, userID, categoryID uuid.UUID) ([]domain.Budget, error)
-
-	// GetBudgetsByAccount retrieves budgets for a specific account
 	GetBudgetsByAccount(ctx context.Context, userID, accountID uuid.UUID) ([]domain.Budget, error)
+	GetBudgetsByPeriod(ctx context.Context, userID uuid.UUID, period domain.BudgetPeriod) ([]domain.Budget, error)
+	GetBudgetSummary(ctx context.Context, userID uuid.UUID, period time.Time) (*BudgetSummary, error)
+	GetBudgetVsActual(ctx context.Context, userID uuid.UUID, period domain.BudgetPeriod, startDate, endDate time.Time) ([]*BudgetVsActual, error)
+	GetBudgetProgress(ctx context.Context, budgetID uuid.UUID) (*BudgetProgress, error)
+	GetBudgetAnalytics(ctx context.Context, budgetID uuid.UUID) (*BudgetAnalytics, error)
 
-	// UpdateBudget updates an existing budget
+	// Update operations
 	UpdateBudget(ctx context.Context, budget *domain.Budget) error
-
-	// DeleteBudget deletes a budget
-	DeleteBudget(ctx context.Context, budgetID uuid.UUID) error
-
-	// RecalculateBudgetSpending recalculates the spent amount for a budget
-	RecalculateBudgetSpending(ctx context.Context, budgetID uuid.UUID) error
-
-	// RecalculateAllBudgets recalculates spending for all active budgets
-	RecalculateAllBudgets(ctx context.Context, userID uuid.UUID) error
-
-	// CheckBudgetAlerts checks if any budget alerts should be triggered
 	CheckBudgetAlerts(ctx context.Context, budgetID uuid.UUID) ([]domain.AlertThreshold, error)
-
-	// MarkExpiredBudgets marks expired budgets as expired
 	MarkExpiredBudgets(ctx context.Context) error
 
-	// RolloverBudgets processes budget rollovers for the new period
-	RolloverBudgets(ctx context.Context, userID uuid.UUID) error
+	// Delete operations
+	DeleteBudget(ctx context.Context, budgetID uuid.UUID) error
 
-	// GetBudgetSummary gets a summary of budget performance
-	GetBudgetSummary(ctx context.Context, userID uuid.UUID, period time.Time) (*BudgetSummary, error)
+	// Calculation operations
+	RecalculateBudgetSpending(ctx context.Context, budgetID uuid.UUID) error
+	RecalculateAllBudgets(ctx context.Context, userID uuid.UUID) error
+	RolloverBudgets(ctx context.Context, userID uuid.UUID) error
 }
 
 // BudgetSummary represents a summary of budget performance
@@ -74,4 +60,48 @@ type CategoryBudgetSum struct {
 	Spent        float64   `json:"spent"`
 	Remaining    float64   `json:"remaining"`
 	Percentage   float64   `json:"percentage"`
+}
+
+// BudgetVsActual represents budget vs actual comparison
+type BudgetVsActual struct {
+	BudgetID     uuid.UUID  `json:"budget_id"`
+	CategoryID   *uuid.UUID `json:"category_id,omitempty"`
+	CategoryName string     `json:"category_name,omitempty"`
+	BudgetAmount float64    `json:"budget_amount"`
+	ActualSpent  float64    `json:"actual_spent"`
+	Difference   float64    `json:"difference"`
+	Percentage   float64    `json:"percentage"`
+	Status       string     `json:"status"` // under, on_track, over
+}
+
+// BudgetProgress represents detailed budget progress
+type BudgetProgress struct {
+	BudgetID         uuid.UUID           `json:"budget_id"`
+	Name             string              `json:"name"`
+	Period           domain.BudgetPeriod `json:"period"`
+	StartDate        time.Time           `json:"start_date"`
+	EndDate          *time.Time          `json:"end_date,omitempty"`
+	Amount           float64             `json:"amount"`
+	SpentAmount      float64             `json:"spent_amount"`
+	RemainingAmount  float64             `json:"remaining_amount"`
+	PercentageSpent  float64             `json:"percentage_spent"`
+	Status           domain.BudgetStatus `json:"status"`
+	DaysElapsed      int                 `json:"days_elapsed"`
+	DaysRemaining    int                 `json:"days_remaining"`
+	DailyAverage     float64             `json:"daily_average"`
+	ProjectedTotal   float64             `json:"projected_total"`
+	OnTrack          bool                `json:"on_track"`
+	TransactionCount int                 `json:"transaction_count"`
+	LastTransaction  *time.Time          `json:"last_transaction,omitempty"`
+}
+
+// BudgetAnalytics represents budget analytics
+type BudgetAnalytics struct {
+	BudgetID          uuid.UUID `json:"budget_id"`
+	HistoricalAverage float64   `json:"historical_average"`
+	Trend             string    `json:"trend"` // increasing, stable, decreasing
+	Volatility        float64   `json:"volatility"`
+	ComplianceRate    float64   `json:"compliance_rate"`
+	RecommendedAmount float64   `json:"recommended_amount"`
+	OptimizationScore float64   `json:"optimization_score"`
 }

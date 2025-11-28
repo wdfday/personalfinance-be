@@ -5,14 +5,33 @@ import (
 	"net/http"
 	"time"
 
-	"personalfinancedss/internal/config"
-	"personalfinancedss/internal/database"
-	"personalfinancedss/internal/middleware"
+	// Old analytic handlers - commented out
+	// projectionHandler "personalfinancedss/internal/module/analytic/cashflow_projection/handler"
+	// recommendationHandler "personalfinancedss/internal/module/analytic/recommendation/handler"
+
+	allocationHandler "personalfinancedss/internal/module/analytics/budget_allocation_goal_programming/handler"
+	// eventHandler "personalfinancedss/internal/module/calendar/event/handler"
+	// periodHandler "personalfinancedss/internal/module/calendar/period/handler"
+	accountHandler "personalfinancedss/internal/module/cashflow/account/handler"
+	budgetProfileHandler "personalfinancedss/internal/module/cashflow/budget_profile/handler"
+	categoryHandler "personalfinancedss/internal/module/cashflow/category/handler"
+	debtHandler "personalfinancedss/internal/module/cashflow/debt/handler"
+	incomeProfileHandler "personalfinancedss/internal/module/cashflow/income_profile/handler"
+	transactionHandler "personalfinancedss/internal/module/cashflow/transaction/handler"
+	chatbotHandler "personalfinancedss/internal/module/chatbot/handler"
 	authHandler "personalfinancedss/internal/module/identify/auth/handler"
 	authService "personalfinancedss/internal/module/identify/auth/service"
 	profileHandler "personalfinancedss/internal/module/identify/profile/handler"
 	userHandler "personalfinancedss/internal/module/identify/user/handler"
 	userService "personalfinancedss/internal/module/identify/user/service"
+	assetHandler "personalfinancedss/internal/module/investment/investment_asset/handler"
+	investmentTransactionHandler "personalfinancedss/internal/module/investment/investment_transaction/handler"
+	snapshotHandler "personalfinancedss/internal/module/investment/portfolio_snapshot/handler"
+	notificationHandler "personalfinancedss/internal/module/notification/handler"
+
+	"personalfinancedss/internal/config"
+	"personalfinancedss/internal/database"
+	"personalfinancedss/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
@@ -40,6 +59,22 @@ func RegisterRoutes(
 	authH *authHandler.Handler,
 	usersH *userHandler.Handler,
 	profileH *profileHandler.Handler,
+	// periodH *periodHandler.Handler,
+	accountH *accountHandler.Handler,
+	categoryH *categoryHandler.Handler,
+	incomeProfileH *incomeProfileHandler.Handler,
+	budgetProfileH *budgetProfileHandler.Handler,
+	debtH *debtHandler.Handler,
+	transactionH *transactionHandler.Handler,
+	assetH *assetHandler.Handler,
+	investmentTransH *investmentTransactionHandler.Handler,
+	snapshotH *snapshotHandler.Handler,
+	notificationH *notificationHandler.Handler,
+	wsHandler *notificationHandler.WebSocketHandler,
+	preferenceH *notificationHandler.PreferenceHandler,
+	// eventH *eventHandler.Handler,
+	allocationH *allocationHandler.Handler,
+	chatbotH *chatbotHandler.Handler,
 	authMiddleware *middleware.Middleware,
 	emailVerificationMiddleware *middleware.EmailVerificationMiddleware,
 	logger *zap.Logger,
@@ -56,6 +91,54 @@ func RegisterRoutes(
 	logger.Info("Registering profile routes...")
 	profileH.RegisterRoutes(router, authMiddleware)
 
+	// logger.Info("Registering calendar period routes...")
+	// periodH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering account routes...")
+	accountH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering category routes...")
+	categoryH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering income profile routes...")
+	incomeProfileH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering budget constraint routes...")
+	budgetProfileH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering debt routes...")
+	debtH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering transaction routes...")
+	transactionH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering investment asset routes...")
+	assetH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering investment transaction routes...")
+	investmentTransH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering portfolio snapshot routes...")
+	snapshotH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering notification routes...")
+	notificationH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering WebSocket routes...")
+	wsHandler.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering notification preference routes...")
+	preferenceH.RegisterRoutes(router, authMiddleware)
+
+	// logger.Info("Registering calendar event routes...")
+	// eventH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering budget allocation routes...")
+	allocationH.RegisterRoutes(router)
+
+	logger.Info("Registering chatbot routes...")
+	chatbotH.RegisterRoutes(router, authMiddleware)
+
 	logger.Info("✅ All routes registered successfully")
 }
 
@@ -64,7 +147,7 @@ func RunMigrationsAndSeeding(
 	db *gorm.DB,
 	cfg *config.Config,
 	passwordService authService.IPasswordService,
-	userService userService.IUserService,
+	userSvc userService.IUserService,
 	logger *zap.Logger,
 ) {
 	logger.Info("=== Database Migration & Seeding Phase ===")
@@ -78,7 +161,7 @@ func RunMigrationsAndSeeding(
 	// Run seeding (only in development or if AUTO_SEED is true)
 	if config.IsDevelopment() {
 		logger.Info("Running database seeding (development mode)...")
-		seeder := database.NewSeeder(db, passwordService, userService, cfg.Seeding.AdminEmail, cfg.Seeding.AdminPassword, logger)
+		seeder := database.NewSeeder(db, passwordService, userSvc, cfg.Seeding.AdminEmail, cfg.Seeding.AdminPassword, logger)
 		if err := seeder.SeedAll(); err != nil {
 			logger.Warn("⚠️  Seeding failed", zap.Error(err))
 			// Don't fatal on seeding errors, just warn

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -56,6 +57,58 @@ type Debt struct {
 	// Metadata
 	Notes *string `gorm:"type:text;column:notes" json:"notes,omitempty"`
 	Tags  *string `gorm:"type:jsonb;column:tags" json:"tags,omitempty"` // JSON array of tags
+
+	// DSS Input/Output Metadata - Both constraint (INPUT) and allocation (OUTPUT)
+	DSSMetadata datatypes.JSON `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
+	// Structure:
+	// {
+	//   // INPUT - User constraints
+	//   "minimum_payment": 2000000,           // Minimum required payment (INPUT)
+	//   "target_payment": 3000000,            // Target payment (INPUT)
+	//   "maximum_payment": 5000000,           // Max affordable payment (INPUT)
+	//   "constraint_type": "hard",            // hard (minimum), soft (target) (INPUT)
+	//   "is_flexible": true,                  // Can adjust payment (INPUT)
+	//   "gp_priority": 1,                     // P1, P2, P3... (high priority) (INPUT)
+	//   "gp_weight": 0.95,                    // Weight (interest rate based) (INPUT)
+	//
+	//   // OUTPUT - DSS allocation
+	//   "allocated_payment": 3200000,         // DSS allocated payment (OUTPUT)
+	//   "satisfaction_level": 0.80,           // 0-1, payment achievement level (OUTPUT)
+	//   "negative_deviation": 0,              // d⁻ (under target) (OUTPUT)
+	//   "positive_deviation": 200000,         // d⁺ (over target - good!) (OUTPUT)
+	//   "achievement_rate": 1.07,             // Allocated/Target ratio (OUTPUT)
+	//   "allocation_reason": "high_priority_debt_payoff",
+	//
+	//   // ANALYSIS
+	//   "monthly_interest_cost": 500000,      // Interest per month
+	//   "monthly_principal_payment": 2700000, // Principal per month (allocated - interest)
+	//   "estimated_payoff_months": 22,        // Months to payoff at allocated rate
+	//   "estimated_payoff_date": "2025-11-30",
+	//   "interest_saved": 2000000,            // Interest saved vs minimum
+	//   "months_accelerated": 6,              // Months saved vs minimum
+	//   "optimization_score": 0.88,           // How well optimized (0-1)
+	//   "last_optimized": "2024-01-15T10:00:00Z",
+	//   "last_analyzed": "2024-01-15T10:00:00Z",
+	//   "optimization_version": "v1.0"
+	// }
+
+	// Strategy Metadata for Debt Payoff Strategy
+	StrategyMetadata datatypes.JSON `gorm:"type:jsonb;column:strategy_metadata" json:"strategy_metadata,omitempty"`
+	// Structure:
+	// {
+	//   "payoff_strategy": "avalanche",       // avalanche, snowball, custom
+	//   "avalanche_rank": 2,                  // Rank in avalanche (by interest rate)
+	//   "snowball_rank": 3,                   // Rank in snowball (by balance)
+	//   "avalanche_total_interest": 3000000,  // Total interest if avalanche
+	//   "snowball_total_interest": 3500000,   // Total interest if snowball
+	//   "avalanche_payoff_months": 18,        // Months to payoff (avalanche)
+	//   "snowball_payoff_months": 20,         // Months to payoff (snowball)
+	//   "recommended_strategy": "avalanche",  // Recommended strategy
+	//   "savings_vs_minimum": 2000000,        // Savings vs minimum payments
+	//   "psychological_benefit_score": 0.7,   // Snowball motivation score
+	//   "financial_benefit_score": 0.9,       // Avalanche savings score
+	//   "last_evaluated": "2024-01-15T10:00:00Z"
+	// }
 
 	CreatedAt time.Time      `gorm:"autoCreateTime;column:created_at" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`

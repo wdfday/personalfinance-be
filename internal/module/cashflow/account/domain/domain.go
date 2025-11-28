@@ -34,8 +34,37 @@ type Account struct {
 	SyncStatus       *SyncStatus `gorm:"type:varchar(20);column:sync_status" json:"sync_status,omitempty"`
 	SyncErrorMessage *string     `gorm:"type:text;column:sync_error_message" json:"sync_error_message,omitempty"`
 
-	// Broker Integration (for investment/crypto_wallet accounts)
+	// Broker Integration - New approach: Reference to broker_connections table
+	BrokerConnectionID *uuid.UUID `gorm:"type:uuid;column:broker_connection_id;index" json:"broker_connection_id,omitempty"`
+
+	// Broker Integration (DEPRECATED - for backward compatibility)
+	// Will be migrated to broker_connections table
 	BrokerIntegration datatypes.JSON `gorm:"type:jsonb;column:broker_integration" json:"broker_integration,omitempty"`
+
+	// DSS Metadata for Analytics & Forecasting
+	DSSMetadata datatypes.JSON `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
+	// Structure:
+	// {
+	//   "opening_balance": 50000000,          // Initial balance
+	//   "opening_balance_date": "2024-01-01",
+	//   "highest_balance": 75000000,          // Highest balance reached
+	//   "highest_balance_date": "2024-06-15",
+	//   "lowest_balance": 30000000,           // Lowest balance reached
+	//   "lowest_balance_date": "2024-03-10",
+	//   "avg_monthly_balance": 55000000,      // Average monthly balance
+	//   "balance_volatility": 0.15,           // Std dev / mean
+	//   "balance_trend": "increasing",        // increasing, stable, decreasing
+	//   "transaction_frequency": 45,          // Avg transactions per month
+	//   "avg_transaction_amount": 500000,     // Average transaction size
+	//   "inflow_total": 60000000,             // Total inflows (monthly)
+	//   "outflow_total": 55000000,            // Total outflows (monthly)
+	//   "net_cashflow": 5000000,              // Net monthly cashflow
+	//   "cashflow_trend": "positive",         // positive, negative, neutral
+	//   "days_to_zero": 180,                  // Days until balance reaches zero (forecast)
+	//   "risk_level": "low",                  // low, medium, high
+	//   "health_score": 0.85,                 // Overall account health (0-1)
+	//   "last_analyzed": "2024-01-15T10:00:00Z"
+	// }
 
 	CreatedAt time.Time      `gorm:"autoCreateTime;column:created_at" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`

@@ -2,14 +2,17 @@ package database
 
 import (
 	"fmt"
-
 	accountdomain "personalfinancedss/internal/module/cashflow/account/domain"
 	budgetdomain "personalfinancedss/internal/module/cashflow/budget/domain"
+	budgetprofiledomain "personalfinancedss/internal/module/cashflow/budget_profile/domain"
 	categorydomain "personalfinancedss/internal/module/cashflow/category/domain"
 	debtdomain "personalfinancedss/internal/module/cashflow/debt/domain"
 	goaldomain "personalfinancedss/internal/module/cashflow/goal/domain"
+	incomeprofiledomain "personalfinancedss/internal/module/cashflow/income_profile/domain"
 	transactiondomain "personalfinancedss/internal/module/cashflow/transaction/domain"
+	chatbotdomain "personalfinancedss/internal/module/chatbot/domain"
 	authdomain "personalfinancedss/internal/module/identify/auth/domain"
+	brokerdomain "personalfinancedss/internal/module/identify/broker/domain"
 	profiledomain "personalfinancedss/internal/module/identify/profile/domain"
 	userdomain "personalfinancedss/internal/module/identify/user/domain"
 	assetdomain "personalfinancedss/internal/module/investment/investment_asset/domain"
@@ -37,11 +40,42 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 	entities := []interface{}{
 		// 1. Base tables (no foreign keys)
 		&userdomain.User{},
+		// &calendarperioddomain.Period{},
 
 		// 2. Tables with foreign key to User
 		&profiledomain.UserProfile{},
 		&authdomain.VerificationToken{},
 		&authdomain.TokenBlacklist{},
+		&brokerdomain.BrokerConnection{}, // Broker connections (FK to User)
+		&accountdomain.Account{},         // Accounts (FK to User, BrokerConnection)
+		&debtdomain.Debt{},
+		// &calendareventdomain.Event{},
+		&notificationdomain.Notification{},
+		&notificationdomain.AlertRule{},
+		&notificationdomain.NotificationPreference{},
+		&assetdomain.InvestmentAsset{},
+		&snapshotdomain.PortfolioSnapshot{},
+
+		// 3. Independent tables (optional user reference)
+		&categorydomain.Category{},
+		&notificationdomain.SecurityEvent{},
+
+		// 4. Tables with foreign keys to notifications
+		&notificationdomain.NotificationAnalytics{},
+
+		// 5. Tables with multiple foreign keys
+		&transactiondomain.Transaction{},
+		&investmenttransactiondomain.InvestmentTransaction{},
+
+		// 6. Budget and Goals tables (FK to User, Category, Account)
+		&budgetdomain.Budget{},
+		&goaldomain.Goal{},
+		&incomeprofiledomain.IncomeProfile{},
+		&budgetprofiledomain.BudgetConstraint{},
+
+		// 7. Chatbot tables (FK to User)
+		&chatbotdomain.Conversation{},
+		&chatbotdomain.Message{},
 	}
 
 	log.Info("Migrating entities", zap.Int("entity_count", len(entities)))
@@ -71,6 +105,10 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 			"investment_transactions",
 			"budgets",
 			"goals",
+			"income_profiles",
+			"budget_constraints",
+			"chatbot_conversations",
+			"chatbot_messages",
 		}),
 	)
 
@@ -115,6 +153,10 @@ func DropAllTables(db *gorm.DB, log *zap.Logger) error {
 
 	// Drop in reverse dependency order (opposite of migration order)
 	entities := []interface{}{
+		// Chatbot tables (drop first - have FK to User)
+		&chatbotdomain.Message{},
+		&chatbotdomain.Conversation{},
+
 		// Budget and Goals tables (drop first - have FKs to User, Category, Account)
 		&goaldomain.Goal{},
 		&budgetdomain.Budget{},

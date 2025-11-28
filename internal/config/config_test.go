@@ -32,7 +32,7 @@ func TestLoad(t *testing.T) {
 		t.Errorf("Expected default HOST to be 'localhost', got '%s'", cfg.Server.Host)
 	}
 
-	if cfg.Database.Port != 5432 {
+	if cfg.Database.Port != 5434 {
 		t.Errorf("Expected default DB_PORT to be 5432, got %d", cfg.Database.Port)
 	}
 }

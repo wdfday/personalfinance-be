@@ -2,11 +2,9 @@ package service
 
 import (
 	"context"
-	"personalfinancedss/internal/broker/client"
 	"personalfinancedss/internal/module/cashflow/account/domain"
 	accountdto "personalfinancedss/internal/module/cashflow/account/dto"
 	"personalfinancedss/internal/module/cashflow/account/repository"
-	encryptionService "personalfinancedss/internal/service"
 
 	"go.uber.org/zap"
 )
@@ -15,7 +13,8 @@ import (
 type AccountCreator interface {
 	CreateAccount(ctx context.Context, userID string, req accountdto.CreateAccountRequest) (*domain.Account, error)
 	CreateDefaultCashAccount(ctx context.Context, userID string) error
-	CreateAccountWithBroker(ctx context.Context, userID string, req accountdto.CreateAccountWithBrokerRequest) (*domain.Account, error)
+	// DEPRECATED: Use broker module API instead
+	// CreateAccountWithBroker has been moved to internal/module/identify/broker
 }
 
 // AccountReader defines account read operations
@@ -45,26 +44,17 @@ type Service interface {
 
 // accountService implements all account use cases
 type accountService struct {
-	repo              repository.Repository
-	ssiClient         client.BrokerClient
-	okxClient         client.BrokerClient
-	encryptionService *encryptionService.EncryptionService
-	logger            *zap.Logger
+	repo   repository.Repository
+	logger *zap.Logger
 }
 
 // NewService creates a new account service
 func NewService(
 	repo repository.Repository,
-	ssiClient client.BrokerClient,
-	okxClient client.BrokerClient,
-	encryptionSvc *encryptionService.EncryptionService,
 	logger *zap.Logger,
 ) Service {
 	return &accountService{
-		repo:              repo,
-		ssiClient:         ssiClient,
-		okxClient:         okxClient,
-		encryptionService: encryptionSvc,
-		logger:            logger.Named("account.service"),
+		repo:   repo,
+		logger: logger.Named("account.service"),
 	}
 }
