@@ -91,7 +91,7 @@ type Position struct {
 // Transaction represents a broker transaction
 type Transaction struct {
 	ExternalID      string
-	TransactionType string // buy, sell, dividend, fee, etc.
+	TransactionType string // buy, sell, dividend, fee, deposit, withdrawal, etc.
 	Symbol          string
 	Quantity        float64
 	Price           float64
@@ -104,6 +104,11 @@ type Transaction struct {
 	SettlementDate  *time.Time
 	Status          string
 	Notes           string
+
+	// Banking-specific fields
+	AccountNumber  string  // External account number from bank
+	ReferenceCode  string  // Bank reference number
+	RunningBalance float64 // Balance after transaction
 }
 
 // MarketPrice represents current market price for an asset
@@ -128,4 +133,26 @@ type SyncResult struct {
 	BalanceUpdated     bool
 	Error              *string
 	Details            map[string]interface{}
+}
+
+// BankingBrokerClient extends BrokerClient for banking-specific operations
+type BankingBrokerClient interface {
+	BrokerClient
+
+	// GetBankAccounts retrieves all bank accounts from the broker
+	GetBankAccounts(ctx context.Context, accessToken string) ([]BankAccount, error)
+
+	// GetAccountTransactions retrieves transactions for a specific account
+	GetAccountTransactions(ctx context.Context, accessToken string, accountNumber string, startDate, endDate time.Time) ([]Transaction, error)
+}
+
+// BankAccount represents a bank account from banking API
+type BankAccount struct {
+	AccountNumber     string
+	AccountHolderName string
+	BankCode          string
+	BankName          string
+	Balance           float64    // Accumulated balance
+	LastTransaction   *time.Time // Last transaction time
+	IsActive          bool
 }

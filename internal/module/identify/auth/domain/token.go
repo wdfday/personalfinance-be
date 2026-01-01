@@ -17,7 +17,7 @@ const (
 
 // VerificationToken represents a token for email verification or password reset
 type VerificationToken struct {
-	ID uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 
 	UserID uuid.UUID `gorm:"type:uuid;not null;index"`
 	Token  string    `gorm:"type:text;uniqueIndex;not null"`

@@ -1,7 +1,6 @@
 package sepay
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -35,7 +34,7 @@ func NewClient() *Client {
 // For SePay, the API token is permanent and doesn't need OAuth flow
 func (c *Client) Authenticate(ctx context.Context, credentials client.Credentials) (*client.AuthResponse, error) {
 	// Validate API token by getting account info
-	_, err := c.getBankAccounts(ctx, credentials.APIKey)
+	_, err := c.GetBankAccounts(ctx, credentials.APIKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to authenticate with SePay: %w", err)
 	}
@@ -60,7 +59,7 @@ func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*client
 
 // GetPortfolio retrieves account balance and portfolio value
 func (c *Client) GetPortfolio(ctx context.Context, accessToken string) (*client.Portfolio, error) {
-	accounts, err := c.getBankAccounts(ctx, accessToken)
+	accounts, err := c.GetBankAccounts(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +87,7 @@ func (c *Client) GetPositions(ctx context.Context, accessToken string) ([]client
 // GetTransactions retrieves transaction history
 func (c *Client) GetTransactions(ctx context.Context, accessToken string, startDate, endDate time.Time) ([]client.Transaction, error) {
 	// Get all bank accounts first
-	accounts, err := c.getBankAccounts(ctx, accessToken)
+	accounts, err := c.GetBankAccounts(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +96,7 @@ func (c *Client) GetTransactions(ctx context.Context, accessToken string, startD
 
 	// Get transactions for each account
 	for _, account := range accounts {
-		accountTransactions, err := c.getAccountTransactions(ctx, accessToken, account.ID, startDate, endDate)
+		accountTransactions, err := c.GetAccountTransactions(ctx, accessToken, account.AccountNumber, startDate, endDate)
 		if err != nil {
 			// Log error but continue with other accounts
 			continue
@@ -121,38 +120,40 @@ func (c *Client) GetBatchMarketPrices(ctx context.Context, symbols []string) (ma
 // Internal API methods
 
 type bankAccount struct {
-	ID            int     `json:"id"`
-	AccountNumber string  `json:"account_number"`
-	AccountName   string  `json:"account_name"`
-	BankName      string  `json:"bank_name"`
-	BankShortName string  `json:"bank_short_name"`
-	Balance       float64 `json:"balance"`
-	Status        int     `json:"status"`
+	ID                string `json:"id"`
+	AccountHolderName string `json:"account_holder_name"`
+	AccountNumber     string `json:"account_number"`
+	Accumulated       string `json:"accumulated"`
+	LastTransaction   string `json:"last_transaction"`
+	Label             string `json:"label"`
+	Active            string `json:"active"`
+	CreatedAt         string `json:"created_at"`
+	BankShortName     string `json:"bank_short_name"`
+	BankFullName      string `json:"bank_full_name"`
+	BankBin           string `json:"bank_bin"`
+	BankCode          string `json:"bank_code"`
 }
 
 type transactionResponse struct {
-	ID              int     `json:"id"`
-	TransactionDate string  `json:"transaction_date"`
-	AccountNumber   string  `json:"account_number"`
-	TransactionType string  `json:"transaction_type"` // in, out
-	Amount          float64 `json:"amount_in"`
-	AmountOut       float64 `json:"amount_out"`
-	Content         string  `json:"content"`
-	Code            string  `json:"code"`
-	SubAccount      string  `json:"sub_account"`
-	BankBrandName   string  `json:"bank_brand_name"`
-	TransferAt      string  `json:"transfer_at"`
-	ReferenceNumber string  `json:"reference_number"`
-	Balance         float64 `json:"balance"`
+	ID                 string `json:"id"`
+	TransactionDate    string `json:"transaction_date"`
+	AccountNumber      string `json:"account_number"`
+	AmountIn           string `json:"amount_in"`
+	AmountOut          string `json:"amount_out"`
+	Accumulated        string `json:"accumulated"`
+	TransactionContent string `json:"transaction_content"`
+	ReferenceNumber    string `json:"reference_number"`
+	BankBrandName      string `json:"bank_brand_name"`
 }
 
-func (c *Client) getBankAccounts(ctx context.Context, apiToken string) ([]bankAccount, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/bank-accounts", nil)
+// GetBankAccounts retrieves all bank accounts from SePay (implements BankingBrokerClient)
+func (c *Client) GetBankAccounts(ctx context.Context, accessToken string) ([]client.BankAccount, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/bankaccounts/list", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+apiToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
@@ -167,9 +168,10 @@ func (c *Client) getBankAccounts(ctx context.Context, apiToken string) ([]bankAc
 	}
 
 	var result struct {
-		Status  int           `json:"status"`
-		Message string        `json:"messages"`
-		Data    []bankAccount `json:"data"`
+		Status       int           `json:"status"`
+		Error        interface{}   `json:"error"`
+		Messages     interface{}   `json:"messages"`
+		BankAccounts []bankAccount `json:"bankaccounts"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -177,32 +179,56 @@ func (c *Client) getBankAccounts(ctx context.Context, apiToken string) ([]bankAc
 	}
 
 	if result.Status != 200 {
-		return nil, fmt.Errorf("API returned error: %s", result.Message)
+		return nil, fmt.Errorf("API returned error status: %d", result.Status)
 	}
 
-	return result.Data, nil
+	// Convert to client.BankAccount
+	accounts := make([]client.BankAccount, 0, len(result.BankAccounts))
+	for _, acc := range result.BankAccounts {
+		var lastTxTime *time.Time
+		if acc.LastTransaction != "" {
+			if t, err := time.Parse("2006-01-02 15:04:05", acc.LastTransaction); err == nil {
+				lastTxTime = &t
+			}
+		}
+
+		accounts = append(accounts, client.BankAccount{
+			AccountNumber:     acc.AccountNumber,
+			AccountHolderName: acc.AccountHolderName,
+			BankCode:          acc.BankCode,
+			BankName:          acc.BankFullName,
+			Balance:           parseFloat(acc.Accumulated),
+			LastTransaction:   lastTxTime,
+			IsActive:          acc.Active == "1",
+		})
+	}
+
+	return accounts, nil
 }
 
-func (c *Client) getAccountTransactions(ctx context.Context, apiToken string, accountID int, startDate, endDate time.Time) ([]client.Transaction, error) {
-	// Build request payload
-	payload := map[string]interface{}{
-		"account_id": accountID,
-		"from_date":  startDate.Format("2006-01-02"),
-		"to_date":    endDate.Format("2006-01-02"),
-		"limit":      1000,
-	}
+// parseFloat safely converts string to float64
+func parseFloat(s string) float64 {
+	var f float64
+	fmt.Sscanf(s, "%f", &f)
+	return f
+}
 
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal payload: %w", err)
-	}
+// GetAccountTransactions retrieves transactions for a specific account (implements BankingBrokerClient)
+func (c *Client) GetAccountTransactions(ctx context.Context, accessToken string, accountNumber string, startDate, endDate time.Time) ([]client.Transaction, error) {
+	// Build URL with query parameters
+	url := fmt.Sprintf("%s/transactions/list?account_number=%s&transaction_date_min=%s&transaction_date_max=%s&limit=5000",
+		baseURL,
+		accountNumber,
+		startDate.Format("2006-01-02"),
+		endDate.Format("2006-01-02"),
+	)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/transactions/list", bytes.NewReader(payloadBytes))
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+apiToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.httpClient.Do(req)
@@ -217,11 +243,10 @@ func (c *Client) getAccountTransactions(ctx context.Context, apiToken string, ac
 	}
 
 	var result struct {
-		Status   int                   `json:"status"`
-		Message  string                `json:"messages"`
-		Data     []transactionResponse `json:"transactions"`
-		Total    int                   `json:"total"`
-		NextPage *int                  `json:"next_page"`
+		Status       int                   `json:"status"`
+		Error        interface{}           `json:"error"`
+		Messages     interface{}           `json:"messages"`
+		Transactions []transactionResponse `json:"transactions"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -229,30 +254,36 @@ func (c *Client) getAccountTransactions(ctx context.Context, apiToken string, ac
 	}
 
 	if result.Status != 200 {
-		return nil, fmt.Errorf("API returned error: %s", result.Message)
+		return nil, fmt.Errorf("API returned error status: %d", result.Status)
 	}
 
 	// Convert to client.Transaction
-	transactions := make([]client.Transaction, 0, len(result.Data))
-	for _, t := range result.Data {
+	transactions := make([]client.Transaction, 0, len(result.Transactions))
+	for _, t := range result.Transactions {
+		amountIn := parseFloat(t.AmountIn)
+		amountOut := parseFloat(t.AmountOut)
+
 		transactionType := "deposit"
-		amount := t.Amount
-		if t.TransactionType == "out" || t.AmountOut > 0 {
+		amount := amountIn
+		if amountOut > 0 {
 			transactionType = "withdrawal"
-			amount = t.AmountOut
+			amount = amountOut
 		}
 
-		txDate, _ := time.Parse("2006-01-02 15:04:05", t.TransferAt)
+		txDate, _ := time.Parse("2006-01-02 15:04:05", t.TransactionDate)
 
 		transactions = append(transactions, client.Transaction{
-			ExternalID:      fmt.Sprintf("sepay_%d", t.ID),
+			ExternalID:      fmt.Sprintf("sepay_%s", t.ID),
 			TransactionType: transactionType,
 			Symbol:          t.BankBrandName,
 			Amount:          amount,
 			Currency:        "VND",
 			TransactionDate: txDate,
 			Status:          "completed",
-			Notes:           t.Content,
+			Notes:           t.TransactionContent,
+			AccountNumber:   t.AccountNumber,
+			ReferenceCode:   t.ReferenceNumber,
+			RunningBalance:  parseFloat(t.Accumulated),
 		})
 	}
 

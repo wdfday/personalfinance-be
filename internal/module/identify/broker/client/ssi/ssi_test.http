@@ -1,0 +1,194 @@
+### ============================================
+### SSI SECURITIES API TEST
+### Vietnam Stock Trading Platform
+### ============================================
+### Base URL: https://fc-data.ssi.com.vn, https://fc-trading.ssi.com.vn
+### Documentation: https://api.ssi.com.vn
+### ============================================
+
+### Variables
+@ssi_consumer_id = YOUR_SSI_CONSUMER_ID
+@ssi_consumer_secret = YOUR_SSI_CONSUMER_SECRET
+@ssi_otp_code = YOUR_OTP_CODE
+@ssi_access_token = YOUR_SSI_ACCESS_TOKEN
+@ssi_refresh_token = YOUR_SSI_REFRESH_TOKEN
+
+### ============================================
+### AUTHENTICATION
+### ============================================
+
+### 1. Authenticate (Get Access Token)
+POST https://id.ssi.com.vn/connect/token
+Content-Type: application/json
+
+{
+  "grant_type": "password",
+  "client_id": "{{ssi_consumer_id}}",
+  "client_secret": "{{ssi_consumer_secret}}",
+  "pin": "{{ssi_otp_code}}"
+}
+
+### Expected Response:
+# {
+#   "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+#   "refresh_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
+#   "expires_in": 3600,
+#   "token_type": "Bearer"
+# }
+
+### 2. Refresh Access Token
+POST https://id.ssi.com.vn/connect/token
+Content-Type: application/json
+
+{
+  "grant_type": "refresh_token",
+  "refresh_token": "{{ssi_refresh_token}}"
+}
+
+### ============================================
+### PORTFOLIO & ACCOUNT
+### ============================================
+
+### 3. Get Portfolio Summary
+GET https://fc-trading.ssi.com.vn/api/v2/portfolio
+Authorization: Bearer {{ssi_access_token}}
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "totalValue": 150000000,
+#   "cashBalance": 50000000,
+#   "stockValue": 100000000,
+#   "unrealizedGain": 5000000
+# }
+
+### 4. Get Current Positions (Holdings)
+GET https://fc-trading.ssi.com.vn/api/v2/positions
+Authorization: Bearer {{ssi_access_token}}
+Content-Type: application/json
+
+### Expected Response:
+# [
+#   {
+#     "symbol": "VNM",
+#     "stockName": "Vinamilk",
+#     "totalQty": 100,
+#     "avgPrice": 85000,
+#     "marketPrice": 87000,
+#     "marketValue": 8700000,
+#     "unrealizedPL": 200000,
+#     "unrealizedPLPct": 2.35
+#   },
+#   {
+#     "symbol": "VIC",
+#     "stockName": "Vingroup",
+#     "totalQty": 50,
+#     "avgPrice": 45000,
+#     "marketPrice": 46500,
+#     "marketValue": 2325000,
+#     "unrealizedPL": 75000,
+#     "unrealizedPLPct": 3.33
+#   }
+# ]
+
+### ============================================
+### TRANSACTIONS
+### ============================================
+
+### 5. Get Transaction History (Last 10 days)
+GET https://fc-trading.ssi.com.vn/api/v2/transactions?startDate=2026-01-01&endDate=2026-01-11
+Authorization: Bearer {{ssi_access_token}}
+Content-Type: application/json
+
+### Expected Response:
+# [
+#   {
+#     "id": "TX123456",
+#     "symbol": "VNM",
+#     "side": "buy",
+#     "quantity": 100,
+#     "price": 85000,
+#     "amount": 8500000,
+#     "fee": 25500,
+#     "tax": 8500,
+#     "transactionDate": "2026-01-10",
+#     "status": "completed"
+#   }
+# ]
+
+### 6. Get Transaction History (Custom Date Range)
+GET https://fc-trading.ssi.com.vn/api/v2/transactions?startDate=2025-12-01&endDate=2025-12-31
+Authorization: Bearer {{ssi_access_token}}
+Content-Type: application/json
+
+### ============================================
+### MARKET DATA
+### ============================================
+
+### 7. Get Market Price - VNM (Vinamilk)
+GET https://fc-data.ssi.com.vn/api/v2/market/securities/VNM
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "symbol": "VNM",
+#   "lastPrice": 87000,
+#   "change": 2000,
+#   "changePct": 2.35,
+#   "totalVolume": 1500000
+# }
+
+### 8. Get Market Price - VIC (Vingroup)
+GET https://fc-data.ssi.com.vn/api/v2/market/securities/VIC
+Content-Type: application/json
+
+### 9. Get Market Price - VHM (Vinhomes)
+GET https://fc-data.ssi.com.vn/api/v2/market/securities/VHM
+Content-Type: application/json
+
+### 10. Get Market Price - HPG (Hoa Phat)
+GET https://fc-data.ssi.com.vn/api/v2/market/securities/HPG
+Content-Type: application/json
+
+### 11. Get Market Price - FPT (FPT Corporation)
+GET https://fc-data.ssi.com.vn/api/v2/market/securities/FPT
+Content-Type: application/json
+
+### 12. Get Market Price - VCB (Vietcombank)
+GET https://fc-data.ssi.com.vn/api/v2/market/securities/VCB
+Content-Type: application/json
+
+### ============================================
+### ERROR TESTING
+### ============================================
+
+### Test with Invalid Token
+GET https://fc-trading.ssi.com.vn/api/v2/portfolio
+Authorization: Bearer invalid_token_here
+Content-Type: application/json
+
+### Test with Missing Authorization
+GET https://fc-trading.ssi.com.vn/api/v2/portfolio
+Content-Type: application/json
+
+### Test with Invalid Credentials
+POST https://id.ssi.com.vn/connect/token
+Content-Type: application/json
+
+{
+  "grant_type": "password",
+  "client_id": "invalid_id",
+  "client_secret": "invalid_secret",
+  "pin": "000000"
+}
+
+### ============================================
+### NOTES
+### ============================================
+# - SSI requires Vietnamese stock trading account
+# - OTP code needed for initial authentication (PIN/SMS/EMAIL/SMART)
+# - Access token expires in 3600 seconds (1 hour)
+# - Supports stocks on HOSE, HNX, UPCOM exchanges
+# - All amounts in VND (Vietnamese Dong)
+# - Trading hours: 9:00-15:00 ICT (GMT+7)
+# - Market data updates in real-time during trading hours

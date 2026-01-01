@@ -4,10 +4,13 @@ import (
 	"context"
 	"time"
 
-	"personalfinancedss/internal/broker/client/okx"
-	"personalfinancedss/internal/broker/client/ssi"
 	"personalfinancedss/internal/config"
+	"personalfinancedss/internal/middleware"
+	accountRepo "personalfinancedss/internal/module/cashflow/account/repository"
+	transactionRepo "personalfinancedss/internal/module/cashflow/transaction/repository"
+	"personalfinancedss/internal/module/identify/broker/client/okx"
 	"personalfinancedss/internal/module/identify/broker/client/sepay"
+	"personalfinancedss/internal/module/identify/broker/client/ssi"
 	"personalfinancedss/internal/module/identify/broker/handler"
 	repository2 "personalfinancedss/internal/module/identify/broker/repository"
 	service2 "personalfinancedss/internal/module/identify/broker/service"
@@ -24,14 +27,15 @@ import (
 var Module = fx.Module("broker",
 	fx.Provide(
 		// Broker clients
-		ssi.NewClient,
-		okx.NewClient,
+		ssi.NewSSIClient,
+		okx.NewOKXClient,
 		sepay.NewClient,
 
 		// Repository
 		provideBrokerConnectionRepository,
 
-		// Service
+		// Services
+		provideSyncService,
 		provideBrokerConnectionService,
 
 		// Handler
@@ -51,13 +55,37 @@ func provideBrokerConnectionRepository(db *gorm.DB) repository2.BrokerConnection
 	return repository2.NewGormBrokerConnectionRepository(db)
 }
 
+// provideSyncService creates the sync service
+func provideSyncService(
+	brokerRepo repository2.BrokerConnectionRepository,
+	accRepo accountRepo.Repository,
+	txnRepo transactionRepo.Repository,
+	encryptionService *internalService.EncryptionService,
+	ssiClient *ssi.SSIClient,
+	okxClient *okx.OKXClient,
+	sepayClient *sepay.Client,
+	logger *zap.Logger,
+) *service2.SyncService {
+	return service2.NewSyncService(
+		brokerRepo,
+		accRepo,
+		txnRepo,
+		encryptionService,
+		ssiClient,
+		okxClient,
+		sepayClient,
+		logger,
+	)
+}
+
 // provideBrokerConnectionService creates the broker connection service
 func provideBrokerConnectionService(
 	repo repository2.BrokerConnectionRepository,
-	encryptionService internalService.EncryptionService,
-	ssiClient *ssi.Client,
-	okxClient *okx.Client,
+	encryptionService *internalService.EncryptionService,
+	ssiClient *ssi.SSIClient,
+	okxClient *okx.OKXClient,
 	sepayClient *sepay.Client,
+	syncService *service2.SyncService,
 ) service2.BrokerConnectionService {
 	return service2.NewBrokerConnectionService(
 		repo,
@@ -65,14 +93,16 @@ func provideBrokerConnectionService(
 		ssiClient,
 		okxClient,
 		sepayClient,
+		syncService,
 	)
 }
 
 // provideBrokerConnectionHandler creates the broker connection handler
 func provideBrokerConnectionHandler(
 	service service2.BrokerConnectionService,
+	logger *zap.Logger,
 ) *handler.BrokerConnectionHandler {
-	return handler.NewBrokerConnectionHandler(service)
+	return handler.NewBrokerConnectionHandler(service, logger)
 }
 
 // provideSyncWorker creates the broker sync worker
@@ -96,8 +126,9 @@ func provideSyncWorker(
 func registerBrokerRoutes(
 	router *gin.Engine,
 	handler *handler.BrokerConnectionHandler,
+	authMiddleware *middleware.Middleware,
 ) {
-	handler.RegisterRoutes(router)
+	handler.RegisterRoutes(router, authMiddleware)
 }
 
 // registerSyncWorkerLifecycle registers the sync worker lifecycle hooks

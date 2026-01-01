@@ -119,23 +119,7 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 func enableUUIDExtension(db *gorm.DB, log *zap.Logger) error {
 	log.Info("Enabling required PostgreSQL extensions...")
 
-	// 1. Enable UUID extension
-	// Try uuid-ossp first (most common)
-	if err := db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`).Error; err != nil {
-		log.Warn("uuid-ossp extension not available, checking for pgcrypto...", zap.Error(err))
-
-		// Fallback to pgcrypto (alternative UUID generation)
-		if err := db.Exec(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`).Error; err != nil {
-			log.Warn("pgcrypto extension not available, using built-in gen_random_uuid()", zap.Error(err))
-			// PostgreSQL 13+ has built-in gen_random_uuid(), no extension needed
-		} else {
-			log.Info("pgcrypto extension enabled successfully")
-		}
-	} else {
-		log.Info("uuid-ossp extension enabled successfully")
-	}
-
-	// 2. Enable citext extension (for case-insensitive email)
+	// 1. Enable citext extension (for case-insensitive email)
 	log.Info("Enabling citext extension for case-insensitive text...")
 	if err := db.Exec(`CREATE EXTENSION IF NOT EXISTS "citext"`).Error; err != nil {
 		log.Error("Failed to enable citext extension", zap.Error(err))

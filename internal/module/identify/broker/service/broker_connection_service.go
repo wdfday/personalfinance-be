@@ -9,6 +9,7 @@ import (
 	"personalfinancedss/internal/module/identify/broker/client/sepay"
 	"personalfinancedss/internal/module/identify/broker/client/ssi"
 	"personalfinancedss/internal/module/identify/broker/domain"
+	"personalfinancedss/internal/module/identify/broker/dto"
 	"personalfinancedss/internal/module/identify/broker/repository"
 	"personalfinancedss/internal/service"
 	"time"
@@ -19,19 +20,21 @@ import (
 
 type brokerConnectionService struct {
 	repo              repository.BrokerConnectionRepository
-	encryptionService service.EncryptionService
-	ssiClient         *ssi.Client
-	okxClient         *okx.Client
+	encryptionService *service.EncryptionService
+	ssiClient         *ssi.SSIClient
+	okxClient         *okx.OKXClient
 	sepayClient       *sepay.Client
+	syncService       *SyncService
 }
 
 // NewBrokerConnectionService creates a new broker connection service
 func NewBrokerConnectionService(
 	repo repository.BrokerConnectionRepository,
-	encryptionService service.EncryptionService,
-	ssiClient *ssi.Client,
-	okxClient *okx.Client,
+	encryptionService *service.EncryptionService,
+	ssiClient *ssi.SSIClient,
+	okxClient *okx.OKXClient,
 	sepayClient *sepay.Client,
+	syncService *SyncService,
 ) BrokerConnectionService {
 	return &brokerConnectionService{
 		repo:              repo,
@@ -39,10 +42,11 @@ func NewBrokerConnectionService(
 		ssiClient:         ssiClient,
 		okxClient:         okxClient,
 		sepayClient:       sepayClient,
+		syncService:       syncService,
 	}
 }
 
-func (s *brokerConnectionService) Create(ctx context.Context, req *CreateBrokerConnectionRequest) (*domain.BrokerConnection, error) {
+func (s *brokerConnectionService) Create(ctx context.Context, req *dto.CreateBrokerConnectionServiceRequest) (*domain.BrokerConnection, error) {
 	// Get broker client
 	brokerClient, err := s.getBrokerClient(req.BrokerType)
 	if err != nil {
@@ -156,12 +160,58 @@ func (s *brokerConnectionService) Create(ctx context.Context, req *CreateBrokerC
 		connection.OTPMethod = req.OTPMethod // OTP method is not sensitive
 	}
 
-	// Save to database
+	// API was already validated via Authenticate + GetPortfolio above
+	// Save broker connection first
 	if err := s.repo.Create(ctx, connection); err != nil {
 		return nil, fmt.Errorf("failed to save broker connection: %w", err)
 	}
 
-	return connection, nil
+	// Now trigger full sync to create accounts and sync transactions
+	// This runs AFTER connection is saved, so TotalSyncs check works correctly
+	syncResult, err := s.syncService.SyncBrokerConnection(ctx, connection)
+
+	// Fetch latest connection state to avoid overwriting invalid data
+	// The user requested: "chỉ được gọi save 1 lần, lần sau phải fetch ra rồi ghi đè lên"
+	savedConnection, getErr := s.repo.GetByID(ctx, connection.ID)
+	if getErr != nil {
+		// If we can't get the connection, we can't update status, but creation was successful
+		return connection, nil
+	}
+
+	savedConnection.TotalSyncs = 1 // Mark as having synced once
+
+	if err != nil {
+		// Sync failed but connection was saved - log but don't fail
+		// User can manually trigger sync later
+		savedConnection.FailedSyncs = 1
+		failedStatus := "failed"
+		savedConnection.LastSyncStatus = &failedStatus
+		errMsg := err.Error()
+		savedConnection.LastSyncError = &errMsg
+	} else {
+		// Update connection with sync result
+		savedConnection.LastSyncAt = &syncResult.SyncedAt
+		if syncResult.Success {
+			savedConnection.SuccessfulSyncs = 1
+			successStatus := "success"
+			savedConnection.LastSyncStatus = &successStatus
+		} else {
+			savedConnection.FailedSyncs = 1
+			failedStatus := "failed"
+			savedConnection.LastSyncStatus = &failedStatus
+			if syncResult.Error != nil {
+				savedConnection.LastSyncError = syncResult.Error
+			}
+		}
+	}
+
+	// Update connection with sync results (connection already exists in DB)
+	if err := s.repo.Update(ctx, savedConnection); err != nil {
+		// Log but don't fail - connection was created successfully
+	}
+
+	// Return the updated connection
+	return savedConnection, nil
 }
 
 func (s *brokerConnectionService) GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*domain.BrokerConnection, error) {
@@ -395,17 +445,14 @@ func (s *brokerConnectionService) TestConnection(ctx context.Context, id uuid.UU
 }
 
 func (s *brokerConnectionService) SyncNow(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*SyncResult, error) {
-	// This will be implemented in the sync service
-	// For now, just validate the connection exists
-	_, err := s.GetByID(ctx, id, userID)
+	// Validate the connection exists and belongs to user
+	connection, err := s.GetByID(ctx, id, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SyncResult{
-		Success: false,
-		Error:   stringPtr("sync service not yet implemented"),
-	}, fmt.Errorf("sync service not yet implemented")
+	// Delegate to sync service
+	return s.syncService.SyncBrokerConnection(ctx, connection)
 }
 
 // Helper methods

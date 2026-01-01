@@ -10,7 +10,7 @@ import (
 
 // Budget represents a spending budget for a category or account
 type Budget struct {
-	ID     uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID     uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 	UserID uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"user_id"`
 
 	// Budget Details
@@ -135,3 +135,8 @@ func (b *Budget) UpdateCalculatedFields() {
 	now := time.Now()
 	b.LastCalculatedAt = &now
 }
+
+//func (b *Budget) IsActive(){
+//	var status = b.Status == BudgetStatusActive
+//	return status
+//}

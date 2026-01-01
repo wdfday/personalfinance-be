@@ -9,22 +9,22 @@ import (
 // AccountResponse represents an account in API responses.
 type AccountResponse struct {
 	ID                  string     `json:"id"`
-	UserID              string     `json:"user_id"`
-	AccountName         string     `json:"account_name"`
-	AccountType         string     `json:"account_type"`
-	InstitutionName     *string    `json:"institution_name,omitempty"`
-	CurrentBalance      float64    `json:"current_balance"`
-	AvailableBalance    *float64   `json:"available_balance,omitempty"`
+	UserID              string     `json:"userId"`
+	AccountName         string     `json:"accountName"`
+	AccountType         string     `json:"accountType"`
+	InstitutionName     *string    `json:"institutionName,omitempty"`
+	CurrentBalance      float64    `json:"currentBalance"`
+	AvailableBalance    *float64   `json:"availableBalance,omitempty"`
 	Currency            string     `json:"currency"`
-	AccountNumberMasked *string    `json:"account_number_masked,omitempty"`
-	IsActive            bool       `json:"is_active"`
-	IsPrimary           bool       `json:"is_primary"`
-	IncludeInNetWorth   bool       `json:"include_in_net_worth"`
-	LastSyncedAt        *time.Time `json:"last_synced_at,omitempty"`
-	SyncStatus          *string    `json:"sync_status,omitempty"`
-	SyncErrorMessage    *string    `json:"sync_error_message,omitempty"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	AccountNumberMasked *string    `json:"accountNumberMasked,omitempty"`
+	IsActive            bool       `json:"isActive"`
+	IsPrimary           bool       `json:"isPrimary"`
+	IncludeInNetWorth   bool       `json:"includeInNetWorth"`
+	LastSyncedAt        *time.Time `json:"lastSyncedAt,omitempty"`
+	SyncStatus          *string    `json:"syncStatus,omitempty"`
+	SyncErrorMessage    *string    `json:"syncErrorMessage,omitempty"`
+	CreatedAt           time.Time  `json:"createdAt"`
+	UpdatedAt           time.Time  `json:"updatedAt"`
 }
 
 // ToResponse converts a domain account to DTO response.

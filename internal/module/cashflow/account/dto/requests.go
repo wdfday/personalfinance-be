@@ -2,32 +2,32 @@ package dto
 
 // CreateAccountRequest represents data for creating a new account.
 type CreateAccountRequest struct {
-	AccountName         string   `json:"account_name" binding:"required,min=1,max=255"`
-	AccountType         string   `json:"account_type" binding:"required,oneof=cash bank savings credit_card investment crypto_wallet"`
-	InstitutionName     *string  `json:"institution_name,omitempty" binding:"omitempty,max=255"`
-	CurrentBalance      *float64 `json:"current_balance,omitempty"`
-	AvailableBalance    *float64 `json:"available_balance,omitempty"`
+	AccountName         string   `json:"accountName" binding:"required,min=1,max=255"`
+	AccountType         string   `json:"accountType" binding:"required,oneof=cash bank savings credit_card investment crypto_wallet"`
+	InstitutionName     *string  `json:"institutionName,omitempty" binding:"omitempty,max=255"`
+	CurrentBalance      *float64 `json:"currentBalance,omitempty"`
+	AvailableBalance    *float64 `json:"availableBalance,omitempty"`
 	Currency            *string  `json:"currency,omitempty" binding:"omitempty,len=3"`
-	AccountNumberMasked *string  `json:"account_number_masked,omitempty" binding:"omitempty,max=50"`
-	IsActive            *bool    `json:"is_active,omitempty"`
-	IsPrimary           *bool    `json:"is_primary,omitempty"`
-	IncludeInNetWorth   *bool    `json:"include_in_net_worth,omitempty"`
+	AccountNumberMasked *string  `json:"accountNumberMasked,omitempty" binding:"omitempty,max=50"`
+	IsActive            *bool    `json:"isActive,omitempty"`
+	IsPrimary           *bool    `json:"isPrimary,omitempty"`
+	IncludeInNetWorth   *bool    `json:"includeInNetWorth,omitempty"`
 }
 
 // UpdateAccountRequest represents data for updating an account.
 type UpdateAccountRequest struct {
-	AccountName         *string  `json:"account_name,omitempty" binding:"omitempty,min=1,max=255"`
-	AccountType         *string  `json:"account_type,omitempty" binding:"omitempty,oneof=cash bank savings credit_card investment crypto_wallet"`
-	InstitutionName     *string  `json:"institution_name,omitempty" binding:"omitempty,max=255"`
-	CurrentBalance      *float64 `json:"current_balance,omitempty"`
-	AvailableBalance    *float64 `json:"available_balance,omitempty"`
+	AccountName         *string  `json:"accountName,omitempty" binding:"omitempty,min=1,max=255"`
+	AccountType         *string  `json:"accountType,omitempty" binding:"omitempty,oneof=cash bank savings credit_card investment crypto_wallet"`
+	InstitutionName     *string  `json:"institutionName,omitempty" binding:"omitempty,max=255"`
+	CurrentBalance      *float64 `json:"currentBalance,omitempty"`
+	AvailableBalance    *float64 `json:"availableBalance,omitempty"`
 	Currency            *string  `json:"currency,omitempty" binding:"omitempty,len=3"`
-	AccountNumberMasked *string  `json:"account_number_masked,omitempty" binding:"omitempty,max=50"`
-	IsActive            *bool    `json:"is_active,omitempty"`
-	IsPrimary           *bool    `json:"is_primary,omitempty"`
-	IncludeInNetWorth   *bool    `json:"include_in_net_worth,omitempty"`
-	SyncStatus          *string  `json:"sync_status,omitempty" binding:"omitempty,oneof=active error disconnected"`
-	SyncErrorMessage    *string  `json:"sync_error_message,omitempty"`
+	AccountNumberMasked *string  `json:"accountNumberMasked,omitempty" binding:"omitempty,max=50"`
+	IsActive            *bool    `json:"isActive,omitempty"`
+	IsPrimary           *bool    `json:"isPrimary,omitempty"`
+	IncludeInNetWorth   *bool    `json:"includeInNetWorth,omitempty"`
+	SyncStatus          *string  `json:"syncStatus,omitempty" binding:"omitempty,oneof=active error disconnected"`
+	SyncErrorMessage    *string  `json:"syncErrorMessage,omitempty"`
 }
 
 // ListAccountsRequest represents query parameters for listing accounts.

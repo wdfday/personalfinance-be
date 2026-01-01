@@ -101,12 +101,26 @@ func (c *OKXClient) Authenticate(ctx context.Context, credentials client.Credent
 		return nil, fmt.Errorf("authentication failed: %s", string(body))
 	}
 
-	// For OKX, we don't get tokens, we just use the API key
-	// Return a dummy auth response
+	// Create composite token containing all credentials
+	tokenData := map[string]string{
+		"apiKey":     credentials.APIKey,
+		"apiSecret":  credentials.APISecret,
+		"passphrase": *credentials.Passphrase,
+	}
+	tokenBytes, err := json.Marshal(tokenData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create composite token: %w", err)
+	}
+
+	// Encode as base64 to look like a token
+	compositeToken := base64.StdEncoding.EncodeToString(tokenBytes)
+
+	// Return composite token as access token
+	// This allows us to pass full credentials through the interface
 	expiresAt := time.Now().Add(365 * 24 * time.Hour) // API keys don't expire
 	return &client.AuthResponse{
-		AccessToken:  credentials.APIKey,
-		RefreshToken: "",
+		AccessToken:  compositeToken,
+		RefreshToken: "", // No refresh token needed for OKX
 		ExpiresAt:    expiresAt,
 	}, nil
 }
@@ -118,15 +132,16 @@ func (c *OKXClient) RefreshToken(ctx context.Context, refreshToken string) (*cli
 
 // GetPortfolio retrieves portfolio information from OKX
 func (c *OKXClient) GetPortfolio(ctx context.Context, accessToken string) (*client.Portfolio, error) {
-	// accessToken is actually the API key for OKX
-	// We need to extract credentials from somewhere or pass them differently
-	// For now, return an error indicating we need the full credentials
-	return nil, fmt.Errorf("OKX GetPortfolio requires full credentials, not just access token")
+	apiKey, apiSecret, passphrase, err := c.parseCompositeToken(accessToken)
+	if err != nil {
+		return nil, err
+	}
+	return c.GetPortfolioWithCredentials(ctx, apiKey, apiSecret, passphrase)
 }
 
 // GetPortfolioWithCredentials retrieves portfolio using full credentials
 func (c *OKXClient) GetPortfolioWithCredentials(ctx context.Context, apiKey, apiSecret, passphrase string) (*client.Portfolio, error) {
-	resp, err := c.makeRequest(ctx, "GET", "/api/v5/account/balance", nil, apiKey, apiSecret, passphrase)
+	resp, err := c.makeRequest(ctx, "GET", "/api/v5/asset/balances", nil, apiKey, apiSecret, passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get portfolio: %w", err)
 	}
@@ -142,13 +157,11 @@ func (c *OKXClient) GetPortfolioWithCredentials(ctx context.Context, apiKey, api
 		Msg  string `json:"msg"`
 		Data []struct {
 			TotalEq string `json:"totalEq"` // Total equity in USD
-			IsoEq   string `json:"isoEq"`   // Isolated margin equity in USD
-			AdjEq   string `json:"adjEq"`   // Adjusted equity in USD
 			Details []struct {
 				Ccy      string `json:"ccy"`      // Currency
-				Eq       string `json:"eq"`       // Equity
-				AvailBal string `json:"availBal"` // Available balance
-				UplNow   string `json:"uplNow"`   // Unrealized P&L
+				EqUsd    string `json:"eqUsd"`    // Equity in USD
+				CashBal  string `json:"cashBal"`  // Cash balance
+				FrozenBal string `json:"frozenBal"` // Frozen balance
 			} `json:"details"`
 		} `json:"data"`
 	}
@@ -177,20 +190,22 @@ func (c *OKXClient) GetPortfolioWithCredentials(ctx context.Context, apiKey, api
 	unrealizedGain := 0.0
 
 	for _, detail := range data.Details {
-		value := parseFloat(detail.Eq)
+		value := parseFloat(detail.EqUsd)
+		if value <= 0 {
+			continue
+		}
+		
 		assetAllocation[detail.Ccy] = value
 
 		if detail.Ccy == "USDT" || detail.Ccy == "USD" || detail.Ccy == "USDC" {
 			cashBalance += value
 		}
-
-		unrealizedGain += parseFloat(detail.UplNow)
 	}
 
 	return &client.Portfolio{
 		TotalValue:      totalValue,
 		CashBalance:     cashBalance,
-		UnrealizedGain:  unrealizedGain,
+		UnrealizedGain:  unrealizedGain, // OKX assets endpoint doesn't give unrealized P&L directly
 		Currency:        "USD",
 		AssetAllocation: assetAllocation,
 		LastUpdated:     time.Now(),
@@ -199,7 +214,11 @@ func (c *OKXClient) GetPortfolioWithCredentials(ctx context.Context, apiKey, api
 
 // GetPositions retrieves current positions from OKX
 func (c *OKXClient) GetPositions(ctx context.Context, accessToken string) ([]client.Position, error) {
-	return nil, fmt.Errorf("OKX GetPositions requires full credentials, not just access token")
+	apiKey, apiSecret, passphrase, err := c.parseCompositeToken(accessToken)
+	if err != nil {
+		return nil, err
+	}
+	return c.GetPositionsWithCredentials(ctx, apiKey, apiSecret, passphrase)
 }
 
 // GetPositionsWithCredentials retrieves positions using full credentials
@@ -223,7 +242,7 @@ func (c *OKXClient) GetPositionsWithCredentials(ctx context.Context, apiKey, api
 			Pos         string `json:"pos"`         // Position quantity
 			AvgPx       string `json:"avgPx"`       // Average open price
 			MarkPx      string `json:"markPx"`      // Mark price
-			UplNow      string `json:"uplNow"`      // Unrealized P&L
+			Upl         string `json:"upl"`         // Unrealized P&L
 			UplRatio    string `json:"uplRatio"`    // Unrealized P&L ratio
 			NotionalUsd string `json:"notionalUsd"` // Position value in USD
 			Lever       string `json:"lever"`       // Leverage
@@ -240,17 +259,17 @@ func (c *OKXClient) GetPositionsWithCredentials(ctx context.Context, apiKey, api
 
 	positions := make([]client.Position, 0, len(positionsResp.Data))
 	for _, pos := range positionsResp.Data {
-		if parseFloat(pos.Pos) == 0 {
+		quantity := parseFloat(pos.Pos)
+		if quantity == 0 {
 			continue // Skip zero positions
 		}
 
 		// Parse symbol (e.g., BTC-USDT -> BTC)
 		symbol := strings.Split(pos.InstId, "-")[0]
 
-		quantity := parseFloat(pos.Pos)
 		avgPrice := parseFloat(pos.AvgPx)
 		currentPrice := parseFloat(pos.MarkPx)
-		unrealizedPL := parseFloat(pos.UplNow)
+		unrealizedPL := parseFloat(pos.Upl)
 		unrealizedPLPct := parseFloat(pos.UplRatio) * 100
 
 		positions = append(positions, client.Position{
@@ -275,7 +294,23 @@ func (c *OKXClient) GetPositionsWithCredentials(ctx context.Context, apiKey, api
 
 // GetTransactions retrieves transaction history from OKX
 func (c *OKXClient) GetTransactions(ctx context.Context, accessToken string, startDate, endDate time.Time) ([]client.Transaction, error) {
-	return nil, fmt.Errorf("OKX GetTransactions requires full credentials, not just access token")
+	// Not implemented for now, but should follow same pattern
+	return []client.Transaction{}, nil
+}
+
+// helper to parse composite token
+func (c *OKXClient) parseCompositeToken(token string) (apiKey, apiSecret, passphrase string, err error) {
+	tokenBytes, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		return "", "", "", fmt.Errorf("invalid token format")
+	}
+
+	var data map[string]string
+	if err := json.Unmarshal(tokenBytes, &data); err != nil {
+		return "", "", "", fmt.Errorf("invalid token data")
+	}
+
+	return data["apiKey"], data["apiSecret"], data["passphrase"], nil
 }
 
 // GetMarketPrice retrieves current market price for a symbol

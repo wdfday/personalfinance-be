@@ -144,13 +144,15 @@ func (r *gormRepository) GetAccountsNeedingSync(ctx context.Context) ([]*domain.
 		return nil, err
 	}
 
-	// Filter accounts that actually need syncing
-	var needsSync []*domain.Account
-	for _, account := range accounts {
-		if account.NeedsSync() {
-			needsSync = append(needsSync, account)
-		}
-	}
+	// TODO: Filter accounts that actually need syncing
+	// NeedsSync() method is deprecated and moved to broker module
+	// For now, return all accounts matching the criteria
+	// var needsSync []*domain.Account
+	// for _, account := range accounts {
+	// 	if account.NeedsSync() {
+	// 		needsSync = append(needsSync, account)
+	// 	}
+	// }
 
-	return needsSync, nil
+	return accounts, nil
 }

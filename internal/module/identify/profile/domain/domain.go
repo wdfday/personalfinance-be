@@ -9,7 +9,7 @@ import (
 
 // UserProfile maps to the user_profiles table.
 type UserProfile struct {
-	ID uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 
 	// User Relationship
 	UserID uuid.UUID `gorm:"type:uuid;uniqueIndex;not null;column:user_id" json:"user_id"`

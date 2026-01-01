@@ -15,7 +15,7 @@ const (
 // IsValid checks if the budget period is valid
 func (bp BudgetPeriod) IsValid() bool {
 	switch bp {
-	case BudgetPeriodDaily, BudgetPeriodWeekly, BudgetPeriodMonthly, BudgetPeriodYearly, BudgetPeriodCustom:
+	case BudgetPeriodDaily, BudgetPeriodWeekly, BudgetPeriodMonthly, BudgetPeriodQuarterly, BudgetPeriodYearly, BudgetPeriodCustom:
 		return true
 	}
 	return false

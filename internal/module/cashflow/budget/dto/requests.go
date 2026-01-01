@@ -70,3 +70,58 @@ type BudgetFilterRequest struct {
 	StartDate  *time.Time           `form:"start_date"`
 	EndDate    *time.Time           `form:"end_date"`
 }
+
+// ApplyTo applies the update request fields to the budget domain object
+func (req *UpdateBudgetRequest) ApplyTo(budget *domain.Budget) {
+	if req.Name != nil {
+		budget.Name = *req.Name
+	}
+	if req.Description != nil {
+		budget.Description = req.Description
+	}
+	if req.Amount != nil {
+		budget.Amount = *req.Amount
+	}
+	if req.Currency != nil {
+		budget.Currency = *req.Currency
+	}
+	if req.Period != nil {
+		budget.Period = *req.Period
+	}
+	if req.StartDate != nil {
+		budget.StartDate = *req.StartDate
+	}
+	if req.EndDate != nil {
+		budget.EndDate = req.EndDate
+	}
+	if req.CategoryID != nil {
+		budget.CategoryID = req.CategoryID
+	}
+	if req.AccountID != nil {
+		budget.AccountID = req.AccountID
+	}
+	if req.EnableAlerts != nil {
+		budget.EnableAlerts = *req.EnableAlerts
+	}
+	if len(req.AlertThresholds) > 0 {
+		budget.AlertThresholds = req.AlertThresholds
+	}
+	if req.AllowRollover != nil {
+		budget.AllowRollover = *req.AllowRollover
+	}
+	if req.CarryOverPercent != nil {
+		budget.CarryOverPercent = req.CarryOverPercent
+	}
+	if req.AutoAdjust != nil {
+		budget.AutoAdjust = *req.AutoAdjust
+	}
+	if req.AutoAdjustPercentage != nil {
+		budget.AutoAdjustPercentage = req.AutoAdjustPercentage
+	}
+	if req.AutoAdjustBasedOn != nil {
+		budget.AutoAdjustBasedOn = req.AutoAdjustBasedOn
+	}
+	if req.Status != nil {
+		budget.Status = *req.Status
+	}
+}

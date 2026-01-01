@@ -14,7 +14,7 @@ import (
 // - Cash transaction (cash in/out)
 // - Any other "account" type modeled in your system
 type Transaction struct {
-	ID        uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`   // internal ID (UUID / snowflake / ... )
+	ID        uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`   // internal ID (UUID / snowflake / ... )
 	UserID    uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"userId"`       // FK to user
 	AccountID uuid.UUID `gorm:"type:uuid;not null;index;column:account_id" json:"accountId"` // FK to account (bank account / e-wallet / cash account ...)
 

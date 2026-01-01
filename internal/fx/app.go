@@ -3,19 +3,22 @@ package fx
 import (
 	"context"
 	"net/http"
-	"time"
+	"personalfinancedss/internal/config"
+	"personalfinancedss/internal/database"
+	"personalfinancedss/internal/middleware"
 
 	// Old analytic handlers - commented out
 	// projectionHandler "personalfinancedss/internal/module/analytic/cashflow_projection/handler"
 	// recommendationHandler "personalfinancedss/internal/module/analytic/recommendation/handler"
-
 	allocationHandler "personalfinancedss/internal/module/analytics/budget_allocation_goal_programming/handler"
 	// eventHandler "personalfinancedss/internal/module/calendar/event/handler"
 	// periodHandler "personalfinancedss/internal/module/calendar/period/handler"
 	accountHandler "personalfinancedss/internal/module/cashflow/account/handler"
+	budgetHandler "personalfinancedss/internal/module/cashflow/budget/handler"
 	budgetProfileHandler "personalfinancedss/internal/module/cashflow/budget_profile/handler"
 	categoryHandler "personalfinancedss/internal/module/cashflow/category/handler"
 	debtHandler "personalfinancedss/internal/module/cashflow/debt/handler"
+	goalHandler "personalfinancedss/internal/module/cashflow/goal/handler"
 	incomeProfileHandler "personalfinancedss/internal/module/cashflow/income_profile/handler"
 	transactionHandler "personalfinancedss/internal/module/cashflow/transaction/handler"
 	chatbotHandler "personalfinancedss/internal/module/chatbot/handler"
@@ -28,10 +31,7 @@ import (
 	investmentTransactionHandler "personalfinancedss/internal/module/investment/investment_transaction/handler"
 	snapshotHandler "personalfinancedss/internal/module/investment/portfolio_snapshot/handler"
 	notificationHandler "personalfinancedss/internal/module/notification/handler"
-
-	"personalfinancedss/internal/config"
-	"personalfinancedss/internal/database"
-	"personalfinancedss/internal/middleware"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
@@ -59,12 +59,13 @@ func RegisterRoutes(
 	authH *authHandler.Handler,
 	usersH *userHandler.Handler,
 	profileH *profileHandler.Handler,
-	// periodH *periodHandler.Handler,
 	accountH *accountHandler.Handler,
 	categoryH *categoryHandler.Handler,
 	incomeProfileH *incomeProfileHandler.Handler,
+	budgetH *budgetHandler.Handler,
 	budgetProfileH *budgetProfileHandler.Handler,
 	debtH *debtHandler.Handler,
+	goalH *goalHandler.Handler,
 	transactionH *transactionHandler.Handler,
 	assetH *assetHandler.Handler,
 	investmentTransH *investmentTransactionHandler.Handler,
@@ -91,9 +92,6 @@ func RegisterRoutes(
 	logger.Info("Registering profile routes...")
 	profileH.RegisterRoutes(router, authMiddleware)
 
-	// logger.Info("Registering calendar period routes...")
-	// periodH.RegisterRoutes(router, authMiddleware)
-
 	logger.Info("Registering account routes...")
 	accountH.RegisterRoutes(router, authMiddleware)
 
@@ -105,6 +103,12 @@ func RegisterRoutes(
 
 	logger.Info("Registering budget constraint routes...")
 	budgetProfileH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering budget routes...")
+	budgetH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering goal routes...")
+	goalH.RegisterRoutes(router, authMiddleware)
 
 	logger.Info("Registering debt routes...")
 	debtH.RegisterRoutes(router, authMiddleware)

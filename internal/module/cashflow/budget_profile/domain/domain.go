@@ -27,7 +27,7 @@ const (
 // BudgetConstraint represents minimum required spending per category with versioning
 // Example: Rent = 2,000,000 VND/month (fixed), Food >= 4,000,000 (flexible)
 type BudgetConstraint struct {
-	ID         uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID         uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 	UserID     uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"user_id"`
 	CategoryID uuid.UUID `gorm:"type:uuid;not null;index;column:category_id" json:"category_id"`
 

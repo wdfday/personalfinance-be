@@ -1,0 +1,342 @@
+### ============================================
+### SEPAY API TEST
+### Vietnam Banking & Payment Integration
+### ============================================
+### Base URL: https://my.sepay.vn/userapi
+### Documentation: https://my.sepay.vn/userapi/docs
+### ============================================
+
+### Variables
+@sepay_api_token =QVRQGYKNE8QVGZMHFAR3KVU9BSTJPZS6JTCLOW3Z76BFQXN4OOTFKRXTRUCXD2WE
+@sepay_account_number = 0001234567
+@sepay_transaction_id = 48673
+
+### ============================================
+### AUTHENTICATION NOTES
+### ============================================
+# - SePay uses Bearer token authentication
+# - API token is permanent (doesn't expire)
+# - Get your token from SePay dashboard
+# - No OAuth flow required
+# - Token has full access to your account
+
+### ============================================
+### BANK ACCOUNTS
+### ============================================
+
+### 1. Get All Bank Accounts
+GET https://my.sepay.vn/userapi/bankaccounts/list
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### Expected Response:
+#        {
+#          "status": 200,
+#          "error": null,
+#          "messages": {
+#            "success": true
+#          },
+#          "bankaccounts": [
+#            {
+#              "id": "37234",
+#              "account_holder_name": "Nguyen Van A",
+#              "account_number": "09000123456",
+#              "accumulated": "000.00",
+#              "last_transaction": "2026-01-06 19:59:00",
+#              "label": "Van A",
+#              "active": "1",
+#              "created_at": "2025-12-15 20:16:22",
+#              "bank_short_name": "Bank",
+#              "bank_full_name": "Ngân hàng ..",
+#              "bank_bin": "000000",
+#              "bank_code": "MB"
+#            }
+#          ]
+#        }
+
+
+### ============================================
+### TRANSACTIONS
+### ============================================
+
+### 2. Get Transaction Details by ID
+GET https://my.sepay.vn/userapi/transactions/details/{{sepay_transaction_id}}
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "status": 200,
+#   "error": null,
+#   "messages": {
+#     "success": true
+#   },
+#   "transaction": {
+#     "id": "48673",
+#     "transaction_date": "2026-01-10",
+#     "account_number": "0001234567",
+#     "amount_in": "1000000",
+#     "amount_out": "0",
+#     "accumulated": "51000000",
+#     "transaction_content": "Chuyen tien tu NGUYEN VAN B",
+#     "reference_number": "FT26011012345678",
+#     "bank_brand_name": "VCB"
+#   }
+# }
+
+### 3. Get All Transactions (Default - Max 5000)
+GET https://my.sepay.vn/userapi/transactions/list
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### Expected Response:
+#{
+#  "status": 200,
+#  "error": null,
+#  "messages": {
+#    "success": true
+#  },
+#  "transactions": [
+#    {
+#      "id": "37934318",
+#      "bank_brand_name": "MBBank",
+#      "account_number": "0964153033",
+#      "transaction_date": "2026-01-06 19:59:00",
+#      "amount_out": "16386000.00",
+#      "amount_in": "0.00",
+#      "accumulated": "34000.00",
+#      "transaction_content": "NGUYEN KHAC GIAP chuyen tien",
+#      "reference_number": "FT26006449378727",
+#      "code": null,
+#      "sub_account": null,
+#      "bank_account_id": "37234"
+#    },
+#    {
+#      "id": "37933407",
+#      "bank_brand_name": "MBBank",
+#      "account_number": "0964153033",
+#      "transaction_date": "2026-01-06 19:51:00",
+#      "amount_out": "0.00",
+#      "amount_in": "16400000.00",
+#      "accumulated": "16420000.00",
+#      "transaction_content": "NGUYEN KHAC GIAP chuyen FT26006156937108   Ma giao dich  Trace114410 Trace 114410",
+#      "reference_number": "FT26006119104604",
+#      "code": null,
+#      "sub_account": null,
+#      "bank_account_id": "37234"
+#    },
+#    {
+#      "id": "35687217",
+#      "bank_brand_name": "MBBank",
+#      "account_number": "0964153033",
+#      "transaction_date": "2025-12-15 20:18:00",
+#      "amount_out": "0.00",
+#      "amount_in": "20000.00",
+#      "accumulated": "20000.00",
+#      "transaction_content": "NGUYEN KHAC GIAP chuyen FT25349525838644   Ma giao dich  Trace733406 Trace 733406",
+#      "reference_number": "FT25349009208447",
+#      "code": null,
+#      "sub_account": null,
+#      "bank_account_id": "37234"
+#    }
+#  ]
+#}
+### 4. Get Transactions by Account Number
+GET https://my.sepay.vn/userapi/transactions/list?account_number={{sepay_account_number}}
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 5. Get Transactions by Date Range
+GET https://my.sepay.vn/userapi/transactions/list?transaction_date_min=2026-01-01&transaction_date_max=2026-01-11
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 6. Get Transactions by Account Number and Date Range
+GET https://my.sepay.vn/userapi/transactions/list?account_number={{sepay_account_number}}&transaction_date_min=2026-01-01&transaction_date_max=2026-01-11
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 7. Get Transactions with Limit
+GET https://my.sepay.vn/userapi/transactions/list?account_number={{sepay_account_number}}&limit=100
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 8. Get Transactions Since ID (Pagination)
+GET https://my.sepay.vn/userapi/transactions/list?account_number={{sepay_account_number}}&since_id=789000&limit=100
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 9. Get Transactions by Reference Number
+GET https://my.sepay.vn/userapi/transactions/list?reference_number=FT26011012345678
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 10. Get Transactions by Amount In (Incoming)
+GET https://my.sepay.vn/userapi/transactions/list?account_number={{sepay_account_number}}&amount_in=1000000
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 11. Get Transactions by Amount Out (Outgoing)
+GET https://my.sepay.vn/userapi/transactions/list?account_number={{sepay_account_number}}&amount_out=500000
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 12. Get Transactions with Multiple Filters
+GET https://my.sepay.vn/userapi/transactions/list?account_number={{sepay_account_number}}&transaction_date_min=2025-12-01&transaction_date_max=2025-12-31&limit=1000
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 13. Count Total Transactions
+GET https://my.sepay.vn/userapi/transactions/count
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "status": 200,
+#   "error": null,
+#   "messages": {
+#     "success": true
+#   },
+#   "count": 1250
+# }
+
+### 14. Count Transactions by Account Number
+GET https://my.sepay.vn/userapi/transactions/count?account_number={{sepay_account_number}}
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 15. Count Transactions by Date Range
+GET https://my.sepay.vn/userapi/transactions/count?transaction_date_min=2026-01-01&transaction_date_max=2026-01-11
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### 16. Count Transactions with Multiple Filters
+GET https://my.sepay.vn/userapi/transactions/count?account_number={{sepay_account_number}}&transaction_date_min=2026-01-01&transaction_date_max=2026-01-11
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### ============================================
+### ERROR TESTING
+### ============================================
+
+### Test with Invalid Token
+GET https://my.sepay.vn/userapi/bankaccounts/list
+Authorization: Bearer invalid_token_here
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "status": 401,
+#   "error": "Unauthorized",
+#   "messages": {
+#     "success": false
+#   }
+# }
+
+### Test with Missing Authorization Header
+GET https://my.sepay.vn/userapi/bankaccounts/list
+Content-Type: application/json
+
+### Test with Invalid Transaction ID
+GET https://my.sepay.vn/userapi/transactions/details/999999999
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### Test with Invalid Account Number
+GET https://my.sepay.vn/userapi/transactions/list?account_number=INVALID_ACCOUNT
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### Test with Invalid Date Format
+GET https://my.sepay.vn/userapi/transactions/list?transaction_date_min=01-01-2026&transaction_date_max=11-01-2026
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### Test with Invalid Limit (Over Maximum)
+GET https://my.sepay.vn/userapi/transactions/list?limit=10000
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### Test with Invalid Reference Number
+GET https://my.sepay.vn/userapi/transactions/list?reference_number=INVALID_REF
+Authorization: Bearer {{sepay_api_token}}
+Content-Type: application/json
+
+### ============================================
+### NOTES
+### ============================================
+# SePay is a Vietnamese banking integration service
+# Documentation: https://docs.sepay.vn
+#
+# AUTHENTICATION:
+# - Bearer token authentication
+# - API token is permanent (doesn't expire)
+# - Get your token from SePay dashboard
+# - No OAuth flow required
+#
+# API ENDPOINTS:
+# 1. GET /userapi/bankaccounts/list - Get all linked bank accounts
+# 2. GET /userapi/transactions/details/{id} - Get transaction by ID
+# 3. GET /userapi/transactions/list - List transactions with filters
+# 4. GET /userapi/transactions/count - Count transactions
+#
+# TRANSACTION LIST QUERY PARAMETERS:
+# - account_number: Filter by bank account number
+# - transaction_date_min: Start date (yyyy-mm-dd format)
+# - transaction_date_max: End date (yyyy-mm-dd format)
+# - since_id: Get transactions after this ID (for pagination)
+# - limit: Max results (default: 5000, max: 5000)
+# - reference_number: Filter by reference number
+# - amount_in: Filter by incoming amount
+# - amount_out: Filter by outgoing amount
+#
+# RESPONSE FIELDS:
+# - id: Transaction ID
+# - transaction_date: Transaction date
+# - account_number: Bank account number
+# - amount_in: Incoming amount (string)
+# - amount_out: Outgoing amount (string)
+# - accumulated: Balance after transaction
+# - transaction_content: Transaction description
+# - reference_number: Bank reference number
+# - bank_brand_name: Bank short name (VCB, TCB, etc.)
+#
+# SUPPORTED BANKS:
+# - Vietcombank (VCB)
+# - Techcombank (TCB)
+# - ACB Bank (ACB)
+# - MB Bank (MB)
+# - VPBank (VPB)
+# - BIDV
+# - Agribank
+# - Sacombank
+# - And many more Vietnamese banks...
+#
+# IMPORTANT NOTES:
+# - All amounts in VND (Vietnamese Dong) as strings
+# - Date format: YYYY-MM-DD
+# - Timezone: UTC+7 (ICT - Indochina Time)
+# - Transaction data updates in real-time
+# - Free tier available with rate limits
+# - Premium tiers for higher limits and priority support
+# - Must link bank accounts in SePay dashboard first
+#
+# USE CASES:
+# - Track banking transactions automatically
+# - Monitor account balances in real-time
+# - Reconcile payments for e-commerce
+# - Automate bookkeeping and accounting
+# - Detect incoming payments for order confirmation
+# - Generate financial reports
+# - Sync bank data with accounting software
+#
+# PAGINATION:
+# Use since_id parameter to paginate through large result sets
+# Example: Get first batch with limit=100, then use the last
+# transaction ID as since_id for the next batch
+#
+# RATE LIMITS:
+# - Check your SePay plan for specific limits
+# - Implement retry logic with exponential backoff
+# - Cache results when appropriate

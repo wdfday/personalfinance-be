@@ -11,59 +11,59 @@ import (
 // GoalResponse represents a goal in API responses
 type GoalResponse struct {
 	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
+	UserID uuid.UUID `json:"userId"`
 
 	Name        string              `json:"name"`
 	Description *string             `json:"description,omitempty"`
 	Type        domain.GoalType     `json:"type"`
 	Priority    domain.GoalPriority `json:"priority"`
 
-	TargetAmount  float64 `json:"target_amount"`
-	CurrentAmount float64 `json:"current_amount"`
+	TargetAmount  float64 `json:"targetAmount"`
+	CurrentAmount float64 `json:"currentAmount"`
 	Currency      string  `json:"currency"`
 
-	StartDate   time.Time  `json:"start_date"`
-	TargetDate  *time.Time `json:"target_date,omitempty"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	StartDate   time.Time  `json:"startDate"`
+	TargetDate  *time.Time `json:"targetDate,omitempty"`
+	CompletedAt *time.Time `json:"completedAt,omitempty"`
 
-	PercentageComplete float64           `json:"percentage_complete"`
-	RemainingAmount    float64           `json:"remaining_amount"`
+	PercentageComplete float64           `json:"percentageComplete"`
+	RemainingAmount    float64           `json:"remainingAmount"`
 	Status             domain.GoalStatus `json:"status"`
-	DaysRemaining      int               `json:"days_remaining"`
+	DaysRemaining      int               `json:"daysRemaining"`
 
-	SuggestedContribution   *float64                      `json:"suggested_contribution,omitempty"`
-	ContributionFrequency   *domain.ContributionFrequency `json:"contribution_frequency,omitempty"`
-	AutoContribute          bool                          `json:"auto_contribute"`
-	AutoContributeAmount    *float64                      `json:"auto_contribute_amount,omitempty"`
-	AutoContributeAccountID *uuid.UUID                    `json:"auto_contribute_account_id,omitempty"`
+	SuggestedContribution   *float64                      `json:"suggestedContribution,omitempty"`
+	ContributionFrequency   *domain.ContributionFrequency `json:"contributionFrequency,omitempty"`
+	AutoContribute          bool                          `json:"autoContribute"`
+	AutoContributeAmount    *float64                      `json:"autoContributeAmount,omitempty"`
+	AutoContributeAccountID *uuid.UUID                    `json:"autoContributeAccountId,omitempty"`
 
-	LinkedAccountID *uuid.UUID `json:"linked_account_id,omitempty"`
+	LinkedAccountID *uuid.UUID `json:"linkedAccountId,omitempty"`
 
-	EnableReminders    bool       `json:"enable_reminders"`
-	ReminderFrequency  *string    `json:"reminder_frequency,omitempty"`
-	LastReminderSentAt *time.Time `json:"last_reminder_sent_at,omitempty"`
+	EnableReminders    bool       `json:"enableReminders"`
+	ReminderFrequency  *string    `json:"reminderFrequency,omitempty"`
+	LastReminderSentAt *time.Time `json:"lastReminderSentAt,omitempty"`
 
 	Milestones *string `json:"milestones,omitempty"`
 	Notes      *string `json:"notes,omitempty"`
 	Tags       *string `json:"tags,omitempty"`
 
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	DeletedAt *time.Time `json:"deleted_at,omitempty"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
+	DeletedAt *time.Time `json:"deletedAt,omitempty"`
 }
 
 // GoalSummaryResponse represents a goal summary in API responses
 type GoalSummaryResponse struct {
-	TotalGoals         int                             `json:"total_goals"`
-	ActiveGoals        int                             `json:"active_goals"`
-	CompletedGoals     int                             `json:"completed_goals"`
-	OverdueGoals       int                             `json:"overdue_goals"`
-	TotalTargetAmount  float64                         `json:"total_target_amount"`
-	TotalCurrentAmount float64                         `json:"total_current_amount"`
-	TotalRemaining     float64                         `json:"total_remaining"`
-	AverageProgress    float64                         `json:"average_progress"`
-	GoalsByType        map[string]*service.GoalTypeSum `json:"goals_by_type"`
-	GoalsByPriority    map[string]int                  `json:"goals_by_priority"`
+	TotalGoals         int                             `json:"totalGoals"`
+	ActiveGoals        int                             `json:"activeGoals"`
+	CompletedGoals     int                             `json:"completedGoals"`
+	OverdueGoals       int                             `json:"overdueGoals"`
+	TotalTargetAmount  float64                         `json:"totalTargetAmount"`
+	TotalCurrentAmount float64                         `json:"totalCurrentAmount"`
+	TotalRemaining     float64                         `json:"totalRemaining"`
+	AverageProgress    float64                         `json:"averageProgress"`
+	GoalsByType        map[string]*service.GoalTypeSum `json:"goalsByType"`
+	GoalsByPriority    map[string]int                  `json:"goalsByPriority"`
 }
 
 // ToGoalResponse converts a domain goal to response DTO

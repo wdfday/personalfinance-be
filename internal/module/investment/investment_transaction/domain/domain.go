@@ -9,7 +9,7 @@ import (
 
 // InvestmentTransaction represents a transaction for buying/selling investment assets
 type InvestmentTransaction struct {
-	ID uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 
 	UserID  uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"user_id"`
 	AssetID uuid.UUID `gorm:"type:uuid;not null;index;column:asset_id" json:"asset_id"`

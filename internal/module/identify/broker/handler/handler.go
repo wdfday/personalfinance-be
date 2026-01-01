@@ -2,40 +2,57 @@ package handler
 
 import (
 	"net/http"
-	dto2 "personalfinancedss/internal/module/identify/broker/dto"
+	"personalfinancedss/internal/middleware"
+	"personalfinancedss/internal/module/identify/broker/domain"
+	"personalfinancedss/internal/module/identify/broker/dto"
 	"personalfinancedss/internal/module/identify/broker/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // BrokerConnectionHandler handles HTTP requests for broker connections
 type BrokerConnectionHandler struct {
 	service service.BrokerConnectionService
+	logger  *zap.Logger
 }
 
 // NewBrokerConnectionHandler creates a new broker connection handler
-func NewBrokerConnectionHandler(service service.BrokerConnectionService) *BrokerConnectionHandler {
+func NewBrokerConnectionHandler(service service.BrokerConnectionService, logger *zap.Logger) *BrokerConnectionHandler {
 	return &BrokerConnectionHandler{
 		service: service,
+		logger:  logger.Named("broker.handler"),
 	}
 }
 
 // RegisterRoutes registers all broker connection routes
-func (h *BrokerConnectionHandler) RegisterRoutes(router *gin.Engine) {
+func (h *BrokerConnectionHandler) RegisterRoutes(router *gin.Engine, authMiddleware *middleware.Middleware) {
 	brokerGroup := router.Group("/api/v1/broker-connections")
 	{
+		// Public endpoint - no auth required
 		brokerGroup.GET("/providers", h.ListProviders)
-		brokerGroup.POST("", h.Create)
-		brokerGroup.GET("", h.List)
-		brokerGroup.GET("/:id", h.GetByID)
-		brokerGroup.PUT("/:id", h.Update)
-		brokerGroup.DELETE("/:id", h.Delete)
-		brokerGroup.POST("/:id/activate", h.Activate)
-		brokerGroup.POST("/:id/deactivate", h.Deactivate)
-		brokerGroup.POST("/:id/refresh-token", h.RefreshToken)
-		brokerGroup.POST("/:id/test", h.TestConnection)
-		brokerGroup.POST("/:id/sync", h.SyncNow)
+	}
+
+	// Protected endpoints - require authentication
+	protected := router.Group("/api/v1/broker-connections")
+	protected.Use(authMiddleware.AuthMiddleware())
+	{
+		// Broker-specific create endpoints (recommended)
+		protected.POST("/ssi", h.CreateSSI)
+		protected.POST("/okx", h.CreateOKX)
+		protected.POST("/sepay", h.CreateSepay)
+
+		// Connection management
+		protected.GET("", h.List)
+		protected.GET("/:id", h.GetByID)
+		protected.PUT("/:id", h.Update)
+		protected.DELETE("/:id", h.Delete)
+		protected.POST("/:id/activate", h.Activate)
+		protected.POST("/:id/deactivate", h.Deactivate)
+		protected.POST("/:id/refresh-token", h.RefreshToken)
+		protected.POST("/:id/test", h.TestConnection)
+		protected.POST("/:id/sync", h.SyncNow)
 	}
 }
 
@@ -47,50 +64,182 @@ func (h *BrokerConnectionHandler) RegisterRoutes(router *gin.Engine) {
 // @Success 200 {object} dto.ListBrokerProvidersResponse
 // @Router /api/v1/broker-connections/providers [get]
 func (h *BrokerConnectionHandler) ListProviders(c *gin.Context) {
-	response := dto2.GetBrokerProviders()
+	response := dto.GetBrokerProviders()
 	c.JSON(http.StatusOK, response)
 }
 
-// Create creates a new broker connection
-// @Summary Create a new broker connection
-// @Description Create a new broker connection and authenticate with the broker
+// CreateSSI creates a new SSI broker connection
+// @Summary Create SSI broker connection
+// @Description Create and validate a new SSI Securities broker connection
 // @Tags Broker Connections
 // @Accept json
 // @Produce json
-// @Param request body dto.CreateBrokerConnectionRequest true "Broker connection details"
+// @Security BearerAuth
+// @Param request body dto.CreateSSIConnectionRequest true "SSI connection details"
 // @Success 201 {object} dto.BrokerConnectionResponse
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /api/v1/broker-connections [post]
-func (h *BrokerConnectionHandler) Create(c *gin.Context) {
-	// Get user ID from context (set by auth middleware)
+// @Router /api/v1/broker-connections/ssi [post]
+func (h *BrokerConnectionHandler) CreateSSI(c *gin.Context) {
+	h.logger.Info("📥 Received SSI broker connection request")
+
 	userID, err := getUserIDFromContext(c)
 	if err != nil {
+		h.logger.Error("❌ Failed to get user ID from context", zap.Error(err))
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	var req dto2.CreateBrokerConnectionRequest
+	h.logger.Info("✅ User authenticated", zap.String("user_id", userID.String()))
+
+	var req dto.CreateSSIConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("❌ Invalid request body", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Validate request
-	if err := req.Validate(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	h.logger.Info("📝 Parsed SSI connection request",
+		zap.String("broker_name", req.BrokerName),
+		zap.Bool("auto_sync", req.AutoSync != nil && *req.AutoSync),
+	)
 
-	// Create broker connection
+	h.logger.Info("🔄 Creating SSI broker connection...")
 	connection, err := h.service.Create(c.Request.Context(), req.ToServiceRequest(userID))
 	if err != nil {
+		h.logger.Error("❌ Failed to create SSI connection",
+			zap.String("user_id", userID.String()),
+			zap.Error(err),
+		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto2.ToBrokerConnectionResponse(connection))
+	h.logger.Info("✅ SSI broker connection created successfully",
+		zap.String("connection_id", connection.ID.String()),
+		zap.String("user_id", userID.String()),
+		zap.String("broker_name", connection.BrokerName),
+		zap.String("status", string(connection.Status)),
+	)
+
+	c.JSON(http.StatusCreated, dto.ToBrokerConnectionResponse(connection))
+}
+
+// CreateOKX creates a new OKX broker connection
+// @Summary Create OKX broker connection
+// @Description Create and validate a new OKX exchange connection
+// @Tags Broker Connections
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body dto.CreateOKXConnectionRequest true "OKX connection details"
+// @Success 201 {object} dto.BrokerConnectionResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/broker-connections/okx [post]
+func (h *BrokerConnectionHandler) CreateOKX(c *gin.Context) {
+	h.logger.Info("📥 Received OKX broker connection request")
+
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		h.logger.Error("❌ Failed to get user ID from context", zap.Error(err))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("✅ User authenticated", zap.String("user_id", userID.String()))
+
+	var req dto.CreateOKXConnectionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("❌ Invalid request body", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("📝 Parsed OKX connection request",
+		zap.String("broker_name", req.BrokerName),
+		zap.Bool("auto_sync", req.AutoSync != nil && *req.AutoSync),
+	)
+
+	h.logger.Info("🔄 Creating OKX broker connection...")
+	connection, err := h.service.Create(c.Request.Context(), req.ToServiceRequest(userID))
+	if err != nil {
+		h.logger.Error("❌ Failed to create OKX connection",
+			zap.String("user_id", userID.String()),
+			zap.Error(err),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("✅ OKX broker connection created successfully",
+		zap.String("connection_id", connection.ID.String()),
+		zap.String("user_id", userID.String()),
+		zap.String("broker_name", connection.BrokerName),
+		zap.String("status", string(connection.Status)),
+	)
+
+	c.JSON(http.StatusCreated, dto.ToBrokerConnectionResponse(connection))
+}
+
+// CreateSepay creates a new SePay broker connection
+// @Summary Create SePay broker connection
+// @Description Create and validate a new SePay payment integration
+// @Tags Broker Connections
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body dto.CreateSepayConnectionRequest true "SePay connection details"
+// @Success 201 {object} dto.BrokerConnectionResponse
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/broker-connections/sepay [post]
+func (h *BrokerConnectionHandler) CreateSepay(c *gin.Context) {
+	h.logger.Info("📥 Received SePay broker connection request")
+
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		h.logger.Error("❌ Failed to get user ID from context", zap.Error(err))
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("✅ User authenticated", zap.String("user_id", userID.String()))
+
+	var req dto.CreateSepayConnectionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("❌ Invalid request body", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("📝 Parsed SePay connection request",
+		zap.String("broker_name", req.BrokerName),
+		zap.Bool("auto_sync", req.AutoSync != nil && *req.AutoSync),
+	)
+
+	h.logger.Info("🔄 Creating SePay broker connection...")
+	connection, err := h.service.Create(c.Request.Context(), req.ToServiceRequest(userID))
+	if err != nil {
+		h.logger.Error("❌ Failed to create SePay connection",
+			zap.String("user_id", userID.String()),
+			zap.Error(err),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("✅ SePay broker connection created successfully",
+		zap.String("connection_id", connection.ID.String()),
+		zap.String("user_id", userID.String()),
+		zap.String("broker_name", connection.BrokerName),
+		zap.String("status", string(connection.Status)),
+	)
+
+	c.JSON(http.StatusCreated, dto.ToBrokerConnectionResponse(connection))
 }
 
 // List retrieves all broker connections for the authenticated user
@@ -114,19 +263,34 @@ func (h *BrokerConnectionHandler) List(c *gin.Context) {
 		return
 	}
 
-	var query dto2.ListBrokerConnectionsQuery
+	var query dto.ListBrokerConnectionsQuery
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	connections, err := h.service.List(c.Request.Context(), userID, query.ToServiceFilters())
+	// Convert query to service filters
+	filters := &service.ListFilters{
+		AutoSyncOnly:    query.AutoSyncOnly,
+		ActiveOnly:      query.ActiveOnly,
+		NeedingSyncOnly: query.NeedingSyncOnly,
+	}
+	if query.BrokerType != nil {
+		brokerType := domain.BrokerType(*query.BrokerType)
+		filters.BrokerType = &brokerType
+	}
+	if query.Status != nil {
+		status := domain.BrokerConnectionStatus(*query.Status)
+		filters.Status = &status
+	}
+
+	connections, err := h.service.List(c.Request.Context(), userID, filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, dto2.ToBrokerConnectionListResponse(connections))
+	c.JSON(http.StatusOK, dto.ToBrokerConnectionListResponse(connections))
 }
 
 // GetByID retrieves a broker connection by ID
@@ -160,7 +324,7 @@ func (h *BrokerConnectionHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto2.ToBrokerConnectionResponse(connection))
+	c.JSON(http.StatusOK, dto.ToBrokerConnectionResponse(connection))
 }
 
 // Update updates a broker connection
@@ -190,19 +354,37 @@ func (h *BrokerConnectionHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var req dto2.UpdateBrokerConnectionRequest
+	var req dto.UpdateBrokerConnectionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	connection, err := h.service.Update(c.Request.Context(), connectionID, userID, req.ToServiceRequest())
+	// Convert DTO to service request
+	serviceReq := &service.UpdateBrokerConnectionRequest{
+		BrokerName:       req.BrokerName,
+		APIKey:           req.APIKey,
+		APISecret:        req.APISecret,
+		Passphrase:       req.Passphrase,
+		ConsumerID:       req.ConsumerID,
+		ConsumerSecret:   req.ConsumerSecret,
+		OTPMethod:        req.OTPMethod,
+		AutoSync:         req.AutoSync,
+		SyncFrequency:    req.SyncFrequency,
+		SyncAssets:       req.SyncAssets,
+		SyncTransactions: req.SyncTransactions,
+		SyncPrices:       req.SyncPrices,
+		SyncBalance:      req.SyncBalance,
+		Notes:            req.Notes,
+	}
+
+	connection, err := h.service.Update(c.Request.Context(), connectionID, userID, serviceReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, dto2.ToBrokerConnectionResponse(connection))
+	c.JSON(http.StatusOK, dto.ToBrokerConnectionResponse(connection))
 }
 
 // Delete soft-deletes a broker connection
@@ -331,7 +513,7 @@ func (h *BrokerConnectionHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto2.ToBrokerConnectionResponse(connection))
+	c.JSON(http.StatusOK, dto.ToBrokerConnectionResponse(connection))
 }
 
 // TestConnection tests a broker connection
@@ -396,7 +578,19 @@ func (h *BrokerConnectionHandler) SyncNow(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto2.ToSyncResultResponse(result))
+	// Convert result to response
+	response := &dto.SyncResultResponse{
+		Success:            result.Success,
+		SyncedAt:           result.SyncedAt,
+		AssetsCount:        result.AssetsCount,
+		TransactionsCount:  result.TransactionsCount,
+		UpdatedPricesCount: result.UpdatedPricesCount,
+		BalanceUpdated:     result.BalanceUpdated,
+		Error:              result.Error,
+		Details:            result.Details,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // Helper function to get user ID from context

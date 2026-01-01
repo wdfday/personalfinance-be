@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"personalfinancedss/internal/module/identify/broker/domain"
+	"personalfinancedss/internal/module/identify/broker/dto"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,7 +12,7 @@ import (
 // BrokerConnectionService defines the business logic for broker connections
 type BrokerConnectionService interface {
 	// Create creates a new broker connection and authenticates with the broker
-	Create(ctx context.Context, req *CreateBrokerConnectionRequest) (*domain.BrokerConnection, error)
+	Create(ctx context.Context, req *dto.CreateBrokerConnectionServiceRequest) (*domain.BrokerConnection, error)
 
 	// GetByID retrieves a broker connection by ID
 	GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*domain.BrokerConnection, error)
@@ -39,33 +40,6 @@ type BrokerConnectionService interface {
 
 	// SyncNow manually triggers a sync for a broker connection
 	SyncNow(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*SyncResult, error)
-}
-
-// CreateBrokerConnectionRequest represents the request to create a broker connection
-type CreateBrokerConnectionRequest struct {
-	UserID     uuid.UUID
-	BrokerType domain.BrokerType
-	BrokerName string
-
-	// Credentials (will be encrypted)
-	APIKey         string
-	APISecret      string
-	Passphrase     *string // For OKX
-	ConsumerID     *string // For SSI
-	ConsumerSecret *string // For SSI
-	OTPCode        *string // For SSI initial auth
-	OTPMethod      *string // For SSI: PIN/SMS/EMAIL/SMART
-
-	// Sync settings
-	AutoSync         bool
-	SyncFrequency    int // minutes
-	SyncAssets       bool
-	SyncTransactions bool
-	SyncPrices       bool
-	SyncBalance      bool
-
-	// Optional
-	Notes *string
 }
 
 // UpdateBrokerConnectionRequest represents the request to update a broker connection

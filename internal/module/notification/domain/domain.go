@@ -16,7 +16,7 @@ var (
 
 // Notification represents a notification to be sent to a user
 type Notification struct {
-	ID      uuid.UUID           `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID      uuid.UUID           `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 	UserID  uuid.UUID           `gorm:"type:uuid;not null;index" json:"user_id"`
 	Type    NotificationType    `gorm:"type:varchar(50);not null" json:"type"`
 	Channel NotificationChannel `gorm:"type:varchar(20);not null;default:'email'" json:"channel"`
@@ -47,7 +47,7 @@ func (Notification) TableName() string {
 
 // SecurityEvent represents a security-related event for audit logging
 type SecurityEvent struct {
-	ID        uuid.UUID         `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID        uuid.UUID         `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 	Type      SecurityEventType `gorm:"type:varchar(50);not null;index" json:"type"`
 	UserID    *uuid.UUID        `gorm:"type:uuid;index" json:"user_id,omitempty"`
 	Email     string            `gorm:"type:varchar(255);index" json:"email,omitempty"`
@@ -104,7 +104,7 @@ type WebSocketNotificationPayload struct {
 
 // AlertRule represents a rule that triggers notifications based on conditions
 type AlertRule struct {
-	ID     uuid.UUID     `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID     uuid.UUID     `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 	UserID uuid.UUID     `gorm:"type:uuid;not null;index" json:"user_id"`
 	Name   string        `gorm:"type:varchar(255);not null" json:"name"`
 	Type   AlertRuleType `gorm:"type:varchar(50);not null;index" json:"type"`
@@ -142,7 +142,7 @@ func (AlertRule) TableName() string {
 
 // NotificationPreference represents user preferences for notifications
 type NotificationPreference struct {
-	ID     uuid.UUID        `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID     uuid.UUID        `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 	UserID uuid.UUID        `gorm:"type:uuid;not null;uniqueIndex:idx_user_notification_type" json:"user_id"`
 	Type   NotificationType `gorm:"type:varchar(50);not null;uniqueIndex:idx_user_notification_type" json:"type"`
 
@@ -168,7 +168,7 @@ func (NotificationPreference) TableName() string {
 
 // NotificationAnalytics represents tracking data for sent notifications
 type NotificationAnalytics struct {
-	ID             uuid.UUID           `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
+	ID             uuid.UUID           `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 	NotificationID uuid.UUID           `gorm:"type:uuid;not null;uniqueIndex" json:"notification_id"`
 	UserID         uuid.UUID           `gorm:"type:uuid;not null;index" json:"user_id"`
 	Type           NotificationType    `gorm:"type:varchar(50);not null;index" json:"type"`

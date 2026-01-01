@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"personalfinancedss/internal/module/identify/broker/domain"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,7 +64,7 @@ type SyncResultResponse struct {
 	UpdatedPricesCount int                    `json:"updated_prices_count"`
 	BalanceUpdated     bool                   `json:"balance_updated"`
 	Error              *string                `json:"error,omitempty"`
-	Details            map[string]interface{} `json:"details,omitempty"`
+	Details            map[string]any `json:"details,omitempty"`
 }
 
 // BrokerProviderInfo represents information about a broker provider
@@ -79,4 +80,108 @@ type BrokerProviderInfo struct {
 // ListBrokerProvidersResponse represents available broker providers
 type ListBrokerProvidersResponse struct {
 	Providers []BrokerProviderInfo `json:"providers"`
+}
+
+// ============================================================================
+// Conversion Functions (Domain → DTO only, no service types)
+// ============================================================================
+
+// ToBrokerConnectionResponse converts domain model to API response
+func ToBrokerConnectionResponse(conn *domain.BrokerConnection) *BrokerConnectionResponse {
+	return &BrokerConnectionResponse{
+		ID:                    conn.ID,
+		UserID:                conn.UserID,
+		BrokerType:            string(conn.BrokerType),
+		BrokerName:            conn.BrokerName,
+		Status:                string(conn.Status),
+		TokenExpiresAt:        conn.TokenExpiresAt,
+		LastRefreshedAt:       conn.LastRefreshedAt,
+		IsTokenValid:          conn.IsTokenValid(),
+		AutoSync:              conn.AutoSync,
+		SyncFrequency:         conn.SyncFrequency,
+		SyncAssets:            conn.SyncAssets,
+		SyncTransactions:      conn.SyncTransactions,
+		SyncPrices:            conn.SyncPrices,
+		SyncBalance:           conn.SyncBalance,
+		LastSyncAt:            conn.LastSyncAt,
+		LastSyncStatus:        conn.LastSyncStatus,
+		LastSyncError:         conn.LastSyncError,
+		TotalSyncs:            conn.TotalSyncs,
+		SuccessfulSyncs:       conn.SuccessfulSyncs,
+		FailedSyncs:           conn.FailedSyncs,
+		ExternalAccountID:     conn.ExternalAccountID,
+		ExternalAccountNumber: conn.ExternalAccountNumber,
+		ExternalAccountName:   conn.ExternalAccountName,
+		Notes:                 conn.Notes,
+		CreatedAt:             conn.CreatedAt,
+		UpdatedAt:             conn.UpdatedAt,
+	}
+}
+
+// ToBrokerConnectionListResponse converts a list of domain models to API response
+func ToBrokerConnectionListResponse(connections []*domain.BrokerConnection) *BrokerConnectionListResponse {
+	responses := make([]*BrokerConnectionResponse, len(connections))
+	for i, conn := range connections {
+		responses[i] = ToBrokerConnectionResponse(conn)
+	}
+
+	return &BrokerConnectionListResponse{
+		Connections: responses,
+		Total:       len(connections),
+	}
+}
+
+
+// GetBrokerProviders returns information about available broker providers
+func GetBrokerProviders() *ListBrokerProvidersResponse {
+	return &ListBrokerProvidersResponse{
+		Providers: []BrokerProviderInfo{
+			{
+				BrokerType:  string(domain.BrokerTypeSSI),
+				DisplayName: "SSI Securities",
+				Description: "Vietnam stock trading platform",
+				RequiredFields: []string{
+					"consumer_id",
+					"consumer_secret",
+					"otp_code",
+					"otp_method",
+				},
+				SupportedFeatures: []string{
+					"portfolio",
+					"positions",
+					"transactions",
+					"market_prices",
+				},
+			},
+			{
+				BrokerType:  string(domain.BrokerTypeOKX),
+				DisplayName: "OKX Exchange",
+				Description: "Cryptocurrency trading platform",
+				RequiredFields: []string{
+					"api_key",
+					"api_secret",
+					"passphrase",
+				},
+				SupportedFeatures: []string{
+					"portfolio",
+					"positions",
+					"transactions",
+					"market_prices",
+				},
+			},
+			{
+				BrokerType:  string(domain.BrokerTypeSePay),
+				DisplayName: "SePay",
+				Description: "Vietnam banking and payment API",
+				RequiredFields: []string{
+					"api_key",
+				},
+				SupportedFeatures: []string{
+					"portfolio",
+					"transactions",
+					"balance",
+				},
+			},
+		},
+	}
 }

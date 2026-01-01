@@ -60,8 +60,15 @@ func (s *Seeder) SeedAll() error {
 			return fmt.Errorf("failed to seed admin user: %w", err)
 		}
 
-		// 2. Seed default categories
-		s.logger.Info("Step 2: Seeding default categories...")
+		// 2. Seed sample users
+		s.logger.Info("Step 2: Seeding sample users...")
+		if err := s.seedSampleUsers(tx); err != nil {
+			s.logger.Error("Failed to seed sample users", zap.Error(err))
+			return fmt.Errorf("failed to seed sample users: %w", err)
+		}
+
+		// 3. Seed default categories
+		s.logger.Info("Step 3: Seeding default categories...")
 		if err := s.seedDefaultCategories(tx); err != nil {
 			s.logger.Error("Failed to seed default categories", zap.Error(err))
 			return fmt.Errorf("failed to seed default categories: %w", err)
@@ -121,6 +128,89 @@ func (s *Seeder) seedAdminUser(tx *gorm.DB) error {
 		zap.String("email", createdUser.Email),
 		zap.String("id", createdUser.ID.String()),
 	)
+	return nil
+}
+
+// seedSampleUsers creates sample users for testing
+func (s *Seeder) seedSampleUsers(tx *gorm.DB) error {
+	s.logger.Info("Checking for existing sample users...")
+
+	// Check if sample users already exist
+	var count int64
+	if err := tx.Model(&userdomain.User{}).Where("email IN (?)", []string{
+		"john.doe@example.com",
+		"jane.smith@example.com",
+		"alice.johnson@example.com",
+		"bob.wilson@example.com",
+	}).Count(&count).Error; err != nil {
+		s.logger.Error("Failed to check sample users count", zap.Error(err))
+		return err
+	}
+
+	if count > 0 {
+		s.logger.Info("ℹ️  Sample users already exist, skipping", zap.Int64("count", count))
+		return nil
+	}
+
+	// Default password for all sample users: "Password123!"
+	defaultPassword := "Password123!"
+	hashedPassword, err := s.passwordHasher.HashPassword(defaultPassword)
+	if err != nil {
+		s.logger.Error("Failed to hash sample user password", zap.Error(err))
+		return fmt.Errorf("failed to hash sample user password: %w", err)
+	}
+
+	// Define sample users
+	sampleUsers := []*userdomain.User{
+		{
+			Email:            "john.doe@example.com",
+			Password:         hashedPassword,
+			FullName:         "John Doe",
+			Role:             userdomain.UserRoleUser,
+			Status:           userdomain.UserStatusActive,
+			EmailVerified:    true,
+			AnalyticsConsent: true,
+		},
+		{
+			Email:            "jane.smith@example.com",
+			Password:         hashedPassword,
+			FullName:         "Jane Smith",
+			Role:             userdomain.UserRoleUser,
+			Status:           userdomain.UserStatusActive,
+			EmailVerified:    true,
+			AnalyticsConsent: true,
+		},
+		{
+			Email:            "alice.johnson@example.com",
+			Password:         hashedPassword,
+			FullName:         "Alice Johnson",
+			Role:             userdomain.UserRoleUser,
+			Status:           userdomain.UserStatusActive,
+			EmailVerified:    true,
+			AnalyticsConsent: false,
+		},
+		{
+			Email:         "bob.wilson@example.com",
+			Password:      hashedPassword,
+			FullName:      "Bob Wilson",
+			Role:          userdomain.UserRoleUser,
+			Status:        userdomain.UserStatusPendingVerification,
+			EmailVerified: false,
+		},
+	}
+
+	ctx := context.Background()
+	for _, user := range sampleUsers {
+		s.logger.Info("Creating sample user...", zap.String("email", user.Email))
+		createdUser, err := s.userService.Create(ctx, user)
+		if err != nil {
+			s.logger.Error("Failed to create sample user", zap.String("email", user.Email), zap.Error(err))
+			return fmt.Errorf("failed to create sample user %s: %w", user.Email, err)
+		}
+		s.logger.Info("✅ Sample user created", zap.String("email", createdUser.Email), zap.String("id", createdUser.ID.String()))
+	}
+
+	s.logger.Info("✅ Seeded sample users successfully", zap.Int("count", len(sampleUsers)))
 	return nil
 }
 
