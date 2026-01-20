@@ -15,6 +15,11 @@ import (
 	"personalfinancedss/internal/shared"
 )
 
+// stringPtr returns a pointer to the string value
+func stringPtr(s string) *string {
+	return &s
+}
+
 // ==================== Mocks ====================
 
 type MockProfileRepository struct {
@@ -26,7 +31,7 @@ func (m *MockProfileRepository) Create(ctx context.Context, profile *domain.User
 	return args.Error(0)
 }
 
-func (m *MockProfileRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.UserProfile, error) {
+func (m *MockProfileRepository) GetByUserID(ctx context.Context, userID string) (*domain.UserProfile, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -47,6 +52,11 @@ func (m *MockProfileRepository) Delete(ctx context.Context, userID uuid.UUID) er
 func (m *MockProfileRepository) ExistsByUserID(ctx context.Context, userID uuid.UUID) (bool, error) {
 	args := m.Called(ctx, userID)
 	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockProfileRepository) UpdateColumns(ctx context.Context, userID string, columns map[string]any) error {
+	args := m.Called(ctx, userID, columns)
+	return args.Error(0)
 }
 
 // ==================== Tests ====================
@@ -70,8 +80,17 @@ func TestCreateProfile(t *testing.T) {
 			Industry:         &industry,
 			MonthlyIncomeAvg: &monthlyIncome,
 			CreditScore:      &creditScore,
-			RiskTolerance:    domain.RiskToleranceModerate,
+			RiskTolerance:    stringPtr(string(domain.RiskToleranceModerate)),
 		}
+
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(nil, shared.ErrProfileNotFound).Once()
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(&domain.UserProfile{
+			UserID:           userID,
+			Occupation:       &occupation,
+			Industry:         &industry,
+			MonthlyIncomeAvg: &monthlyIncome,
+			CreditScore:      &creditScore,
+		}, nil).Once()
 
 		mockRepo.On("Create", ctx, mock.MatchedBy(func(p *domain.UserProfile) bool {
 			return p.UserID == userID &&
@@ -99,12 +118,26 @@ func TestCreateProfile(t *testing.T) {
 
 		userID := uuid.New()
 
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(nil, shared.ErrProfileNotFound).Once()
+
 		mockRepo.On("Create", ctx, mock.MatchedBy(func(p *domain.UserProfile) bool {
 			return p.UserID == userID &&
 				p.RiskTolerance == domain.RiskToleranceModerate &&
 				p.InvestmentHorizon == domain.InvestmentHorizonMedium &&
 				p.InvestmentExperience == domain.InvestmentExperienceBeginner
 		})).Return(nil)
+
+		// Mock retrieval after creation
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(&domain.UserProfile{
+			UserID:               userID,
+			RiskTolerance:        domain.RiskToleranceModerate,
+			InvestmentHorizon:    domain.InvestmentHorizonMedium,
+			InvestmentExperience: domain.InvestmentExperienceBeginner,
+			BudgetMethod:         domain.BudgetMethodCustom,
+			CurrencyPrimary:      "VND",
+			CurrencySecondary:    "USD",
+			OnboardingCompleted:  false,
+		}, nil).Once()
 
 		result, err := service.CreateDefaultProfile(ctx, userID.String())
 
@@ -135,6 +168,8 @@ func TestCreateProfile(t *testing.T) {
 
 		userID := uuid.New()
 		req := dto.CreateProfileRequest{}
+
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(nil, shared.ErrProfileNotFound)
 
 		mockRepo.On("Create", ctx, mock.AnythingOfType("*domain.UserProfile")).
 			Return(errors.New("database error"))
@@ -170,7 +205,7 @@ func TestGetProfile(t *testing.T) {
 			UpdatedAt:        time.Now(),
 		}
 
-		mockRepo.On("GetByUserID", ctx, userID).Return(profile, nil)
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(profile, nil)
 
 		result, err := service.GetProfile(ctx, userID.String())
 
@@ -189,7 +224,7 @@ func TestGetProfile(t *testing.T) {
 
 		userID := uuid.New()
 
-		mockRepo.On("GetByUserID", ctx, userID).Return(nil, shared.ErrProfileNotFound)
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(nil, shared.ErrProfileNotFound)
 
 		result, err := service.GetProfile(ctx, userID.String())
 
@@ -240,12 +275,21 @@ func TestUpdateProfile(t *testing.T) {
 			MonthlyIncomeAvg: &newIncome,
 		}
 
-		mockRepo.On("GetByUserID", ctx, userID).Return(existingProfile, nil)
-		mockRepo.On("Update", ctx, mock.MatchedBy(func(p *domain.UserProfile) bool {
-			return p.UserID == userID &&
-				*p.Occupation == newOccupation &&
-				*p.MonthlyIncomeAvg == newIncome
+		mockRepo.On("UpdateColumns", ctx, userID.String(), mock.MatchedBy(func(cols map[string]any) bool {
+			return cols["occupation"] == newOccupation &&
+				cols["monthly_income_avg"] == newIncome
 		})).Return(nil)
+
+		updatedProfile := &domain.UserProfile{
+			ID:               existingProfile.ID,
+			UserID:           existingProfile.UserID,
+			Occupation:       &newOccupation,
+			MonthlyIncomeAvg: &newIncome,
+			RiskTolerance:    existingProfile.RiskTolerance,
+			CreatedAt:        existingProfile.CreatedAt,
+			UpdatedAt:        existingProfile.UpdatedAt,
+		}
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(updatedProfile, nil).Once()
 
 		result, err := service.UpdateProfile(ctx, userID.String(), req)
 
@@ -272,14 +316,23 @@ func TestUpdateProfile(t *testing.T) {
 		}
 
 		newRiskTolerance := domain.RiskToleranceAggressive
+		newRiskToleranceStr := string(newRiskTolerance)
 		req := dto.UpdateProfileRequest{
-			RiskTolerance: &newRiskTolerance,
+			RiskTolerance: &newRiskToleranceStr,
 		}
 
-		mockRepo.On("GetByUserID", ctx, userID).Return(existingProfile, nil)
-		mockRepo.On("Update", ctx, mock.MatchedBy(func(p *domain.UserProfile) bool {
-			return p.UserID == userID && p.RiskTolerance == newRiskTolerance
+		mockRepo.On("UpdateColumns", ctx, userID.String(), mock.MatchedBy(func(cols map[string]any) bool {
+			return cols["risk_tolerance"] == newRiskToleranceStr
 		})).Return(nil)
+
+		updatedProfile := &domain.UserProfile{
+			ID:            existingProfile.ID,
+			UserID:        existingProfile.UserID,
+			RiskTolerance: newRiskTolerance,
+			CreatedAt:     existingProfile.CreatedAt,
+			UpdatedAt:     existingProfile.UpdatedAt,
+		}
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(updatedProfile, nil).Once()
 
 		result, err := service.UpdateProfile(ctx, userID.String(), req)
 
@@ -310,12 +363,21 @@ func TestUpdateProfile(t *testing.T) {
 			OnboardingCompleted: &onboardingCompleted,
 		}
 
-		mockRepo.On("GetByUserID", ctx, userID).Return(existingProfile, nil)
-		mockRepo.On("Update", ctx, mock.MatchedBy(func(p *domain.UserProfile) bool {
-			return p.UserID == userID &&
-				p.OnboardingCompleted == true &&
-				p.OnboardingCompletedAt != nil
+		mockRepo.On("UpdateColumns", ctx, userID.String(), mock.MatchedBy(func(cols map[string]any) bool {
+			return cols["onboarding_completed"] == true &&
+				cols["onboarding_completed_at"] != nil
 		})).Return(nil)
+
+		now := time.Now()
+		updatedProfile := &domain.UserProfile{
+			ID:                    existingProfile.ID,
+			UserID:                existingProfile.UserID,
+			OnboardingCompleted:   true,
+			OnboardingCompletedAt: &now,
+			CreatedAt:             existingProfile.CreatedAt,
+			UpdatedAt:             existingProfile.UpdatedAt,
+		}
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(updatedProfile, nil).Once()
 
 		result, err := service.UpdateProfile(ctx, userID.String(), req)
 
@@ -335,7 +397,7 @@ func TestUpdateProfile(t *testing.T) {
 		userID := uuid.New()
 		req := dto.UpdateProfileRequest{}
 
-		mockRepo.On("GetByUserID", ctx, userID).Return(nil, shared.ErrProfileNotFound)
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(nil, shared.ErrProfileNotFound)
 
 		result, err := service.UpdateProfile(ctx, userID.String(), req)
 
@@ -355,6 +417,71 @@ func TestUpdateProfile(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
+	})
+
+	t.Run("Error - Repository UpdateColumns error", func(t *testing.T) {
+		mockRepo := new(MockProfileRepository)
+		service := NewService(mockRepo)
+
+		userID := uuid.New()
+		newOccupation := "Engineer"
+		req := dto.UpdateProfileRequest{
+			Occupation: &newOccupation,
+		}
+
+		mockRepo.On("UpdateColumns", ctx, userID.String(), mock.Anything).Return(errors.New("db error"))
+
+		result, err := service.UpdateProfile(ctx, userID.String(), req)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - UpdateColumns returns NotFound", func(t *testing.T) {
+		mockRepo := new(MockProfileRepository)
+		service := NewService(mockRepo)
+
+		userID := uuid.New()
+		newOccupation := "Engineer"
+		req := dto.UpdateProfileRequest{
+			Occupation: &newOccupation,
+		}
+
+		mockRepo.On("UpdateColumns", ctx, userID.String(), mock.Anything).Return(shared.ErrNotFound)
+
+		result, err := service.UpdateProfile(ctx, userID.String(), req)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Equal(t, shared.ErrNotFound, err)
+
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("Success - Empty update request", func(t *testing.T) {
+		mockRepo := new(MockProfileRepository)
+		service := NewService(mockRepo)
+
+		userID := uuid.New()
+		req := dto.UpdateProfileRequest{} // No fields to update
+
+		existingProfile := &domain.UserProfile{
+			ID:            uuid.New(),
+			UserID:        userID,
+			RiskTolerance: domain.RiskToleranceModerate,
+		}
+
+		// With no updates, UpdateColumns shouldn't be called
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(existingProfile, nil).Once()
+
+		result, err := service.UpdateProfile(ctx, userID.String(), req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+
+		mockRepo.AssertExpectations(t)
 	})
 }
 
@@ -409,6 +536,8 @@ func TestProfileDefaults(t *testing.T) {
 
 		userID := uuid.New()
 
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(nil, shared.ErrProfileNotFound).Once()
+
 		mockRepo.On("Create", ctx, mock.MatchedBy(func(p *domain.UserProfile) bool {
 			return p.RiskTolerance == domain.RiskToleranceModerate &&
 				p.InvestmentHorizon == domain.InvestmentHorizonMedium &&
@@ -418,6 +547,18 @@ func TestProfileDefaults(t *testing.T) {
 				p.CurrencySecondary == "USD" &&
 				p.OnboardingCompleted == false
 		})).Return(nil)
+
+		// Mock retrieval after creation
+		mockRepo.On("GetByUserID", ctx, userID.String()).Return(&domain.UserProfile{
+			UserID:               userID,
+			RiskTolerance:        domain.RiskToleranceModerate,
+			InvestmentHorizon:    domain.InvestmentHorizonMedium,
+			InvestmentExperience: domain.InvestmentExperienceBeginner,
+			BudgetMethod:         domain.BudgetMethodCustom,
+			CurrencyPrimary:      "VND",
+			CurrencySecondary:    "USD",
+			OnboardingCompleted:  false,
+		}, nil).Once()
 
 		result, err := service.CreateDefaultProfile(ctx, userID.String())
 
@@ -432,4 +573,3 @@ func TestProfileDefaults(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 }
-

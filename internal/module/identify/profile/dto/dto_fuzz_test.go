@@ -89,7 +89,7 @@ func FuzzRiskToleranceValues(f *testing.F) {
 
 			isValid := false
 			for _, valid := range validValues {
-				if *req.RiskTolerance == valid {
+				if *req.RiskTolerance == string(valid) {
 					isValid = true
 					break
 				}
@@ -312,4 +312,3 @@ func FuzzCompleteProfile(f *testing.F) {
 		}
 	})
 }
-

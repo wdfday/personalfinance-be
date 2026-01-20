@@ -24,6 +24,10 @@ func (s *debtService) validateDebt(debt *domain.Debt) error {
 		return fmt.Errorf("invalid debt type: %s", debt.Type)
 	}
 
+	if !debt.Behavior.IsValid() {
+		return fmt.Errorf("invalid debt behavior: %s", debt.Behavior)
+	}
+
 	if !debt.Status.IsValid() {
 		return fmt.Errorf("invalid debt status: %s", debt.Status)
 	}

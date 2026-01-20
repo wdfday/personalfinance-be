@@ -12,6 +12,7 @@ type CreateAccountRequest struct {
 	IsActive            *bool    `json:"isActive,omitempty"`
 	IsPrimary           *bool    `json:"isPrimary,omitempty"`
 	IncludeInNetWorth   *bool    `json:"includeInNetWorth,omitempty"`
+	CreditLimit         *float64 `json:"creditLimit,omitempty"`
 }
 
 // UpdateAccountRequest represents data for updating an account.

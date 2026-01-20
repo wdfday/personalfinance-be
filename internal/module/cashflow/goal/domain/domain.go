@@ -16,7 +16,8 @@ type Goal struct {
 	// Goal Details
 	Name        string       `gorm:"type:varchar(255);not null;column:name" json:"name"`
 	Description *string      `gorm:"type:text;column:description" json:"description,omitempty"`
-	Type        GoalType     `gorm:"type:varchar(50);not null;column:type" json:"type"`
+	Behavior    GoalBehavior `gorm:"type:varchar(20);not null;column:behavior" json:"behavior"`
+	Category    GoalCategory `gorm:"type:varchar(50);not null;column:category" json:"category"`
 	Priority    GoalPriority `gorm:"type:varchar(20);default:'medium';column:priority" json:"priority"`
 
 	// Financial Details
@@ -41,8 +42,9 @@ type Goal struct {
 	AutoContributeAmount    *float64               `gorm:"type:decimal(15,2);column:auto_contribute_amount" json:"auto_contribute_amount,omitempty"`
 	AutoContributeAccountID *uuid.UUID             `gorm:"type:uuid;column:auto_contribute_account_id" json:"auto_contribute_account_id,omitempty"`
 
-	// Linked Resources
-	LinkedAccountID *uuid.UUID `gorm:"type:uuid;index;column:linked_account_id" json:"linked_account_id,omitempty"` // Account where funds are saved
+	// Linked Resources - AccountID is required, must be cash/bank/savings account
+	AccountID         uuid.UUID  `gorm:"type:uuid;not null;index;column:account_id" json:"account_id"`
+	ConvertedBudgetID *uuid.UUID `gorm:"type:uuid;column:converted_budget_id" json:"converted_budget_id,omitempty"` // For willing goals that converted to budget
 
 	// Notifications
 	EnableReminders    bool       `gorm:"default:true;column:enable_reminders" json:"enable_reminders"`
@@ -168,6 +170,11 @@ func (g *Goal) UpdateCalculatedFields() {
 		g.CompletedAt = &now
 	} else if g.IsOverdue() && g.Status == GoalStatusActive {
 		g.Status = GoalStatusOverdue
+	}
+	// Recalculate SuggestedContribution if frequency is set
+	if g.ContributionFrequency != nil {
+		suggestion := g.CalculateSuggestedContribution(*g.ContributionFrequency)
+		g.SuggestedContribution = &suggestion
 	}
 }
 

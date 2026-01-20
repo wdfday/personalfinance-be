@@ -218,27 +218,52 @@ func ApplyUpdateCategoryRequest(req UpdateCategoryRequest) (map[string]any, erro
 func FromDefaultCategories(userID uuid.UUID, includeIncome, includeExpense bool) []*domain.Category {
 	categories := make([]*domain.Category, 0)
 
+	var displayOrderCounter int
+
+	// Helper to convert recursive definition
+	var convert func(def domain.DefaultCategoryDef, level int, parentID *uuid.UUID) *domain.Category
+	convert = func(def domain.DefaultCategoryDef, level int, parentID *uuid.UUID) *domain.Category {
+		desc := def.Description
+		icon := def.Icon
+		color := def.Color
+
+		cat := &domain.Category{
+			ID:           uuid.New(),
+			UserID:       &userID,
+			Name:         def.Name,
+			Description:  &desc,
+			Type:         def.Type,
+			Icon:         &icon,
+			Color:        &color,
+			IsDefault:    true,
+			IsActive:     true,
+			Level:        level,
+			DisplayOrder: displayOrderCounter,
+			ParentID:     parentID,
+		}
+
+		// Increment global display order counter for flat sorting fallback
+		// (though hierarchical sorting usually relies on parent -> children order)
+		displayOrderCounter++
+
+		// Process children
+		if len(def.SubCategories) > 0 {
+			cat.Children = make([]*domain.Category, 0, len(def.SubCategories))
+			for _, sub := range def.SubCategories {
+				child := convert(sub, level+1, &cat.ID) // Pass parent ID for reference, though GORM can handle object ref
+				child.Parent = cat                      // manual link
+				cat.Children = append(cat.Children, child)
+			}
+		}
+
+		return cat
+	}
+
 	// Add expense categories
 	if includeExpense {
 		expenseDefaults := domain.DefaultExpenseCategories()
-		for i, def := range expenseDefaults {
-			desc := def.Description
-			icon := def.Icon
-			color := def.Color
-
-			cat := &domain.Category{
-				UserID:       &userID,
-				Name:         def.Name,
-				Description:  &desc,
-				Type:         def.Type,
-				Icon:         &icon,
-				Color:        &color,
-				IsDefault:    true,
-				IsActive:     true,
-				Level:        0,
-				DisplayOrder: i,
-			}
-			cat.ID = uuid.New()
+		for _, def := range expenseDefaults {
+			cat := convert(def, 0, nil)
 			categories = append(categories, cat)
 		}
 	}
@@ -246,24 +271,8 @@ func FromDefaultCategories(userID uuid.UUID, includeIncome, includeExpense bool)
 	// Add income categories
 	if includeIncome {
 		incomeDefaults := domain.DefaultIncomeCategories()
-		for i, def := range incomeDefaults {
-			desc := def.Description
-			icon := def.Icon
-			color := def.Color
-
-			cat := &domain.Category{
-				UserID:       &userID,
-				Name:         def.Name,
-				Description:  &desc,
-				Type:         def.Type,
-				Icon:         &icon,
-				Color:        &color,
-				IsDefault:    true,
-				IsActive:     true,
-				Level:        0,
-				DisplayOrder: i,
-			}
-			cat.ID = uuid.New()
+		for _, def := range incomeDefaults {
+			cat := convert(def, 0, nil)
 			categories = append(categories, cat)
 		}
 	}

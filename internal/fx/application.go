@@ -12,6 +12,7 @@ import (
 	// "personalfinancedss/internal/module/analytic/tradeoff_analysis"
 	// New analytics module
 	"personalfinancedss/internal/module/analytics"
+	"personalfinancedss/internal/module/calendar"
 	// "personalfinancedss/internal/module/calendar"
 	"personalfinancedss/internal/module/cashflow/account"
 	"personalfinancedss/internal/module/cashflow/budget"
@@ -49,7 +50,7 @@ func Application() *fx.App {
 		account.Module,
 		category.Module,
 		transaction.Module,
-		// calendar.Module,
+		calendar.Module,
 		budget.Module,
 		income_profile.Module,
 		budget_profile.Module,

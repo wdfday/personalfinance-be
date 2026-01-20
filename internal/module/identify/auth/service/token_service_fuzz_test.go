@@ -3,14 +3,12 @@ package service
 import (
 	"strings"
 	"testing"
-
-	"go.uber.org/zap"
 )
 
 // FuzzTokenGeneration tests token generation never crashes
 // Run: go test -fuzz=FuzzTokenGeneration -fuzztime=30s
 func FuzzTokenGeneration(f *testing.F) {
-	service := NewTokenService(zap.NewNop())
+	service := NewTokenService()
 
 	// Seed with various prefixes
 	f.Add("")
@@ -62,7 +60,7 @@ func FuzzTokenGeneration(f *testing.F) {
 // FuzzUUIDValidation tests UUID validation with random strings
 // Run: go test -fuzz=FuzzUUIDValidation -fuzztime=30s
 func FuzzUUIDValidation(f *testing.F) {
-	service := NewTokenService(zap.NewNop())
+	service := NewTokenService()
 
 	// Seed with various UUID formats
 	f.Add("550e8400-e29b-41d4-a716-446655440000") // Valid UUID
@@ -88,14 +86,16 @@ func FuzzUUIDValidation(f *testing.F) {
 
 		// Check basic properties
 		if isValid {
-			// Valid UUID should have correct length (with dashes)
-			if len(uuidStr) != 36 {
+			// Valid UUID should have correct length (with or without dashes)
+			if len(uuidStr) != 36 && len(uuidStr) != 32 {
 				t.Errorf("Invalid UUID marked as valid: %q (length %d)", uuidStr, len(uuidStr))
 			}
 
-			// Should have dashes in correct positions
-			if uuidStr[8] != '-' || uuidStr[13] != '-' || uuidStr[18] != '-' || uuidStr[23] != '-' {
-				t.Errorf("Invalid UUID format marked as valid: %q", uuidStr)
+			// If 36 chars, should have dashes in correct positions
+			if len(uuidStr) == 36 {
+				if uuidStr[8] != '-' || uuidStr[13] != '-' || uuidStr[18] != '-' || uuidStr[23] != '-' {
+					t.Errorf("Invalid UUID format marked as valid: %q", uuidStr)
+				}
 			}
 		}
 	})
@@ -104,9 +104,12 @@ func FuzzUUIDValidation(f *testing.F) {
 // FuzzTokenWithoutPrefix tests basic token generation
 // Run: go test -fuzz=FuzzTokenWithoutPrefix -fuzztime=30s
 func FuzzTokenWithoutPrefix(f *testing.F) {
-	service := NewTokenService(zap.NewNop())
+	service := NewTokenService()
 
-	f.Fuzz(func(t *testing.T) {
+	// Add seed values - fuzz needs at least one input
+	f.Add(1)
+
+	f.Fuzz(func(t *testing.T, _ int) {
 		// Test that basic token generation is stable
 		defer func() {
 			if r := recover(); r != nil {
@@ -137,4 +140,3 @@ func FuzzTokenWithoutPrefix(f *testing.F) {
 		}
 	})
 }
-

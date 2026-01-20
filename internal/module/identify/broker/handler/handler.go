@@ -6,6 +6,7 @@ import (
 	"personalfinancedss/internal/module/identify/broker/domain"
 	"personalfinancedss/internal/module/identify/broker/dto"
 	"personalfinancedss/internal/module/identify/broker/service"
+	"personalfinancedss/internal/shared"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -65,7 +66,7 @@ func (h *BrokerConnectionHandler) RegisterRoutes(router *gin.Engine, authMiddlew
 // @Router /api/v1/broker-connections/providers [get]
 func (h *BrokerConnectionHandler) ListProviders(c *gin.Context) {
 	response := dto.GetBrokerProviders()
-	c.JSON(http.StatusOK, response)
+	shared.RespondWithSuccess(c, http.StatusOK, "Broker providers retrieved successfully", response)
 }
 
 // CreateSSI creates a new SSI broker connection
@@ -123,7 +124,7 @@ func (h *BrokerConnectionHandler) CreateSSI(c *gin.Context) {
 		zap.String("status", string(connection.Status)),
 	)
 
-	c.JSON(http.StatusCreated, dto.ToBrokerConnectionResponse(connection))
+	shared.RespondWithSuccess(c, http.StatusCreated, "SSI broker connection created successfully", dto.ToBrokerConnectionResponse(connection))
 }
 
 // CreateOKX creates a new OKX broker connection
@@ -181,7 +182,7 @@ func (h *BrokerConnectionHandler) CreateOKX(c *gin.Context) {
 		zap.String("status", string(connection.Status)),
 	)
 
-	c.JSON(http.StatusCreated, dto.ToBrokerConnectionResponse(connection))
+	shared.RespondWithSuccess(c, http.StatusCreated, "OKX broker connection created successfully", dto.ToBrokerConnectionResponse(connection))
 }
 
 // CreateSepay creates a new SePay broker connection
@@ -239,7 +240,7 @@ func (h *BrokerConnectionHandler) CreateSepay(c *gin.Context) {
 		zap.String("status", string(connection.Status)),
 	)
 
-	c.JSON(http.StatusCreated, dto.ToBrokerConnectionResponse(connection))
+	shared.RespondWithSuccess(c, http.StatusCreated, "SePay broker connection created successfully", dto.ToBrokerConnectionResponse(connection))
 }
 
 // List retrieves all broker connections for the authenticated user
@@ -286,11 +287,11 @@ func (h *BrokerConnectionHandler) List(c *gin.Context) {
 
 	connections, err := h.service.List(c.Request.Context(), userID, filters)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToBrokerConnectionListResponse(connections))
+	shared.RespondWithSuccess(c, http.StatusOK, "Broker connections retrieved successfully", dto.ToBrokerConnectionListResponse(connections))
 }
 
 // GetByID retrieves a broker connection by ID
@@ -320,11 +321,11 @@ func (h *BrokerConnectionHandler) GetByID(c *gin.Context) {
 
 	connection, err := h.service.GetByID(c.Request.Context(), connectionID, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToBrokerConnectionResponse(connection))
+	shared.RespondWithSuccess(c, http.StatusOK, "Broker connection retrieved successfully", dto.ToBrokerConnectionResponse(connection))
 }
 
 // Update updates a broker connection
@@ -380,11 +381,11 @@ func (h *BrokerConnectionHandler) Update(c *gin.Context) {
 
 	connection, err := h.service.Update(c.Request.Context(), connectionID, userID, serviceReq)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToBrokerConnectionResponse(connection))
+	shared.RespondWithSuccess(c, http.StatusOK, "Broker connection updated successfully", dto.ToBrokerConnectionResponse(connection))
 }
 
 // Delete soft-deletes a broker connection
@@ -412,11 +413,11 @@ func (h *BrokerConnectionHandler) Delete(c *gin.Context) {
 	}
 
 	if err := h.service.Delete(c.Request.Context(), connectionID, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	shared.RespondWithNoContent(c)
 }
 
 // Activate activates a broker connection
@@ -444,11 +445,11 @@ func (h *BrokerConnectionHandler) Activate(c *gin.Context) {
 	}
 
 	if err := h.service.Activate(c.Request.Context(), connectionID, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "broker connection activated"})
+	shared.RespondWithSuccessNoData(c, http.StatusOK, "Broker connection activated")
 }
 
 // Deactivate deactivates a broker connection
@@ -476,11 +477,11 @@ func (h *BrokerConnectionHandler) Deactivate(c *gin.Context) {
 	}
 
 	if err := h.service.Deactivate(c.Request.Context(), connectionID, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "broker connection deactivated"})
+	shared.RespondWithSuccessNoData(c, http.StatusOK, "Broker connection deactivated")
 }
 
 // RefreshToken refreshes the access token for a broker connection
@@ -509,11 +510,11 @@ func (h *BrokerConnectionHandler) RefreshToken(c *gin.Context) {
 
 	connection, err := h.service.RefreshToken(c.Request.Context(), connectionID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToBrokerConnectionResponse(connection))
+	shared.RespondWithSuccess(c, http.StatusOK, "Token refreshed successfully", dto.ToBrokerConnectionResponse(connection))
 }
 
 // TestConnection tests a broker connection
@@ -541,11 +542,11 @@ func (h *BrokerConnectionHandler) TestConnection(c *gin.Context) {
 	}
 
 	if err := h.service.TestConnection(c.Request.Context(), connectionID, userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "connection test successful"})
+	shared.RespondWithSuccessNoData(c, http.StatusOK, "Connection test successful")
 }
 
 // SyncNow manually triggers a sync for a broker connection
@@ -590,7 +591,7 @@ func (h *BrokerConnectionHandler) SyncNow(c *gin.Context) {
 		Details:            result.Details,
 	}
 
-	c.JSON(http.StatusOK, response)
+	shared.RespondWithSuccess(c, http.StatusOK, "Sync triggered successfully", response)
 }
 
 // Helper function to get user ID from context

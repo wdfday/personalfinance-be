@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestBudgetUpdater_UpdateBudget_Success(t *testing.T) {
@@ -173,14 +174,16 @@ func TestBudgetUpdater_MarkExpiredBudgets_Success(t *testing.T) {
 	}
 
 	mockRepo.On("FindExpiredBudgets", ctx).Return(expiredBudgets, nil)
-	mockRepo.On("Update", ctx, &expiredBudgets[0]).Return(nil)
-	mockRepo.On("Update", ctx, &expiredBudgets[1]).Return(nil)
+	mockRepo.On("Update", ctx, mock.MatchedBy(func(b *domain.Budget) bool {
+		return b.ID == expiredBudgets[0].ID && b.Status == domain.BudgetStatusExpired
+	})).Return(nil)
+	mockRepo.On("Update", ctx, mock.MatchedBy(func(b *domain.Budget) bool {
+		return b.ID == expiredBudgets[1].ID && b.Status == domain.BudgetStatusExpired
+	})).Return(nil)
 
 	err := service.MarkExpiredBudgets(ctx)
 
 	assert.NoError(t, err)
-	assert.Equal(t, domain.BudgetStatusExpired, expiredBudgets[0].Status)
-	assert.Equal(t, domain.BudgetStatusExpired, expiredBudgets[1].Status)
 	mockRepo.AssertExpectations(t)
 }
 

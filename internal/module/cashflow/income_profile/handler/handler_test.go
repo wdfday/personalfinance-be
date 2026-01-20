@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,7 @@ import (
 	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/cashflow/income_profile/domain"
 	"personalfinancedss/internal/module/cashflow/income_profile/dto"
-	"personalfinancedss/internal/module/identify/user/entity"
+	authDomain "personalfinancedss/internal/module/identify/auth/domain"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -19,12 +20,19 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	basePath          = "/income-profiles"
+	pathWithID        = "/income-profiles/:id"
+	contentTypeHeader = "Content-Type"
+	applicationJSON   = "application/json"
+)
+
 // MockService is a mock implementation of Service
 type MockService struct {
 	mock.Mock
 }
 
-func (m *MockService) CreateIncomeProfile(ctx any, userID string, req dto.CreateIncomeProfileRequest) (*domain.IncomeProfile, error) {
+func (m *MockService) CreateIncomeProfile(ctx context.Context, userID string, req dto.CreateIncomeProfileRequest) (*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -32,7 +40,7 @@ func (m *MockService) CreateIncomeProfile(ctx any, userID string, req dto.Create
 	return args.Get(0).(*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) GetIncomeProfile(ctx any, userID string, profileID string) (*domain.IncomeProfile, error) {
+func (m *MockService) GetIncomeProfile(ctx context.Context, userID string, profileID string) (*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID, profileID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -40,7 +48,7 @@ func (m *MockService) GetIncomeProfile(ctx any, userID string, profileID string)
 	return args.Get(0).(*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) GetIncomeProfileWithHistory(ctx any, userID string, profileID string) (*domain.IncomeProfile, []*domain.IncomeProfile, error) {
+func (m *MockService) GetIncomeProfileWithHistory(ctx context.Context, userID string, profileID string) (*domain.IncomeProfile, []*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID, profileID)
 	if args.Get(0) == nil {
 		return nil, nil, args.Error(2)
@@ -52,7 +60,7 @@ func (m *MockService) GetIncomeProfileWithHistory(ctx any, userID string, profil
 	return args.Get(0).(*domain.IncomeProfile), history, args.Error(2)
 }
 
-func (m *MockService) ListIncomeProfiles(ctx any, userID string, query dto.ListIncomeProfilesQuery) ([]*domain.IncomeProfile, error) {
+func (m *MockService) ListIncomeProfiles(ctx context.Context, userID string, query dto.ListIncomeProfilesQuery) ([]*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID, query)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -60,7 +68,7 @@ func (m *MockService) ListIncomeProfiles(ctx any, userID string, query dto.ListI
 	return args.Get(0).([]*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) GetActiveIncomes(ctx any, userID string) ([]*domain.IncomeProfile, error) {
+func (m *MockService) GetActiveIncomes(ctx context.Context, userID string) ([]*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -68,7 +76,7 @@ func (m *MockService) GetActiveIncomes(ctx any, userID string) ([]*domain.Income
 	return args.Get(0).([]*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) GetArchivedIncomes(ctx any, userID string) ([]*domain.IncomeProfile, error) {
+func (m *MockService) GetArchivedIncomes(ctx context.Context, userID string) ([]*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -76,7 +84,7 @@ func (m *MockService) GetArchivedIncomes(ctx any, userID string) ([]*domain.Inco
 	return args.Get(0).([]*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) GetRecurringIncomes(ctx any, userID string) ([]*domain.IncomeProfile, error) {
+func (m *MockService) GetRecurringIncomes(ctx context.Context, userID string) ([]*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -84,7 +92,7 @@ func (m *MockService) GetRecurringIncomes(ctx any, userID string) ([]*domain.Inc
 	return args.Get(0).([]*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) UpdateIncomeProfile(ctx any, userID string, profileID string, req dto.UpdateIncomeProfileRequest) (*domain.IncomeProfile, error) {
+func (m *MockService) UpdateIncomeProfile(ctx context.Context, userID string, profileID string, req dto.UpdateIncomeProfileRequest) (*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID, profileID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -92,7 +100,7 @@ func (m *MockService) UpdateIncomeProfile(ctx any, userID string, profileID stri
 	return args.Get(0).(*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) VerifyIncomeProfile(ctx any, userID string, profileID string, verified bool) (*domain.IncomeProfile, error) {
+func (m *MockService) VerifyIncomeProfile(ctx context.Context, userID string, profileID string, verified bool) (*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID, profileID, verified)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -100,7 +108,7 @@ func (m *MockService) VerifyIncomeProfile(ctx any, userID string, profileID stri
 	return args.Get(0).(*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) UpdateDSSMetadata(ctx any, userID string, profileID string, req dto.UpdateDSSMetadataRequest) (*domain.IncomeProfile, error) {
+func (m *MockService) UpdateDSSMetadata(ctx context.Context, userID string, profileID string, req dto.UpdateDSSMetadataRequest) (*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID, profileID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -108,17 +116,17 @@ func (m *MockService) UpdateDSSMetadata(ctx any, userID string, profileID string
 	return args.Get(0).(*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) ArchiveIncomeProfile(ctx any, userID string, profileID string) error {
+func (m *MockService) ArchiveIncomeProfile(ctx context.Context, userID string, profileID string) error {
 	args := m.Called(ctx, userID, profileID)
 	return args.Error(0)
 }
 
-func (m *MockService) CheckAndArchiveEnded(ctx any, userID string) (int, error) {
+func (m *MockService) CheckAndArchiveEnded(ctx context.Context, userID string) (int, error) {
 	args := m.Called(ctx, userID)
 	return args.Int(0), args.Error(1)
 }
 
-func (m *MockService) DeleteIncomeProfile(ctx any, userID string, profileID string) error {
+func (m *MockService) DeleteIncomeProfile(ctx context.Context, userID string, profileID string) error {
 	args := m.Called(ctx, userID, profileID)
 	return args.Error(0)
 }
@@ -131,14 +139,14 @@ func setupRouter() (*gin.Engine, *MockService) {
 }
 
 func setUserContext(c *gin.Context, userID uuid.UUID) {
-	user := &entity.User{
-		ID:    userID,
-		Email: "test@example.com",
+	user := authDomain.AuthUser{
+		ID:       userID,
+		Username: "test@example.com",
 	}
-	c.Set(middleware.CurrentUserKey, user)
+	c.Set(middleware.UserKey, user)
 }
 
-func TestHandler_CreateIncomeProfile(t *testing.T) {
+func TestHandlerCreateIncomeProfile(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -157,17 +165,22 @@ func TestHandler_CreateIncomeProfile(t *testing.T) {
 		Amount: req.Amount,
 	}
 
+	// Strip monotonic clock from time.Now() by round-tripping through JSON
+	// This ensures the mock expectation matches what the handler receives (JSON-decoded struct)
+	body, _ := json.Marshal(req)
+	_ = json.Unmarshal(body, &req)
+
 	mockService.On("CreateIncomeProfile", mock.Anything, userID.String(), req).Return(expectedProfile, nil)
 
-	r.POST("/income-profiles", func(c *gin.Context) {
+	r.POST(basePath, func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.createIncomeProfile(c)
 	})
 
-	body, _ := json.Marshal(req)
+	body, _ = json.Marshal(req)
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("POST", "/income-profiles", bytes.NewBuffer(body))
-	request.Header.Set("Content-Type", "application/json")
+	request, _ := http.NewRequest("POST", basePath, bytes.NewBuffer(body))
+	request.Header.Set(contentTypeHeader, applicationJSON)
 
 	r.ServeHTTP(w, request)
 
@@ -175,7 +188,7 @@ func TestHandler_CreateIncomeProfile(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_GetIncomeProfile(t *testing.T) {
+func TestHandlerGetIncomeProfile(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -191,13 +204,13 @@ func TestHandler_GetIncomeProfile(t *testing.T) {
 
 	mockService.On("GetIncomeProfile", mock.Anything, userID.String(), profileID.String()).Return(expectedProfile, nil)
 
-	r.GET("/income-profiles/:id", func(c *gin.Context) {
+	r.GET(pathWithID, func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.getIncomeProfile(c)
 	})
 
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("GET", "/income-profiles/"+profileID.String(), nil)
+	request, _ := http.NewRequest("GET", basePath+"/"+profileID.String(), nil)
 
 	r.ServeHTTP(w, request)
 
@@ -205,7 +218,7 @@ func TestHandler_GetIncomeProfile(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_ListIncomeProfiles(t *testing.T) {
+func TestHandlerListIncomeProfiles(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -221,13 +234,13 @@ func TestHandler_ListIncomeProfiles(t *testing.T) {
 
 	mockService.On("ListIncomeProfiles", mock.Anything, userID.String(), mock.AnythingOfType("dto.ListIncomeProfilesQuery")).Return(expectedProfiles, nil)
 
-	r.GET("/income-profiles", func(c *gin.Context) {
+	r.GET(basePath, func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.listIncomeProfiles(c)
 	})
 
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("GET", "/income-profiles", nil)
+	request, _ := http.NewRequest("GET", basePath, nil)
 
 	r.ServeHTTP(w, request)
 
@@ -235,7 +248,7 @@ func TestHandler_ListIncomeProfiles(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_GetIncomeProfileHistory(t *testing.T) {
+func TestHandlerGetIncomeProfileHistory(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -258,13 +271,13 @@ func TestHandler_GetIncomeProfileHistory(t *testing.T) {
 
 	mockService.On("GetIncomeProfileWithHistory", mock.Anything, userID.String(), profileID.String()).Return(currentProfile, historyProfiles, nil)
 
-	r.GET("/income-profiles/:id/history", func(c *gin.Context) {
+	r.GET(pathWithID+"/history", func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.getIncomeProfileHistory(c)
 	})
 
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("GET", "/income-profiles/"+profileID.String()+"/history", nil)
+	request, _ := http.NewRequest("GET", basePath+"/"+profileID.String()+"/history", nil)
 
 	r.ServeHTTP(w, request)
 
@@ -272,7 +285,7 @@ func TestHandler_GetIncomeProfileHistory(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_GetActiveIncomes(t *testing.T) {
+func TestHandlerGetActiveIncomes(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -288,13 +301,13 @@ func TestHandler_GetActiveIncomes(t *testing.T) {
 
 	mockService.On("GetActiveIncomes", mock.Anything, userID.String()).Return(expectedProfiles, nil)
 
-	r.GET("/income-profiles/active", func(c *gin.Context) {
+	r.GET(basePath+"/active", func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.getActiveIncomes(c)
 	})
 
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("GET", "/income-profiles/active", nil)
+	request, _ := http.NewRequest("GET", basePath+"/active", nil)
 
 	r.ServeHTTP(w, request)
 
@@ -302,7 +315,7 @@ func TestHandler_GetActiveIncomes(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_UpdateIncomeProfile(t *testing.T) {
+func TestHandlerLoadIncomeProfile(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -323,15 +336,15 @@ func TestHandler_UpdateIncomeProfile(t *testing.T) {
 
 	mockService.On("UpdateIncomeProfile", mock.Anything, userID.String(), profileID.String(), req).Return(newVersion, nil)
 
-	r.PUT("/income-profiles/:id", func(c *gin.Context) {
+	r.PUT(pathWithID, func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.updateIncomeProfile(c)
 	})
 
 	body, _ := json.Marshal(req)
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("PUT", "/income-profiles/"+profileID.String(), bytes.NewBuffer(body))
-	request.Header.Set("Content-Type", "application/json")
+	request, _ := http.NewRequest("PUT", basePath+"/"+profileID.String(), bytes.NewBuffer(body))
+	request.Header.Set(contentTypeHeader, applicationJSON)
 
 	r.ServeHTTP(w, request)
 
@@ -339,7 +352,7 @@ func TestHandler_UpdateIncomeProfile(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_VerifyIncomeProfile(t *testing.T) {
+func TestHandlerVerifyIncomeProfile(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -358,15 +371,15 @@ func TestHandler_VerifyIncomeProfile(t *testing.T) {
 
 	mockService.On("VerifyIncomeProfile", mock.Anything, userID.String(), profileID.String(), true).Return(verifiedProfile, nil)
 
-	r.POST("/income-profiles/:id/verify", func(c *gin.Context) {
+	r.POST(pathWithID+"/verify", func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.verifyIncomeProfile(c)
 	})
 
 	body, _ := json.Marshal(verifyReq)
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("POST", "/income-profiles/"+profileID.String()+"/verify", bytes.NewBuffer(body))
-	request.Header.Set("Content-Type", "application/json")
+	request, _ := http.NewRequest("POST", basePath+"/"+profileID.String()+"/verify", bytes.NewBuffer(body))
+	request.Header.Set(contentTypeHeader, applicationJSON)
 
 	r.ServeHTTP(w, request)
 
@@ -374,7 +387,7 @@ func TestHandler_VerifyIncomeProfile(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_ArchiveIncomeProfile(t *testing.T) {
+func TestHandlerArchiveIncomeProfile(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -383,13 +396,13 @@ func TestHandler_ArchiveIncomeProfile(t *testing.T) {
 
 	mockService.On("ArchiveIncomeProfile", mock.Anything, userID.String(), profileID.String()).Return(nil)
 
-	r.POST("/income-profiles/:id/archive", func(c *gin.Context) {
+	r.POST(pathWithID+"/archive", func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.archiveIncomeProfile(c)
 	})
 
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("POST", "/income-profiles/"+profileID.String()+"/archive", nil)
+	request, _ := http.NewRequest("POST", basePath+"/"+profileID.String()+"/archive", nil)
 
 	r.ServeHTTP(w, request)
 
@@ -397,7 +410,7 @@ func TestHandler_ArchiveIncomeProfile(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_UpdateDSSMetadata(t *testing.T) {
+func TestHandlerUpdateDSSMetadata(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -416,15 +429,15 @@ func TestHandler_UpdateDSSMetadata(t *testing.T) {
 
 	mockService.On("UpdateDSSMetadata", mock.Anything, userID.String(), profileID.String(), dssReq).Return(updatedProfile, nil)
 
-	r.POST("/income-profiles/:id/dss-metadata", func(c *gin.Context) {
+	r.POST(pathWithID+"/dss-metadata", func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.updateDSSMetadata(c)
 	})
 
 	body, _ := json.Marshal(dssReq)
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("POST", "/income-profiles/"+profileID.String()+"/dss-metadata", bytes.NewBuffer(body))
-	request.Header.Set("Content-Type", "application/json")
+	request, _ := http.NewRequest("POST", basePath+"/"+profileID.String()+"/dss-metadata", bytes.NewBuffer(body))
+	request.Header.Set(contentTypeHeader, applicationJSON)
 
 	r.ServeHTTP(w, request)
 
@@ -432,7 +445,7 @@ func TestHandler_UpdateDSSMetadata(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_CheckAndArchiveEnded(t *testing.T) {
+func TestHandlerCheckAndArchiveEnded(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -440,13 +453,13 @@ func TestHandler_CheckAndArchiveEnded(t *testing.T) {
 
 	mockService.On("CheckAndArchiveEnded", mock.Anything, userID.String()).Return(3, nil)
 
-	r.POST("/income-profiles/check-ended", func(c *gin.Context) {
+	r.POST(basePath+"/check-ended", func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.checkAndArchiveEnded(c)
 	})
 
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("POST", "/income-profiles/check-ended", nil)
+	request, _ := http.NewRequest("POST", basePath+"/check-ended", nil)
 
 	r.ServeHTTP(w, request)
 
@@ -462,7 +475,7 @@ func TestHandler_CheckAndArchiveEnded(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_DeleteIncomeProfile(t *testing.T) {
+func TestHandlerDeleteIncomeProfile(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
@@ -471,13 +484,13 @@ func TestHandler_DeleteIncomeProfile(t *testing.T) {
 
 	mockService.On("DeleteIncomeProfile", mock.Anything, userID.String(), profileID.String()).Return(nil)
 
-	r.DELETE("/income-profiles/:id", func(c *gin.Context) {
+	r.DELETE(pathWithID, func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.deleteIncomeProfile(c)
 	})
 
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("DELETE", "/income-profiles/"+profileID.String(), nil)
+	request, _ := http.NewRequest("DELETE", basePath+"/"+profileID.String(), nil)
 
 	r.ServeHTTP(w, request)
 
@@ -485,21 +498,21 @@ func TestHandler_DeleteIncomeProfile(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_CreateIncomeProfile_InvalidRequest(t *testing.T) {
+func TestHandlerCreateIncomeProfileInvalidRequest(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
 	userID := uuid.New()
 
-	r.POST("/income-profiles", func(c *gin.Context) {
+	r.POST(basePath, func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.createIncomeProfile(c)
 	})
 
 	// Invalid JSON
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("POST", "/income-profiles", bytes.NewBufferString("invalid json"))
-	request.Header.Set("Content-Type", "application/json")
+	request, _ := http.NewRequest("POST", basePath, bytes.NewBufferString("invalid json"))
+	request.Header.Set(contentTypeHeader, applicationJSON)
 
 	r.ServeHTTP(w, request)
 
@@ -507,19 +520,19 @@ func TestHandler_CreateIncomeProfile_InvalidRequest(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandler_GetIncomeProfile_InvalidID(t *testing.T) {
+func TestHandlerGetIncomeProfileInvalidID(t *testing.T) {
 	r, mockService := setupRouter()
 	handler := NewHandler(mockService)
 
 	userID := uuid.New()
 
-	r.GET("/income-profiles/:id", func(c *gin.Context) {
+	r.GET(pathWithID, func(c *gin.Context) {
 		setUserContext(c, userID)
 		handler.getIncomeProfile(c)
 	})
 
 	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("GET", "/income-profiles/invalid-uuid", nil)
+	request, _ := http.NewRequest("GET", basePath+"/invalid-uuid", nil)
 
 	r.ServeHTTP(w, request)
 

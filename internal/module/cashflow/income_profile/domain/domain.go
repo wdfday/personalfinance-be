@@ -21,6 +21,9 @@ type IncomeProfile struct {
 	ID     uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 	UserID uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"user_id"`
 
+	// Linked Resources
+	CategoryID uuid.UUID `gorm:"type:uuid;not null;index;column:category_id" json:"category_id"`
+
 	// Period tracking
 	StartDate time.Time  `gorm:"not null;column:start_date" json:"start_date"`
 	EndDate   *time.Time `gorm:"column:end_date" json:"end_date,omitempty"`
@@ -40,7 +43,7 @@ type IncomeProfile struct {
 
 	// Status and lifecycle
 	Status      IncomeStatus `gorm:"type:varchar(20);default:'active';column:status" json:"status"`
-	IsRecurring bool         `gorm:"default:true;column:is_recurring" json:"is_recurring"`
+	IsRecurring bool         `gorm:"column:is_recurring" json:"is_recurring"`
 	IsVerified  bool         `gorm:"default:false;column:is_verified" json:"is_verified"` // User confirmed actual receipt
 
 	// DSS Analysis Metadata (JSONB)
@@ -59,8 +62,7 @@ type IncomeProfile struct {
 
 	// Additional metadata
 	Description string         `gorm:"type:text;column:description" json:"description,omitempty"`
-	Tags        datatypes.JSON `gorm:"type:jsonb;column:tags" json:"tags,omitempty"` // ["primary", "stable", "taxable"]
-
+	Tags        datatypes.JSON `gorm:"type:jsonb;column:tags" json:"tags,omitempty"`
 	// Timestamps
 	CreatedAt time.Time      `gorm:"autoCreateTime;column:created_at" json:"created_at"`
 	UpdatedAt time.Time      `gorm:"autoUpdateTime;column:updated_at" json:"updated_at"`
@@ -98,8 +100,13 @@ func NewIncomeProfile(
 	frequency string,
 	startDate time.Time,
 ) (*IncomeProfile, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return nil, err
+	}
+
 	ip := &IncomeProfile{
-		ID:          uuid.New(),
+		ID:          id,
 		UserID:      userID,
 		Source:      source,
 		Amount:      amount,

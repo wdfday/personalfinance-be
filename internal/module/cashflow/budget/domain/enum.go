@@ -59,3 +59,18 @@ func (at AlertThreshold) IsValid() bool {
 	}
 	return false
 }
+
+// ToFloat64 converts alert threshold to float64 percentage
+func (at AlertThreshold) ToFloat64() float64 {
+	switch at {
+	case AlertAt50:
+		return 50.0
+	case AlertAt75:
+		return 75.0
+	case AlertAt90:
+		return 90.0
+	case AlertAt100:
+		return 100.0
+	}
+	return 0.0
+}

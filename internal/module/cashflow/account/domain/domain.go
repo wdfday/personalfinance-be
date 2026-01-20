@@ -21,8 +21,9 @@ type Account struct {
 	AvailableBalance *float64 `gorm:"type:decimal(15,2);column:available_balance" json:"availableBalance,omitempty"`
 	Currency         Currency `gorm:"type:varchar(3);default:'VND';column:currency" json:"currency"`
 
-	AccountNumberMasked    *string `gorm:"type:varchar(50);column:account_number_masked" json:"accountNumberMasked,omitempty"`
-	AccountNumberEncrypted *string `gorm:"type:text;column:account_number_encrypted" json:"-"`
+	AccountNumberMasked    *string  `gorm:"type:varchar(50);column:account_number_masked" json:"accountNumberMasked,omitempty"`
+	AccountNumberEncrypted *string  `gorm:"type:text;column:account_number_encrypted" json:"-"`
+	CreditLimit            *float64 `gorm:"type:decimal(15,2);column:credit_limit" json:"creditLimit,omitempty"`
 
 	IsActive          bool `gorm:"default:true;column:is_active" json:"isActive"`
 	IsPrimary         bool `gorm:"default:false;column:is_primary" json:"isPrimary"`

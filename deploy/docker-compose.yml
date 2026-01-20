@@ -1,11 +1,10 @@
-version: '3.8'
-
 # Development Docker Compose - Only PostgreSQL
 # Backend will run locally via: go run ./cmd/server
+name: personalfinancedss
 
 services:
   postgres:
-    image: postgres:latest
+    image: postgres:18-alpine
     container_name: personalfinancedss-postgres-dev
     restart: unless-stopped
     environment:
@@ -13,9 +12,9 @@ services:
       POSTGRES_PASSWORD: finance_password
       POSTGRES_DB: finance_dss
     ports:
-      - "5434:5432"
+      - "5432:5432"
     volumes:
-      - postgres_data_dev:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
 #      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U finance_user -d finance_dss"]
@@ -23,7 +22,24 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: personalfinancedss-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
-  postgres_data_dev:
+  postgres_data:
+    driver: local
+  redis_data:
     driver: local
 

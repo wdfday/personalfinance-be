@@ -28,6 +28,22 @@ func (s *budgetConstraintService) CreateBudgetConstraint(ctx context.Context, us
 			WithDetails("reason", "invalid UUID format")
 	}
 
+	// Validate minimum amount
+	if req.MinimumAmount < 0 {
+		return nil, shared.ErrBadRequest.
+			WithDetails("field", "minimum_amount").
+			WithDetails("reason", "minimum amount must be non-negative")
+	}
+
+	// Validate maximum amount if provided
+	if req.MaximumAmount != nil {
+		if *req.MaximumAmount < req.MinimumAmount {
+			return nil, shared.ErrBadRequest.
+				WithDetails("field", "maximum_amount").
+				WithDetails("reason", "maximum amount must be greater than or equal to minimum amount")
+		}
+	}
+
 	// Check if budget constraint already exists for this category
 	exists, err := s.repo.Exists(ctx, userUUID, categoryID)
 	if err != nil {

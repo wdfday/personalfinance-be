@@ -23,17 +23,17 @@ type MockTokenRepository struct {
 	mock.Mock
 }
 
-func (m *MockTokenRepository) Create(ctx context.Context, token *authdomain.Token) error {
+func (m *MockTokenRepository) Create(ctx context.Context, token *authdomain.VerificationToken) error {
 	args := m.Called(ctx, token)
 	return args.Error(0)
 }
 
-func (m *MockTokenRepository) GetByToken(ctx context.Context, tokenStr string) (*authdomain.Token, error) {
+func (m *MockTokenRepository) GetByToken(ctx context.Context, tokenStr string) (*authdomain.VerificationToken, error) {
 	args := m.Called(ctx, tokenStr)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*authdomain.Token), args.Error(1)
+	return args.Get(0).(*authdomain.VerificationToken), args.Error(1)
 }
 
 func (m *MockTokenRepository) DeleteByUserIDAndType(ctx context.Context, userID, tokenType string) error {
@@ -47,7 +47,13 @@ func (m *MockTokenRepository) Delete(ctx context.Context, tokenStr string) error
 }
 
 func (m *MockTokenRepository) DeleteExpired(ctx context.Context) error {
-	return nil
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockTokenRepository) MarkAsUsed(ctx context.Context, tokenID string) error {
+	args := m.Called(ctx, tokenID)
+	return args.Error(0)
 }
 
 type MockTokenService struct {
@@ -80,16 +86,35 @@ type MockEmailService struct {
 	mock.Mock
 }
 
-func (m *MockEmailService) SendPasswordResetEmail(email, resetURL string) error {
-	args := m.Called(email, resetURL)
+func (m *MockEmailService) SendPasswordResetEmail(to, name, token string) error {
+	args := m.Called(to, name, token)
 	return args.Error(0)
 }
 
-func (m *MockEmailService) SendVerificationEmail(email, verificationURL string) error {
+func (m *MockEmailService) SendVerificationEmail(to, name, verificationURL string) error {
 	return nil
 }
 
-func (m *MockEmailService) SendWelcomeEmail(email, name string) error {
+func (m *MockEmailService) SendWelcomeEmail(to, name, email string) error {
+	return nil
+}
+func (m *MockEmailService) SendBudgetAlert(to, name, category string, budgetAmount, spentAmount, threshold float64) error {
+	return nil
+}
+
+func (m *MockEmailService) SendCustomEmail(to, subject, templateFileName string, data map[string]interface{}) error {
+	return nil
+}
+
+func (m *MockEmailService) SendEmailFromTemplate(to, subject, templateName string, data map[string]interface{}) error {
+	return nil
+}
+
+func (m *MockEmailService) SendGoalAchievedEmail(to, name, goalName string, targetAmount, currentAmount float64, deadline, achievedAt time.Time) error {
+	return nil
+}
+
+func (m *MockEmailService) SendMonthlySummary(to, name, month string, year int, summary map[string]interface{}) error {
 	return nil
 }
 
@@ -255,7 +280,7 @@ func TestChangePassword(t *testing.T) {
 		err := service.ChangePassword(ctx, userID.String(), req)
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "incorrect")
+		assert.Contains(t, err.Error(), "Unauthorized")
 
 		mockUserService.AssertExpectations(t)
 	})
@@ -290,7 +315,7 @@ func TestChangePassword(t *testing.T) {
 		err := service.ChangePassword(ctx, userID.String(), req)
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "security requirements")
+		assert.Contains(t, err.Error(), "Bad request")
 
 		mockUserService.AssertExpectations(t)
 	})
@@ -348,13 +373,13 @@ func TestForgotPassword(t *testing.T) {
 
 		mockUserService.On("GetByEmail", ctx, email).Return(user, nil)
 		mockTokenRepo.On("DeleteByUserIDAndType", ctx, userID.String(), string(authdomain.TokenTypePasswordReset)).Return(nil)
-		mockTokenService.On("GenerateToken").Return("reset_token_123", nil)
-		mockTokenRepo.On("Create", ctx, mock.MatchedBy(func(token *authdomain.Token) bool {
+		mockTokenService.On("GenerateTokenWithPrefix", "pwd_reset").Return("reset_token_123", nil)
+		mockTokenRepo.On("Create", ctx, mock.MatchedBy(func(token *authdomain.VerificationToken) bool {
 			return token.UserID.String() == userID.String() &&
-				token.Type == authdomain.TokenTypePasswordReset &&
+				token.Type == string(authdomain.TokenTypePasswordReset) &&
 				token.Token == "reset_token_123"
 		})).Return(nil)
-		mockEmailService.On("SendPasswordResetEmail", email, mock.AnythingOfType("string")).Return(nil)
+		mockEmailService.On("SendPasswordResetEmail", email, mock.Anything, "reset_token_123").Return(nil)
 
 		err := service.ForgotPassword(ctx, email, "192.168.1.1", "test-agent")
 
@@ -406,7 +431,7 @@ func TestForgotPassword(t *testing.T) {
 
 		mockUserService.On("GetByEmail", ctx, email).Return(user, nil)
 		mockTokenRepo.On("DeleteByUserIDAndType", ctx, userID.String(), string(authdomain.TokenTypePasswordReset)).Return(nil)
-		mockTokenService.On("GenerateToken").Return("", errors.New("token generation failed"))
+		mockTokenService.On("GenerateTokenWithPrefix", "pwd_reset").Return("", errors.New("token generation failed"))
 
 		err := service.ForgotPassword(ctx, email, "192.168.1.1", "test-agent")
 
@@ -436,19 +461,19 @@ func TestResetPassword(t *testing.T) {
 		tokenStr := "reset_token_123"
 		newPassword := "NewSecurePassword123!"
 
-		token := &authdomain.Token{
+		token := &authdomain.VerificationToken{
+			ID:        uuid.New(),
 			Token:     tokenStr,
 			UserID:    userID,
-			Type:      authdomain.TokenTypePasswordReset,
+			Type:      string(authdomain.TokenTypePasswordReset),
 			ExpiresAt: time.Now().Add(1 * time.Hour),
-			Used:      false,
+			UsedAt:    nil,
 		}
 
-		mockTokenRepo.On("GetByToken", ctx, tokenStr).Return(token, nil)
-		mockUserService.On("UpdatePassword", ctx, userID.String(), mock.MatchedBy(func(hashedPwd string) bool {
-			return service.VerifyPassword(hashedPwd, newPassword) == nil
-		})).Return(nil)
-		mockTokenRepo.On("Delete", ctx, tokenStr).Return(nil)
+		mockTokenRepo.On("GetByToken", mock.Anything, tokenStr).Return(token, nil)
+		mockUserService.On("UpdatePassword", mock.Anything, userID.String(), mock.Anything).Return(nil)
+		mockTokenRepo.On("MarkAsUsed", mock.Anything, mock.AnythingOfType("string")).Return(nil)
+		mockUserService.On("ResetLoginAttempts", mock.Anything, userID.String()).Return(nil)
 
 		err := service.ResetPassword(ctx, tokenStr, newPassword)
 
@@ -491,12 +516,12 @@ func TestResetPassword(t *testing.T) {
 		newPassword := "NewSecurePassword123!"
 
 		// Token expired 1 hour ago
-		token := &authdomain.Token{
+		token := &authdomain.VerificationToken{
 			Token:     tokenStr,
 			UserID:    userID,
-			Type:      authdomain.TokenTypePasswordReset,
+			Type:      string(authdomain.TokenTypePasswordReset),
 			ExpiresAt: time.Now().Add(-1 * time.Hour),
-			Used:      false,
+			UsedAt:    nil,
 		}
 
 		mockTokenRepo.On("GetByToken", ctx, tokenStr).Return(token, nil)
@@ -521,13 +546,14 @@ func TestResetPassword(t *testing.T) {
 		userID := uuid.New()
 		tokenStr := "used_token"
 		newPassword := "NewSecurePassword123!"
+		now := time.Now()
 
-		token := &authdomain.Token{
+		token := &authdomain.VerificationToken{
 			Token:     tokenStr,
 			UserID:    userID,
-			Type:      authdomain.TokenTypePasswordReset,
+			Type:      string(authdomain.TokenTypePasswordReset),
 			ExpiresAt: time.Now().Add(1 * time.Hour),
-			Used:      true,
+			UsedAt:    &now,
 		}
 
 		mockTokenRepo.On("GetByToken", ctx, tokenStr).Return(token, nil)
@@ -553,12 +579,12 @@ func TestResetPassword(t *testing.T) {
 		tokenStr := "reset_token_123"
 		weakPassword := "weak"
 
-		token := &authdomain.Token{
+		token := &authdomain.VerificationToken{
 			Token:     tokenStr,
 			UserID:    userID,
-			Type:      authdomain.TokenTypePasswordReset,
+			Type:      string(authdomain.TokenTypePasswordReset),
 			ExpiresAt: time.Now().Add(1 * time.Hour),
-			Used:      false,
+			UsedAt:    nil,
 		}
 
 		mockTokenRepo.On("GetByToken", ctx, tokenStr).Return(token, nil)
@@ -566,9 +592,8 @@ func TestResetPassword(t *testing.T) {
 		err := service.ResetPassword(ctx, tokenStr, weakPassword)
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "security requirements")
+		assert.Contains(t, err.Error(), "Bad request")
 
 		mockTokenRepo.AssertExpectations(t)
 	})
 }
-

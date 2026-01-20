@@ -9,6 +9,7 @@ import (
 	"personalfinancedss/internal/shared"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // Handler handles income profile-related HTTP requests
@@ -156,6 +157,10 @@ func (h *Handler) getIncomeProfile(c *gin.Context) {
 
 	// Get income profile ID from path
 	profileID := c.Param("id")
+	if _, err := uuid.Parse(profileID); err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, "invalid profile id")
+		return
+	}
 
 	// Get income profile
 	ip, err := h.service.GetIncomeProfile(c.Request.Context(), user.ID.String(), profileID)

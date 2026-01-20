@@ -8,6 +8,8 @@ import (
 	"personalfinancedss/internal/module/cashflow/account/domain"
 	accountdto "personalfinancedss/internal/module/cashflow/account/dto"
 	"personalfinancedss/internal/shared"
+
+	"github.com/google/uuid"
 )
 
 // UpdateAccount updates an existing account
@@ -103,6 +105,22 @@ func (s *accountService) unsetPrimaryAccount(ctx context.Context, userID string)
 				return err
 			}
 		}
+	}
+
+	return nil
+}
+
+// UpdateAvailableBalance updates the available balance of an account
+func (s *accountService) UpdateAvailableBalance(ctx context.Context, accountID uuid.UUID, availableBalance float64) error {
+	// Directly update the available_balance column
+	err := s.repo.UpdateColumns(ctx, accountID.String(), map[string]any{
+		"available_balance": availableBalance,
+	})
+	if err != nil {
+		if err == shared.ErrNotFound {
+			return shared.ErrNotFound
+		}
+		return shared.ErrInternal.WithError(err)
 	}
 
 	return nil

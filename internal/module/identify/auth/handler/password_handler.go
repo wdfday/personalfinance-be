@@ -92,10 +92,9 @@ func (h *PasswordHandler) forgotPassword(c *gin.Context) {
 	ipAddress := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 
-	if err := h.passwordService.ForgotPassword(c.Request.Context(), req.Email, ipAddress, userAgent); err != nil {
-		shared.HandleError(c, err)
-		return
-	}
+	// Ignore errors intentionally - we always return success for security reasons
+	// This prevents user enumeration attacks
+	_ = h.passwordService.ForgotPassword(c.Request.Context(), req.Email, ipAddress, userAgent)
 
 	// Always return success for security reasons
 	shared.RespondWithSuccessNoData(c, http.StatusOK, "If the email exists, a password reset link has been sent")

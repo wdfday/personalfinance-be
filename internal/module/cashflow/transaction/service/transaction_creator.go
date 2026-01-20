@@ -105,8 +105,9 @@ func (s *transactionService) CreateTransaction(ctx context.Context, userID strin
 	)
 
 	// Build links
+	var links []domain.TransactionLink
 	if len(req.Links) > 0 {
-		links := make([]domain.TransactionLink, 0, len(req.Links))
+		links = make([]domain.TransactionLink, 0, len(req.Links))
 		for _, linkDTO := range req.Links {
 			links = append(links, domain.TransactionLink{
 				Type: domain.LinkType(linkDTO.Type),
@@ -114,6 +115,13 @@ func (s *transactionService) CreateTransaction(ctx context.Context, userID strin
 			})
 		}
 		transaction.Links = &links
+
+		// Validate links before creating transaction
+		if s.linkProcessor != nil {
+			if err := s.linkProcessor.ValidateLinks(ctx, userUUID, links); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Build metadata
@@ -122,6 +130,15 @@ func (s *transactionService) CreateTransaction(ctx context.Context, userID strin
 	// Create transaction in repository
 	if err := s.repo.Create(ctx, transaction); err != nil {
 		return nil, shared.ErrInternal.WithError(err)
+	}
+
+	// Process links after transaction is created
+	if s.linkProcessor != nil && len(links) > 0 {
+		if err := s.linkProcessor.ProcessLinks(ctx, userUUID, req.Amount, direction, links); err != nil {
+			// Log the error but don't fail the transaction creation
+			// The link processing is a side effect
+			// TODO: Consider rollback strategy
+		}
 	}
 
 	// Retrieve the created transaction

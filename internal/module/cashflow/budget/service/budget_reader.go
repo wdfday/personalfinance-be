@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"personalfinancedss/internal/module/cashflow/budget/domain"
+	"personalfinancedss/internal/module/cashflow/budget/repository"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,6 +24,28 @@ func NewBudgetReader(service *budgetService) *BudgetReader {
 func (r *BudgetReader) GetBudgetByID(ctx context.Context, budgetID uuid.UUID) (*domain.Budget, error) {
 	r.service.logger.Debug("Getting budget by ID", zap.String("budget_id", budgetID.String()))
 	return r.service.repo.FindByID(ctx, budgetID)
+}
+
+// GetBudgetByIDForUser retrieves a budget by ID with ownership verification
+func (r *BudgetReader) GetBudgetByIDForUser(ctx context.Context, budgetID, userID uuid.UUID) (*domain.Budget, error) {
+	r.service.logger.Debug("Getting budget by ID for user",
+		zap.String("budget_id", budgetID.String()),
+		zap.String("user_id", userID.String()),
+	)
+	return r.service.repo.FindByIDAndUserID(ctx, budgetID, userID)
+}
+
+// GetUserBudgetsPaginated retrieves budgets for a user with pagination
+func (r *BudgetReader) GetUserBudgetsPaginated(ctx context.Context, userID uuid.UUID, page, pageSize int) (*repository.PaginatedResult, error) {
+	r.service.logger.Debug("Getting user budgets paginated",
+		zap.String("user_id", userID.String()),
+		zap.Int("page", page),
+		zap.Int("page_size", pageSize),
+	)
+	return r.service.repo.FindByUserIDPaginated(ctx, userID, repository.PaginationParams{
+		Page:     page,
+		PageSize: pageSize,
+	})
 }
 
 // GetUserBudgets retrieves all budgets for a user
@@ -195,7 +218,22 @@ func (r *BudgetReader) GetBudgetVsActual(ctx context.Context, userID uuid.UUID, 
 	return results, nil
 }
 
-// GetBudgetProgress gets detailed progress for a budget
+// GetBudgetProgressForUser gets detailed progress for a budget with ownership verification
+func (r *BudgetReader) GetBudgetProgressForUser(ctx context.Context, budgetID, userID uuid.UUID) (*BudgetProgress, error) {
+	r.service.logger.Debug("Getting budget progress for user",
+		zap.String("budget_id", budgetID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	budget, err := r.service.repo.FindByIDAndUserID(ctx, budgetID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.calculateBudgetProgress(ctx, budget)
+}
+
+// GetBudgetProgress gets detailed progress for a budget (deprecated - use GetBudgetProgressForUser)
 func (r *BudgetReader) GetBudgetProgress(ctx context.Context, budgetID uuid.UUID) (*BudgetProgress, error) {
 	r.service.logger.Debug("Getting budget progress", zap.String("budget_id", budgetID.String()))
 
@@ -203,6 +241,12 @@ func (r *BudgetReader) GetBudgetProgress(ctx context.Context, budgetID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
+
+	return r.calculateBudgetProgress(ctx, budget)
+}
+
+// calculateBudgetProgress calculates progress for a budget
+func (r *BudgetReader) calculateBudgetProgress(ctx context.Context, budget *domain.Budget) (*BudgetProgress, error) {
 
 	now := time.Now()
 	daysElapsed := int(now.Sub(budget.StartDate).Hours() / 24)
@@ -248,9 +292,11 @@ func (r *BudgetReader) GetBudgetProgress(ctx context.Context, budgetID uuid.UUID
 
 	query.Count(&transactionCount)
 
-	var lastTx time.Time
-	if err := query.Select("MAX(booking_date)").Scan(&lastTx).Error; err == nil && !lastTx.IsZero() {
-		lastTransactionDate = &lastTx
+	if transactionCount > 0 {
+		var lastTx *time.Time
+		if err := query.Select("MAX(booking_date)").Scan(&lastTx).Error; err == nil && lastTx != nil {
+			lastTransactionDate = lastTx
+		}
 	}
 
 	return &BudgetProgress{
@@ -274,7 +320,22 @@ func (r *BudgetReader) GetBudgetProgress(ctx context.Context, budgetID uuid.UUID
 	}, nil
 }
 
-// GetBudgetAnalytics gets analytics for a budget
+// GetBudgetAnalyticsForUser gets analytics for a budget with ownership verification
+func (r *BudgetReader) GetBudgetAnalyticsForUser(ctx context.Context, budgetID, userID uuid.UUID) (*BudgetAnalytics, error) {
+	r.service.logger.Debug("Getting budget analytics for user",
+		zap.String("budget_id", budgetID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	budget, err := r.service.repo.FindByIDAndUserID(ctx, budgetID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.calculateBudgetAnalytics(ctx, budget)
+}
+
+// GetBudgetAnalytics gets analytics for a budget (deprecated - use GetBudgetAnalyticsForUser)
 func (r *BudgetReader) GetBudgetAnalytics(ctx context.Context, budgetID uuid.UUID) (*BudgetAnalytics, error) {
 	r.service.logger.Debug("Getting budget analytics", zap.String("budget_id", budgetID.String()))
 
@@ -283,12 +344,24 @@ func (r *BudgetReader) GetBudgetAnalytics(ctx context.Context, budgetID uuid.UUI
 		return nil, err
 	}
 
+	return r.calculateBudgetAnalytics(ctx, budget)
+}
+
+// calculateBudgetAnalytics calculates analytics for a budget
+func (r *BudgetReader) calculateBudgetAnalytics(ctx context.Context, budget *domain.Budget) (*BudgetAnalytics, error) {
 	// Calculate historical average (last 6 months)
 	sixMonthsAgo := time.Now().AddDate(0, -6, 0)
 	var historicalAvg float64
 
+	var monthSelect string
+	if r.service.db.Dialector.Name() != "postgres" {
+		monthSelect = "strftime('%Y-%m-01 00:00:00', booking_date) as month"
+	} else {
+		monthSelect = "DATE_TRUNC('month', booking_date) as month"
+	}
+
 	subQuery := r.service.db.Table("transactions").
-		Select("DATE_TRUNC('month', booking_date) as month, SUM(amount) / 100.0 as monthly_sum").
+		Select(monthSelect+", SUM(amount) / 100.0 as monthly_sum").
 		Where("user_id = ?", budget.UserID).
 		Where("direction = ?", "DEBIT").
 		Where("booking_date >= ?", sixMonthsAgo)

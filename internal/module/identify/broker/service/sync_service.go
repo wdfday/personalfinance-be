@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	accountDomain "personalfinancedss/internal/module/cashflow/account/domain"
 	accountRepo "personalfinancedss/internal/module/cashflow/account/repository"
@@ -111,7 +112,7 @@ func (s *SyncService) SyncBrokerConnection(ctx context.Context, connection *doma
 		if !ok {
 			errMsg := "broker client does not support banking operations"
 			result.Error = &errMsg
-			return result, fmt.Errorf(errMsg)
+			return result, errors.New(errMsg)
 		}
 
 		// Get all bank accounts from SePay (accessToken is actually the API key for SePay)

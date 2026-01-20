@@ -611,20 +611,6 @@ definitions:
           $ref: '#/definitions/personalfinancedss_internal_module_analytics_goal_prioritization_ahp_domain.RankItem'
         type: array
     type: object
-  personalfinancedss_internal_module_cashflow_account_domain.BrokerType:
-    enum:
-    - ssi
-    - okx
-    type: string
-    x-enum-comments:
-      BrokerTypeOKX: OKX Exchange (Crypto)
-      BrokerTypeSSI: SSI Securities (Vietnam stocks)
-    x-enum-descriptions:
-    - SSI Securities (Vietnam stocks)
-    - OKX Exchange (Crypto)
-    x-enum-varnames:
-    - BrokerTypeSSI
-    - BrokerTypeOKX
   personalfinancedss_internal_module_cashflow_account_dto.AccountResponse:
     properties:
       account_name:
@@ -707,64 +693,6 @@ definitions:
     required:
     - account_name
     - account_type
-    type: object
-  personalfinancedss_internal_module_cashflow_account_dto.CreateAccountWithBrokerRequest:
-    properties:
-      account_name:
-        description: Account info
-        maxLength: 255
-        minLength: 1
-        type: string
-      account_type:
-        enum:
-        - investment
-        - crypto_wallet
-        type: string
-      api_key:
-        description: OKX credentials
-        type: string
-      api_secret:
-        type: string
-      auto_sync:
-        description: Sync settings (optional)
-        type: boolean
-      broker_name:
-        type: string
-      broker_type:
-        allOf:
-        - $ref: '#/definitions/personalfinancedss_internal_module_cashflow_account_domain.BrokerType'
-        description: Broker info
-      consumer_id:
-        description: SSI credentials
-        type: string
-      consumer_secret:
-        type: string
-      institution_name:
-        maxLength: 255
-        type: string
-      otp_code:
-        description: For initial authentication
-        type: string
-      otp_method:
-        description: PIN/SMS/EMAIL/SMART
-        type: string
-      passphrase:
-        type: string
-      sync_assets:
-        type: boolean
-      sync_balance:
-        type: boolean
-      sync_frequency:
-        description: minutes, default 60
-        type: integer
-      sync_prices:
-        type: boolean
-      sync_transactions:
-        type: boolean
-    required:
-    - account_name
-    - account_type
-    - broker_type
     type: object
   personalfinancedss_internal_module_cashflow_account_dto.UpdateAccountRequest:
     properties:
@@ -3035,6 +2963,240 @@ definitions:
     required:
     - token
     type: object
+  personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionListResponse:
+    properties:
+      connections:
+        items:
+          $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse'
+        type: array
+      total:
+        type: integer
+    type: object
+  personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse:
+    properties:
+      auto_sync:
+        description: Sync settings
+        example: true
+        type: boolean
+      broker_name:
+        example: SSI Securities
+        type: string
+      broker_type:
+        description: ssi, okx, sepay
+        example: ssi
+        type: string
+      created_at:
+        type: string
+      external_account_id:
+        description: External account info
+        type: string
+      external_account_name:
+        type: string
+      external_account_number:
+        type: string
+      failed_syncs:
+        example: 1
+        type: integer
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      is_token_valid:
+        type: boolean
+      last_refreshed_at:
+        type: string
+      last_sync_at:
+        description: Sync status
+        type: string
+      last_sync_error:
+        type: string
+      last_sync_status:
+        description: success, failed
+        type: string
+      notes:
+        description: Metadata
+        type: string
+      status:
+        description: active, disconnected, error, pending
+        example: active
+        type: string
+      successful_syncs:
+        example: 9
+        type: integer
+      sync_assets:
+        example: true
+        type: boolean
+      sync_balance:
+        example: true
+        type: boolean
+      sync_frequency:
+        description: minutes
+        example: 60
+        type: integer
+      sync_prices:
+        example: true
+        type: boolean
+      sync_transactions:
+        example: true
+        type: boolean
+      token_expires_at:
+        description: Token info (NOT sensitive values, just metadata)
+        type: string
+      total_syncs:
+        description: Sync statistics
+        example: 10
+        type: integer
+      updated_at:
+        type: string
+      user_id:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+    type: object
+  personalfinancedss_internal_module_identify_broker_dto.BrokerProviderInfo:
+    properties:
+      broker_type:
+        example: ssi
+        type: string
+      description:
+        example: Vietnam stock trading platform
+        type: string
+      display_name:
+        example: SSI Securities
+        type: string
+      logo:
+        type: string
+      required_fields:
+        example:
+        - consumer_id
+        - consumer_secret
+        - otp_code
+        items:
+          type: string
+        type: array
+      supported_features:
+        example:
+        - portfolio
+        - transactions
+        - market_prices
+        items:
+          type: string
+        type: array
+    type: object
+  personalfinancedss_internal_module_identify_broker_dto.CreateBrokerConnectionRequest:
+    properties:
+      api_key:
+        description: Credentials (broker-specific)
+        type: string
+      api_secret:
+        type: string
+      auto_sync:
+        description: Sync settings (optional, defaults will be applied)
+        example: true
+        type: boolean
+      broker_name:
+        example: SSI Securities
+        type: string
+      broker_type:
+        description: ssi, okx, sepay
+        example: ssi
+        type: string
+      consumer_id:
+        description: For SSI
+        type: string
+      consumer_secret:
+        description: For SSI
+        type: string
+      notes:
+        description: Optional
+        type: string
+      otp_code:
+        description: For SSI initial auth
+        type: string
+      otp_method:
+        description: 'For SSI: PIN/SMS/EMAIL/SMART'
+        type: string
+      passphrase:
+        description: For OKX
+        type: string
+      sync_assets:
+        example: true
+        type: boolean
+      sync_balance:
+        example: true
+        type: boolean
+      sync_frequency:
+        description: minutes
+        example: 60
+        type: integer
+      sync_prices:
+        example: true
+        type: boolean
+      sync_transactions:
+        example: true
+        type: boolean
+    required:
+    - broker_name
+    - broker_type
+    type: object
+  personalfinancedss_internal_module_identify_broker_dto.ListBrokerProvidersResponse:
+    properties:
+      providers:
+        items:
+          $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerProviderInfo'
+        type: array
+    type: object
+  personalfinancedss_internal_module_identify_broker_dto.SyncResultResponse:
+    properties:
+      assets_count:
+        type: integer
+      balance_updated:
+        type: boolean
+      details:
+        additionalProperties: true
+        type: object
+      error:
+        type: string
+      success:
+        type: boolean
+      synced_at:
+        type: string
+      transactions_count:
+        type: integer
+      updated_prices_count:
+        type: integer
+    type: object
+  personalfinancedss_internal_module_identify_broker_dto.UpdateBrokerConnectionRequest:
+    properties:
+      api_key:
+        description: Update credentials (optional)
+        type: string
+      api_secret:
+        type: string
+      auto_sync:
+        description: Sync settings
+        type: boolean
+      broker_name:
+        type: string
+      consumer_id:
+        type: string
+      consumer_secret:
+        type: string
+      notes:
+        type: string
+      otp_method:
+        type: string
+      passphrase:
+        type: string
+      sync_assets:
+        type: boolean
+      sync_balance:
+        type: boolean
+      sync_frequency:
+        type: integer
+      sync_prices:
+        type: boolean
+      sync_transactions:
+        type: boolean
+    type: object
   personalfinancedss_internal_module_identify_profile_dto.ProfileResponse:
     properties:
       alert_threshold_budget:
@@ -3994,44 +4156,6 @@ paths:
       summary: Update an account
       tags:
       - accounts
-  /api/v1/accounts/broker:
-    post:
-      consumes:
-      - application/json
-      description: Create a new investment/crypto account with broker (SSI or OKX)
-        integration. The server will validate credentials by authenticating with broker
-        API, fetch account info, and create account with real data from broker.
-      parameters:
-      - description: Account and broker credentials
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/personalfinancedss_internal_module_cashflow_account_dto.CreateAccountWithBrokerRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/personalfinancedss_internal_module_cashflow_account_dto.AccountResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Create investment account with broker integration
-      tags:
-      - accounts
   /api/v1/analytics/budget-allocation:
     post:
       consumes:
@@ -4434,6 +4558,446 @@ paths:
       summary: Verify email address
       tags:
       - auth
+  /api/v1/broker-connections:
+    get:
+      description: Get all broker connections for the authenticated user
+      parameters:
+      - description: Filter by broker type
+        in: query
+        name: broker_type
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Only return auto-sync enabled connections
+        in: query
+        name: auto_sync_only
+        type: boolean
+      - description: Only return active connections
+        in: query
+        name: active_only
+        type: boolean
+      - description: Only return connections needing sync
+        in: query
+        name: needing_sync_only
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List broker connections
+      tags:
+      - Broker Connections
+    post:
+      consumes:
+      - application/json
+      description: Create a new broker connection and authenticate with the broker
+      parameters:
+      - description: Broker connection details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.CreateBrokerConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new broker connection
+      tags:
+      - Broker Connections
+  /api/v1/broker-connections/{id}:
+    delete:
+      description: Soft-delete a broker connection
+      parameters:
+      - description: Broker Connection ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete broker connection
+      tags:
+      - Broker Connections
+    get:
+      description: Get a specific broker connection by ID
+      parameters:
+      - description: Broker Connection ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get broker connection by ID
+      tags:
+      - Broker Connections
+    put:
+      consumes:
+      - application/json
+      description: Update an existing broker connection
+      parameters:
+      - description: Broker Connection ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.UpdateBrokerConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update broker connection
+      tags:
+      - Broker Connections
+  /api/v1/broker-connections/{id}/activate:
+    post:
+      description: Activate a broker connection to enable syncing
+      parameters:
+      - description: Broker Connection ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Activate broker connection
+      tags:
+      - Broker Connections
+  /api/v1/broker-connections/{id}/deactivate:
+    post:
+      description: Deactivate a broker connection to disable syncing
+      parameters:
+      - description: Broker Connection ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Deactivate broker connection
+      tags:
+      - Broker Connections
+  /api/v1/broker-connections/{id}/refresh-token:
+    post:
+      description: Refresh the access token for a broker connection
+      parameters:
+      - description: Broker Connection ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Refresh access token
+      tags:
+      - Broker Connections
+  /api/v1/broker-connections/{id}/sync:
+    post:
+      description: Manually trigger a sync for a broker connection
+      parameters:
+      - description: Broker Connection ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.SyncResultResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Sync broker connection
+      tags:
+      - Broker Connections
+  /api/v1/broker-connections/{id}/test:
+    post:
+      description: Test if a broker connection is working properly
+      parameters:
+      - description: Broker Connection ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Test broker connection
+      tags:
+      - Broker Connections
+  /api/v1/broker-connections/providers:
+    get:
+      description: Get information about all supported broker providers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_module_identify_broker_dto.ListBrokerProvidersResponse'
+      summary: List available broker providers
+      tags:
+      - Broker Connections
   /api/v1/budget-constraints:
     get:
       consumes:
@@ -4693,11 +5257,16 @@ paths:
             items:
               $ref: '#/definitions/personalfinancedss_internal_module_cashflow_budget_dto.BudgetResponse'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get all user budgets
       tags:
       - budgets
@@ -4722,13 +5291,17 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Create a new budget
       tags:
       - budgets
@@ -4747,13 +5320,17 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Delete budget
       tags:
       - budgets
@@ -4772,16 +5349,20 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/personalfinancedss_internal_module_cashflow_budget_dto.BudgetResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get budget by ID
       tags:
       - budgets
@@ -4811,18 +5392,21 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Update budget
       tags:
       - budgets
@@ -4843,13 +5427,21 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Recalculate budget spending
       tags:
       - budgets
@@ -4865,11 +5457,16 @@ paths:
             items:
               $ref: '#/definitions/personalfinancedss_internal_module_cashflow_budget_dto.BudgetResponse'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get active budgets
       tags:
       - budgets
@@ -4880,13 +5477,17 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.Success'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Recalculate all budgets
       tags:
       - budgets
@@ -4900,11 +5501,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/personalfinancedss_internal_module_cashflow_budget_dto.BudgetSummaryResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get budget summary
       tags:
       - budgets
@@ -5466,11 +6072,16 @@ paths:
             items:
               $ref: '#/definitions/personalfinancedss_internal_module_cashflow_goal_dto.GoalResponse'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get all user goals
       tags:
       - goals
@@ -5495,13 +6106,17 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Create a new goal
       tags:
       - goals
@@ -5520,13 +6135,17 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Delete goal
       tags:
       - goals
@@ -5545,16 +6164,20 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/personalfinancedss_internal_module_cashflow_goal_dto.GoalResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get goal by ID
       tags:
       - goals
@@ -5584,18 +6207,21 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Update goal
       tags:
       - goals
@@ -5616,13 +6242,21 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Mark goal as completed
       tags:
       - goals
@@ -5653,13 +6287,17 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Add contribution to goal
       tags:
       - goals
@@ -5675,11 +6313,16 @@ paths:
             items:
               $ref: '#/definitions/personalfinancedss_internal_module_cashflow_goal_dto.GoalResponse'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get active goals
       tags:
       - goals
@@ -5695,11 +6338,16 @@ paths:
             items:
               $ref: '#/definitions/personalfinancedss_internal_module_cashflow_goal_dto.GoalResponse'
             type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get completed goals
       tags:
       - goals
@@ -5713,11 +6361,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/personalfinancedss_internal_module_cashflow_goal_dto.GoalSummaryResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/personalfinancedss_internal_shared.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get goal summary
       tags:
       - goals

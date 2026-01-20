@@ -2,6 +2,7 @@ package dto
 
 import (
 	"personalfinancedss/internal/module/cashflow/budget/domain"
+	"personalfinancedss/internal/module/cashflow/budget/repository"
 	"personalfinancedss/internal/module/cashflow/budget/service"
 	"time"
 
@@ -124,5 +125,105 @@ func ToBudgetSummaryResponse(summary *service.BudgetSummary) *BudgetSummaryRespo
 		TotalRemaining:    summary.TotalRemaining,
 		AveragePercentage: summary.AveragePercentage,
 		BudgetsByCategory: summary.BudgetsByCategory,
+	}
+}
+
+// PaginatedBudgetResponse represents a paginated list of budgets
+type PaginatedBudgetResponse struct {
+	Data       []*BudgetResponse `json:"data"`
+	Total      int64             `json:"total"`
+	Page       int               `json:"page"`
+	PageSize   int               `json:"page_size"`
+	TotalPages int               `json:"total_pages"`
+}
+
+// ToPaginatedBudgetResponse converts a paginated result to response DTO
+func ToPaginatedBudgetResponse(result *repository.PaginatedResult) *PaginatedBudgetResponse {
+	if result == nil {
+		return nil
+	}
+
+	return &PaginatedBudgetResponse{
+		Data:       ToBudgetResponseList(result.Data),
+		Total:      result.Total,
+		Page:       result.Page,
+		PageSize:   result.PageSize,
+		TotalPages: result.TotalPages,
+	}
+}
+
+// BudgetProgressResponse represents budget progress in API responses
+type BudgetProgressResponse struct {
+	BudgetID         uuid.UUID           `json:"budget_id"`
+	Name             string              `json:"name"`
+	Period           domain.BudgetPeriod `json:"period"`
+	StartDate        time.Time           `json:"start_date"`
+	EndDate          *time.Time          `json:"end_date,omitempty"`
+	Amount           float64             `json:"amount"`
+	SpentAmount      float64             `json:"spent_amount"`
+	RemainingAmount  float64             `json:"remaining_amount"`
+	PercentageSpent  float64             `json:"percentage_spent"`
+	Status           domain.BudgetStatus `json:"status"`
+	DaysElapsed      int                 `json:"days_elapsed"`
+	DaysRemaining    int                 `json:"days_remaining"`
+	DailyAverage     float64             `json:"daily_average"`
+	ProjectedTotal   float64             `json:"projected_total"`
+	OnTrack          bool                `json:"on_track"`
+	TransactionCount int                 `json:"transaction_count"`
+	LastTransaction  *time.Time          `json:"last_transaction,omitempty"`
+}
+
+// ToBudgetProgressResponse converts service BudgetProgress to response DTO
+func ToBudgetProgressResponse(progress *service.BudgetProgress) *BudgetProgressResponse {
+	if progress == nil {
+		return nil
+	}
+
+	return &BudgetProgressResponse{
+		BudgetID:         progress.BudgetID,
+		Name:             progress.Name,
+		Period:           progress.Period,
+		StartDate:        progress.StartDate,
+		EndDate:          progress.EndDate,
+		Amount:           progress.Amount,
+		SpentAmount:      progress.SpentAmount,
+		RemainingAmount:  progress.RemainingAmount,
+		PercentageSpent:  progress.PercentageSpent,
+		Status:           progress.Status,
+		DaysElapsed:      progress.DaysElapsed,
+		DaysRemaining:    progress.DaysRemaining,
+		DailyAverage:     progress.DailyAverage,
+		ProjectedTotal:   progress.ProjectedTotal,
+		OnTrack:          progress.OnTrack,
+		TransactionCount: progress.TransactionCount,
+		LastTransaction:  progress.LastTransaction,
+	}
+}
+
+// BudgetAnalyticsResponse represents budget analytics in API responses
+type BudgetAnalyticsResponse struct {
+	BudgetID          uuid.UUID `json:"budget_id"`
+	HistoricalAverage float64   `json:"historical_average"`
+	Trend             string    `json:"trend"`
+	Volatility        float64   `json:"volatility"`
+	ComplianceRate    float64   `json:"compliance_rate"`
+	RecommendedAmount float64   `json:"recommended_amount"`
+	OptimizationScore float64   `json:"optimization_score"`
+}
+
+// ToBudgetAnalyticsResponse converts service BudgetAnalytics to response DTO
+func ToBudgetAnalyticsResponse(analytics *service.BudgetAnalytics) *BudgetAnalyticsResponse {
+	if analytics == nil {
+		return nil
+	}
+
+	return &BudgetAnalyticsResponse{
+		BudgetID:          analytics.BudgetID,
+		HistoricalAverage: analytics.HistoricalAverage,
+		Trend:             analytics.Trend,
+		Volatility:        analytics.Volatility,
+		ComplianceRate:    analytics.ComplianceRate,
+		RecommendedAmount: analytics.RecommendedAmount,
+		OptimizationScore: analytics.OptimizationScore,
 	}
 }

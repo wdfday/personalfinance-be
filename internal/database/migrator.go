@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	monthdomain "personalfinancedss/internal/module/calendar/month/domain"
 	accountdomain "personalfinancedss/internal/module/cashflow/account/domain"
 	budgetdomain "personalfinancedss/internal/module/cashflow/budget/domain"
 	budgetprofiledomain "personalfinancedss/internal/module/cashflow/budget_profile/domain"
@@ -69,7 +70,9 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 
 		// 6. Budget and Goals tables (FK to User, Category, Account)
 		&budgetdomain.Budget{},
+		&monthdomain.Month{}, // Month (FK to Budget)
 		&goaldomain.Goal{},
+		&goaldomain.GoalContribution{}, // Goal contributions (FK to Goal, Account)
 		&incomeprofiledomain.IncomeProfile{},
 		&budgetprofiledomain.BudgetConstraint{},
 
@@ -142,8 +145,13 @@ func DropAllTables(db *gorm.DB, log *zap.Logger) error {
 		&chatbotdomain.Conversation{},
 
 		// Budget and Goals tables (drop first - have FKs to User, Category, Account)
+		&monthdomain.Month{},
+		&goaldomain.GoalContribution{},
 		&goaldomain.Goal{},
 		&budgetdomain.Budget{},
+		&budgetprofiledomain.BudgetConstraint{},
+		&incomeprofiledomain.IncomeProfile{},
+		&brokerdomain.BrokerConnection{},
 
 		// Tables with multiple foreign keys (drop first)
 		&investmenttransactiondomain.InvestmentTransaction{},

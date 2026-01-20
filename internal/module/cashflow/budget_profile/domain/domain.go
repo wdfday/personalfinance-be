@@ -9,6 +9,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// Domain errors
+var (
+	ErrInvalidUserID       = errors.New("invalid user ID")
+	ErrInvalidCategoryID   = errors.New("invalid category ID")
+	ErrMaximumBelowMinimum = errors.New("maximum amount must be greater than or equal to minimum amount")
+	ErrInvalidPriority     = errors.New("priority must be between 1 and 10")
+	ErrInvalidDateRange    = errors.New("end date must be after start date")
+)
+
 // ================================================================
 // BUDGET CONSTRAINT DOMAIN
 // ================================================================
@@ -32,6 +41,7 @@ type BudgetConstraint struct {
 	CategoryID uuid.UUID `gorm:"type:uuid;not null;index;column:category_id" json:"category_id"`
 
 	// Period tracking
+	Period    string     `gorm:"default:'monthly';column:period" json:"period"`
 	StartDate time.Time  `gorm:"not null;column:start_date" json:"start_date"`
 	EndDate   *time.Time `gorm:"column:end_date" json:"end_date,omitempty"`
 
@@ -80,6 +90,7 @@ func NewBudgetConstraint(userID, categoryID uuid.UUID, minimumAmount float64, st
 		ID:            uuid.New(),
 		UserID:        userID,
 		CategoryID:    categoryID,
+		Period:        "monthly",
 		StartDate:     startDate,
 		MinimumAmount: minimumAmount,
 		IsFlexible:    false,
@@ -104,6 +115,7 @@ func NewFlexibleBudgetConstraint(userID, categoryID uuid.UUID, min, max float64,
 		ID:            uuid.New(),
 		UserID:        userID,
 		CategoryID:    categoryID,
+		Period:        "monthly",
 		StartDate:     startDate,
 		MinimumAmount: min,
 		IsFlexible:    true,
@@ -291,7 +303,7 @@ func (bc *BudgetConstraint) IsArchived() bool {
 // Validate performs domain validation
 func (bc *BudgetConstraint) Validate() error {
 	if bc.UserID == uuid.Nil {
-		//return ErrInvalidUserID
+		return ErrInvalidUserID
 	}
 
 	if bc.CategoryID == uuid.Nil {
@@ -479,11 +491,8 @@ type BudgetConstraintRepository interface {
 var (
 	ErrBudgetConstraintNotFound = errors.New("budget constraint not found")
 	ErrBudgetConstraintExists   = errors.New("budget constraint already exists for this category")
-	ErrInvalidCategoryID        = errors.New("invalid category ID")
 	ErrNegativeAmount           = errors.New("amount cannot be negative")
-	ErrMaximumBelowMinimum      = errors.New("maximum amount must be greater than or equal to minimum")
 	ErrMinimumExceedsMaximum    = errors.New("minimum amount cannot exceed maximum")
-	ErrInvalidPriority          = errors.New("priority must be greater than 0")
 	ErrInvalidStartDate         = errors.New("start date is required")
 	ErrEndDateBeforeStartDate   = errors.New("end date cannot be before start date")
 	ErrCannotUpdateArchived     = errors.New("cannot update archived constraint")

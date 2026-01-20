@@ -9,12 +9,15 @@ import (
 )
 
 func TestGoal_UpdateCalculatedFields(t *testing.T) {
+	monthly := FrequencyMonthly
+
 	tests := []struct {
 		name               string
 		goal               *Goal
 		expectedRemaining  float64
 		expectedPercentage float64
 		expectedStatus     GoalStatus
+		checkSuggestion    bool
 	}{
 		{
 			name: "normal progress - 50%",
@@ -60,6 +63,20 @@ func TestGoal_UpdateCalculatedFields(t *testing.T) {
 			expectedPercentage: 0.0,
 			expectedStatus:     GoalStatusActive,
 		},
+		{
+			name: "recalculate suggestion",
+			goal: &Goal{
+				TargetAmount:          120000,
+				CurrentAmount:         0,
+				Status:                GoalStatusActive,
+				ContributionFrequency: &monthly,
+				TargetDate:            ptrTime(time.Now().AddDate(1, 0, 0)), // 1 year
+			},
+			expectedRemaining:  120000,
+			expectedPercentage: 0.0,
+			expectedStatus:     GoalStatusActive,
+			checkSuggestion:    true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -69,8 +86,18 @@ func TestGoal_UpdateCalculatedFields(t *testing.T) {
 			assert.Equal(t, tt.expectedRemaining, tt.goal.RemainingAmount, "RemainingAmount mismatch")
 			assert.Equal(t, tt.expectedPercentage, tt.goal.PercentageComplete, "PercentageComplete mismatch")
 			assert.Equal(t, tt.expectedStatus, tt.goal.Status, "Status mismatch")
+
+			if tt.checkSuggestion {
+				assert.NotNil(t, tt.goal.SuggestedContribution)
+				// 120000 / 12 months = 10000
+				assert.InDelta(t, 10000.0, *tt.goal.SuggestedContribution, 500.0)
+			}
 		})
 	}
+}
+
+func ptrTime(t time.Time) *time.Time {
+	return &t
 }
 
 func TestGoal_IsCompleted(t *testing.T) {
@@ -287,27 +314,28 @@ func TestGoal_AddContribution(t *testing.T) {
 	assert.Equal(t, 70.0, goal.PercentageComplete)
 }
 
-func TestGoalType_IsValid(t *testing.T) {
+func TestGoalCategory_IsValid(t *testing.T) {
 	tests := []struct {
 		name     string
-		goalType GoalType
+		category GoalCategory
 		expected bool
 	}{
-		{"valid - savings", GoalTypeSavings, true},
-		{"valid - debt", GoalTypeDebt, true},
-		{"valid - investment", GoalTypeInvestment, true},
-		{"valid - purchase", GoalTypePurchase, true},
-		{"valid - emergency", GoalTypeEmergency, true},
-		{"valid - retirement", GoalTypeRetirement, true},
-		{"valid - education", GoalTypeEducation, true},
-		{"valid - other", GoalTypeOther, true},
-		{"invalid - empty", GoalType(""), false},
-		{"invalid - unknown", GoalType("unknown"), false},
+		{"valid - savings", GoalCategorySavings, true},
+		{"valid - debt", GoalCategoryDebt, true},
+		{"valid - investment", GoalCategoryInvestment, true},
+		{"valid - purchase", GoalCategoryPurchase, true},
+		{"valid - emergency", GoalCategoryEmergency, true},
+		{"valid - retirement", GoalCategoryRetirement, true},
+		{"valid - education", GoalCategoryEducation, true},
+		{"valid - travel", GoalCategoryTravel, true},
+		{"valid - other", GoalCategoryOther, true},
+		{"invalid - empty", GoalCategory(""), false},
+		{"invalid - unknown", GoalCategory("unknown"), false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.goalType.IsValid()
+			result := tt.category.IsValid()
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -413,12 +441,15 @@ func TestGoal_TableName(t *testing.T) {
 
 func TestGoal_NewGoal(t *testing.T) {
 	userID := uuid.New()
+	accountID := uuid.New()
 	startDate := time.Now()
 
 	goal := &Goal{
 		UserID:       userID,
+		AccountID:    accountID,
 		Name:         "Emergency Fund",
-		Type:         GoalTypeEmergency,
+		Behavior:     GoalBehaviorFlexible,
+		Category:     GoalCategoryEmergency,
 		Priority:     GoalPriorityHigh,
 		TargetAmount: 50000000,
 		StartDate:    startDate,
@@ -427,8 +458,10 @@ func TestGoal_NewGoal(t *testing.T) {
 
 	assert.NotNil(t, goal)
 	assert.Equal(t, userID, goal.UserID)
+	assert.Equal(t, accountID, goal.AccountID)
 	assert.Equal(t, "Emergency Fund", goal.Name)
-	assert.Equal(t, GoalTypeEmergency, goal.Type)
+	assert.Equal(t, GoalBehaviorFlexible, goal.Behavior)
+	assert.Equal(t, GoalCategoryEmergency, goal.Category)
 	assert.Equal(t, GoalPriorityHigh, goal.Priority)
 	assert.Equal(t, 50000000.0, goal.TargetAmount)
 	assert.Equal(t, GoalStatusActive, goal.Status)

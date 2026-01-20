@@ -2,7 +2,6 @@ package dto
 
 import (
 	"personalfinancedss/internal/module/cashflow/goal/domain"
-	"personalfinancedss/internal/module/cashflow/goal/service"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +14,8 @@ type GoalResponse struct {
 
 	Name        string              `json:"name"`
 	Description *string             `json:"description,omitempty"`
-	Type        domain.GoalType     `json:"type"`
+	Behavior    domain.GoalBehavior `json:"behavior"`
+	Category    domain.GoalCategory `json:"category"`
 	Priority    domain.GoalPriority `json:"priority"`
 
 	TargetAmount  float64 `json:"targetAmount"`
@@ -37,7 +37,8 @@ type GoalResponse struct {
 	AutoContributeAmount    *float64                      `json:"autoContributeAmount,omitempty"`
 	AutoContributeAccountID *uuid.UUID                    `json:"autoContributeAccountId,omitempty"`
 
-	LinkedAccountID *uuid.UUID `json:"linkedAccountId,omitempty"`
+	AccountID         uuid.UUID  `json:"accountId"`
+	ConvertedBudgetID *uuid.UUID `json:"convertedBudgetId,omitempty"`
 
 	EnableReminders    bool       `json:"enableReminders"`
 	ReminderFrequency  *string    `json:"reminderFrequency,omitempty"`
@@ -52,20 +53,6 @@ type GoalResponse struct {
 	DeletedAt *time.Time `json:"deletedAt,omitempty"`
 }
 
-// GoalSummaryResponse represents a goal summary in API responses
-type GoalSummaryResponse struct {
-	TotalGoals         int                             `json:"totalGoals"`
-	ActiveGoals        int                             `json:"activeGoals"`
-	CompletedGoals     int                             `json:"completedGoals"`
-	OverdueGoals       int                             `json:"overdueGoals"`
-	TotalTargetAmount  float64                         `json:"totalTargetAmount"`
-	TotalCurrentAmount float64                         `json:"totalCurrentAmount"`
-	TotalRemaining     float64                         `json:"totalRemaining"`
-	AverageProgress    float64                         `json:"averageProgress"`
-	GoalsByType        map[string]*service.GoalTypeSum `json:"goalsByType"`
-	GoalsByPriority    map[string]int                  `json:"goalsByPriority"`
-}
-
 // ToGoalResponse converts a domain goal to response DTO
 func ToGoalResponse(goal *domain.Goal) *GoalResponse {
 	if goal == nil {
@@ -77,7 +64,8 @@ func ToGoalResponse(goal *domain.Goal) *GoalResponse {
 		UserID:                  goal.UserID,
 		Name:                    goal.Name,
 		Description:             goal.Description,
-		Type:                    goal.Type,
+		Behavior:                goal.Behavior,
+		Category:                goal.Category,
 		Priority:                goal.Priority,
 		TargetAmount:            goal.TargetAmount,
 		CurrentAmount:           goal.CurrentAmount,
@@ -94,7 +82,8 @@ func ToGoalResponse(goal *domain.Goal) *GoalResponse {
 		AutoContribute:          goal.AutoContribute,
 		AutoContributeAmount:    goal.AutoContributeAmount,
 		AutoContributeAccountID: goal.AutoContributeAccountID,
-		LinkedAccountID:         goal.LinkedAccountID,
+		AccountID:               goal.AccountID,
+		ConvertedBudgetID:       goal.ConvertedBudgetID,
 		EnableReminders:         goal.EnableReminders,
 		ReminderFrequency:       goal.ReminderFrequency,
 		LastReminderSentAt:      goal.LastReminderSentAt,
@@ -115,8 +104,22 @@ func ToGoalResponseList(goals []domain.Goal) []*GoalResponse {
 	return responses
 }
 
+// GoalSummaryResponse represents a goal summary in API responses
+type GoalSummaryResponse struct {
+	TotalGoals         int                                `json:"totalGoals"`
+	ActiveGoals        int                                `json:"activeGoals"`
+	CompletedGoals     int                                `json:"completedGoals"`
+	OverdueGoals       int                                `json:"overdueGoals"`
+	TotalTargetAmount  float64                            `json:"totalTargetAmount"`
+	TotalCurrentAmount float64                            `json:"totalCurrentAmount"`
+	TotalRemaining     float64                            `json:"totalRemaining"`
+	AverageProgress    float64                            `json:"averageProgress"`
+	GoalsByCategory    map[string]*domain.GoalCategorySum `json:"goalsByCategory"`
+	GoalsByPriority    map[string]int                     `json:"goalsByPriority"`
+}
+
 // ToGoalSummaryResponse converts a service goal summary to response DTO
-func ToGoalSummaryResponse(summary *service.GoalSummary) *GoalSummaryResponse {
+func ToGoalSummaryResponse(summary *domain.GoalSummary) *GoalSummaryResponse {
 	if summary == nil {
 		return nil
 	}
@@ -130,7 +133,77 @@ func ToGoalSummaryResponse(summary *service.GoalSummary) *GoalSummaryResponse {
 		TotalCurrentAmount: summary.TotalCurrentAmount,
 		TotalRemaining:     summary.TotalRemaining,
 		AverageProgress:    summary.AverageProgress,
-		GoalsByType:        summary.GoalsByType,
+		GoalsByCategory:    summary.GoalsByCategory,
 		GoalsByPriority:    summary.GoalsByPriority,
+	}
+}
+
+// ContributionResponse represents a goal contribution in API responses
+type ContributionResponse struct {
+	ID        uuid.UUID `json:"id"`
+	GoalID    uuid.UUID `json:"goalId"`
+	AccountID uuid.UUID `json:"accountId"`
+	UserID    uuid.UUID `json:"userId"`
+
+	Type     domain.ContributionType `json:"type"`
+	Amount   float64                 `json:"amount"`
+	Currency string                  `json:"currency"`
+
+	Note   *string `json:"note,omitempty"`
+	Source string  `json:"source"`
+
+	ReversingContributionID *uuid.UUID `json:"reversingContributionId,omitempty"`
+
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// ContributionListResponse represents a list of contributions with summary
+type ContributionListResponse struct {
+	Contributions    []*ContributionResponse `json:"contributions"`
+	TotalDeposits    float64                 `json:"totalDeposits"`
+	TotalWithdrawals float64                 `json:"totalWithdrawals"`
+	NetAmount        float64                 `json:"netAmount"`
+}
+
+// ToContributionResponse converts a domain contribution to response DTO
+func ToContributionResponse(contribution *domain.GoalContribution) *ContributionResponse {
+	if contribution == nil {
+		return nil
+	}
+
+	return &ContributionResponse{
+		ID:                      contribution.ID,
+		GoalID:                  contribution.GoalID,
+		AccountID:               contribution.AccountID,
+		UserID:                  contribution.UserID,
+		Type:                    contribution.Type,
+		Amount:                  contribution.Amount,
+		Currency:                contribution.Currency,
+		Note:                    contribution.Note,
+		Source:                  contribution.Source,
+		ReversingContributionID: contribution.ReversingContributionID,
+		CreatedAt:               contribution.CreatedAt,
+	}
+}
+
+// ToContributionResponseList converts a list of domain contributions to response DTOs
+func ToContributionResponseList(contributions []domain.GoalContribution) *ContributionListResponse {
+	responses := make([]*ContributionResponse, len(contributions))
+	var totalDeposits, totalWithdrawals float64
+
+	for i := range contributions {
+		responses[i] = ToContributionResponse(&contributions[i])
+		if contributions[i].Type == domain.ContributionTypeDeposit {
+			totalDeposits += contributions[i].Amount
+		} else {
+			totalWithdrawals += contributions[i].Amount
+		}
+	}
+
+	return &ContributionListResponse{
+		Contributions:    responses,
+		TotalDeposits:    totalDeposits,
+		TotalWithdrawals: totalWithdrawals,
+		NetAmount:        totalDeposits - totalWithdrawals,
 	}
 }

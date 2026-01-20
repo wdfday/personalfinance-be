@@ -37,6 +37,35 @@ func (u *BudgetUpdater) UpdateBudget(ctx context.Context, budget *domain.Budget)
 	return u.service.repo.Update(ctx, budget)
 }
 
+// UpdateBudgetForUser updates a budget with ownership verification
+func (u *BudgetUpdater) UpdateBudgetForUser(ctx context.Context, budget *domain.Budget, userID uuid.UUID) error {
+	// Verify ownership first
+	existingBudget, err := u.service.repo.FindByIDAndUserID(ctx, budget.ID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Ensure we're not changing the owner
+	budget.UserID = existingBudget.UserID
+
+	// Validate and update
+	creator := NewBudgetCreator(u.service)
+	if err := creator.validateBudget(budget); err != nil {
+		return err
+	}
+
+	// Recalculate fields before saving
+	budget.UpdateCalculatedFields()
+
+	u.service.logger.Info("Updating budget for user",
+		zap.String("budget_id", budget.ID.String()),
+		zap.String("user_id", userID.String()),
+		zap.Float64("amount", budget.Amount),
+	)
+
+	return u.service.repo.Update(ctx, budget)
+}
+
 // CheckBudgetAlerts checks if any budget alerts should be triggered
 func (u *BudgetUpdater) CheckBudgetAlerts(ctx context.Context, budgetID uuid.UUID) ([]domain.AlertThreshold, error) {
 	u.service.logger.Debug("Checking budget alerts", zap.String("budget_id", budgetID.String()))

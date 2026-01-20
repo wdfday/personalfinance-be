@@ -20,6 +20,21 @@ func NewBudgetCalculator(service *budgetService) *BudgetCalculator {
 	return &BudgetCalculator{service: service}
 }
 
+// RecalculateBudgetSpendingForUser recalculates spending with ownership verification
+func (c *BudgetCalculator) RecalculateBudgetSpendingForUser(ctx context.Context, budgetID, userID uuid.UUID) error {
+	c.service.logger.Debug("Recalculating budget spending for user",
+		zap.String("budget_id", budgetID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	budget, err := c.service.repo.FindByIDAndUserID(ctx, budgetID, userID)
+	if err != nil {
+		return err
+	}
+
+	return c.recalculateSpending(ctx, budget)
+}
+
 // RecalculateBudgetSpending recalculates the spent amount for a budget
 func (c *BudgetCalculator) RecalculateBudgetSpending(ctx context.Context, budgetID uuid.UUID) error {
 	c.service.logger.Debug("Recalculating budget spending", zap.String("budget_id", budgetID.String()))
@@ -28,6 +43,12 @@ func (c *BudgetCalculator) RecalculateBudgetSpending(ctx context.Context, budget
 	if err != nil {
 		return err
 	}
+
+	return c.recalculateSpending(ctx, budget)
+}
+
+// recalculateSpending performs the actual spending recalculation
+func (c *BudgetCalculator) recalculateSpending(ctx context.Context, budget *domain.Budget) error {
 
 	// Calculate spent amount from transactions
 	var spentAmount float64
@@ -48,7 +69,9 @@ func (c *BudgetCalculator) RecalculateBudgetSpending(ctx context.Context, budget
 		query = query.Where("account_id = ?", budget.AccountID)
 	}
 
-	if err := query.Select("COALESCE(SUM(amount), 0) / 100.0").Scan(&spentAmount).Error; err != nil {
+	// Note: Assuming amount is already in VND (not cents)
+	// If your transactions store amount in cents, uncomment the division below
+	if err := query.Select("COALESCE(SUM(amount), 0)").Scan(&spentAmount).Error; err != nil {
 		return fmt.Errorf("failed to calculate spent amount: %w", err)
 	}
 
@@ -57,7 +80,7 @@ func (c *BudgetCalculator) RecalculateBudgetSpending(ctx context.Context, budget
 	budget.UpdateCalculatedFields()
 
 	c.service.logger.Info("Recalculated budget spending",
-		zap.String("budget_id", budgetID.String()),
+		zap.String("budget_id", budget.ID.String()),
 		zap.Float64("spent_amount", spentAmount),
 	)
 

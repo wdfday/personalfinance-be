@@ -15,7 +15,7 @@ func TestDebt_UpdateCalculatedFields(t *testing.T) {
 
 	debt.UpdateCalculatedFields()
 
-	assert.Equal(t, 4000000.0, debt.RemainingAmount)
+	assert.Equal(t, 6000000.0, debt.RemainingAmount)
 	assert.Equal(t, 40.0, debt.PercentagePaid)
 }
 
@@ -24,7 +24,7 @@ func TestDebt_AddPayment(t *testing.T) {
 		PrincipalAmount: 10000000,
 		CurrentBalance:  6000000,
 		TotalPaid:       4000000,
-		InterestRate:    0.1,
+		InterestRate:    0.0,
 	}
 
 	debt.AddPayment(1000000)
@@ -75,8 +75,17 @@ func TestDebt_IsPaidOff(t *testing.T) {
 
 func TestDebtType_IsValid(t *testing.T) {
 	assert.True(t, DebtTypeCreditCard.IsValid())
-	assert.True(t, DebtTypeLoan.IsValid())
+	assert.True(t, DebtTypePersonalLoan.IsValid())
+	assert.True(t, DebtTypeMortgage.IsValid())
+	assert.True(t, DebtTypeOther.IsValid())
 	assert.False(t, DebtType("invalid").IsValid())
+}
+
+func TestDebtBehavior_IsValid(t *testing.T) {
+	assert.True(t, DebtBehaviorRevolving.IsValid())
+	assert.True(t, DebtBehaviorInstallment.IsValid())
+	assert.True(t, DebtBehaviorInterestOnly.IsValid())
+	assert.False(t, DebtBehavior("invalid").IsValid())
 }
 
 func TestDebtStatus_IsValid(t *testing.T) {

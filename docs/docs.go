@@ -155,63 +155,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/accounts/broker": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a new investment/crypto account with broker (SSI or OKX) integration. The server will validate credentials by authenticating with broker API, fetch account info, and create account with real data from broker.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "accounts"
-                ],
-                "summary": "Create investment account with broker integration",
-                "parameters": [
-                    {
-                        "description": "Account and broker credentials",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/personalfinancedss_internal_module_cashflow_account_dto.CreateAccountWithBrokerRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/personalfinancedss_internal_module_cashflow_account_dto.AccountResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/accounts/{id}": {
             "get": {
                 "security": [
@@ -999,6 +942,671 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/broker-connections": {
+            "get": {
+                "description": "Get all broker connections for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "List broker connections",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by broker type",
+                        "name": "broker_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only return auto-sync enabled connections",
+                        "name": "auto_sync_only",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only return active connections",
+                        "name": "active_only",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only return connections needing sync",
+                        "name": "needing_sync_only",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new broker connection and authenticate with the broker",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "Create a new broker connection",
+                "parameters": [
+                    {
+                        "description": "Broker connection details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.CreateBrokerConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/broker-connections/providers": {
+            "get": {
+                "description": "Get information about all supported broker providers",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "List available broker providers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.ListBrokerProvidersResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/broker-connections/{id}": {
+            "get": {
+                "description": "Get a specific broker connection by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "Get broker connection by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Broker Connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing broker connection",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "Update broker connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Broker Connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update details",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.UpdateBrokerConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Soft-delete a broker connection",
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "Delete broker connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Broker Connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/broker-connections/{id}/activate": {
+            "post": {
+                "description": "Activate a broker connection to enable syncing",
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "Activate broker connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Broker Connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/broker-connections/{id}/deactivate": {
+            "post": {
+                "description": "Deactivate a broker connection to disable syncing",
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "Deactivate broker connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Broker Connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/broker-connections/{id}/refresh-token": {
+            "post": {
+                "description": "Refresh the access token for a broker connection",
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "Refresh access token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Broker Connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/broker-connections/{id}/sync": {
+            "post": {
+                "description": "Manually trigger a sync for a broker connection",
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "Sync broker connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Broker Connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.SyncResultResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/broker-connections/{id}/test": {
+            "post": {
+                "description": "Test if a broker connection is working properly",
+                "tags": [
+                    "Broker Connections"
+                ],
+                "summary": "Test broker connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Broker Connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/budget-constraints": {
             "get": {
                 "security": [
@@ -1387,6 +1995,11 @@ const docTemplate = `{
         },
         "/api/v1/budgets": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get all budgets for the authenticated user",
                 "produces": [
                     "application/json"
@@ -1405,16 +2018,26 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Create a new budget for the authenticated user",
                 "consumes": [
                     "application/json"
@@ -1447,15 +2070,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -1463,6 +2090,11 @@ const docTemplate = `{
         },
         "/api/v1/budgets/active": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get all active budgets for the authenticated user",
                 "produces": [
                     "application/json"
@@ -1481,11 +2113,16 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -1493,6 +2130,11 @@ const docTemplate = `{
         },
         "/api/v1/budgets/recalculate-all": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Recalculate spent amounts for all user budgets",
                 "tags": [
                     "budgets"
@@ -1502,15 +2144,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.Success"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -1518,6 +2164,11 @@ const docTemplate = `{
         },
         "/api/v1/budgets/summary": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get a summary of budget performance for the authenticated user",
                 "produces": [
                     "application/json"
@@ -1533,11 +2184,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/personalfinancedss_internal_module_cashflow_budget_dto.BudgetSummaryResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -1545,6 +2201,11 @@ const docTemplate = `{
         },
         "/api/v1/budgets/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get a specific budget by its ID",
                 "produces": [
                     "application/json"
@@ -1569,23 +2230,32 @@ const docTemplate = `{
                             "$ref": "#/definitions/personalfinancedss_internal_module_cashflow_budget_dto.BudgetResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Update an existing budget",
                 "consumes": [
                     "application/json"
@@ -1625,27 +2295,35 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Delete a budget",
                 "tags": [
                     "budgets"
@@ -1667,15 +2345,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -1683,6 +2365,11 @@ const docTemplate = `{
         },
         "/api/v1/budgets/{id}/recalculate": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Recalculate spent amount for a budget",
                 "tags": [
                     "budgets"
@@ -1707,15 +2394,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -2555,6 +3252,11 @@ const docTemplate = `{
         },
         "/api/v1/goals": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get all goals for the authenticated user",
                 "produces": [
                     "application/json"
@@ -2573,16 +3275,26 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Create a new financial goal for the authenticated user",
                 "consumes": [
                     "application/json"
@@ -2615,15 +3327,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -2631,6 +3347,11 @@ const docTemplate = `{
         },
         "/api/v1/goals/active": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get all active goals for the authenticated user",
                 "produces": [
                     "application/json"
@@ -2649,11 +3370,16 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -2661,6 +3387,11 @@ const docTemplate = `{
         },
         "/api/v1/goals/completed": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get all completed goals for the authenticated user",
                 "produces": [
                     "application/json"
@@ -2679,11 +3410,16 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -2691,6 +3427,11 @@ const docTemplate = `{
         },
         "/api/v1/goals/summary": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get a summary of all goals for the authenticated user",
                 "produces": [
                     "application/json"
@@ -2706,11 +3447,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/personalfinancedss_internal_module_cashflow_goal_dto.GoalSummaryResponse"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -2718,6 +3464,11 @@ const docTemplate = `{
         },
         "/api/v1/goals/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get a specific goal by its ID",
                 "produces": [
                     "application/json"
@@ -2742,23 +3493,32 @@ const docTemplate = `{
                             "$ref": "#/definitions/personalfinancedss_internal_module_cashflow_goal_dto.GoalResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Update an existing goal",
                 "consumes": [
                     "application/json"
@@ -2798,27 +3558,35 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Delete a goal",
                 "tags": [
                     "goals"
@@ -2840,15 +3608,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -2856,6 +3628,11 @@ const docTemplate = `{
         },
         "/api/v1/goals/{id}/complete": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Mark a goal as completed",
                 "tags": [
                     "goals"
@@ -2880,15 +3657,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -2896,6 +3683,11 @@ const docTemplate = `{
         },
         "/api/v1/goals/{id}/contribute": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Add a contribution amount to a goal",
                 "consumes": [
                     "application/json"
@@ -2935,15 +3727,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/personalfinancedss_internal_shared.ErrorResponse"
                         }
                     }
                 }
@@ -7379,25 +8175,6 @@ const docTemplate = `{
                 }
             }
         },
-        "personalfinancedss_internal_module_cashflow_account_domain.BrokerType": {
-            "type": "string",
-            "enum": [
-                "ssi",
-                "okx"
-            ],
-            "x-enum-comments": {
-                "BrokerTypeOKX": "OKX Exchange (Crypto)",
-                "BrokerTypeSSI": "SSI Securities (Vietnam stocks)"
-            },
-            "x-enum-descriptions": [
-                "SSI Securities (Vietnam stocks)",
-                "OKX Exchange (Crypto)"
-            ],
-            "x-enum-varnames": [
-                "BrokerTypeSSI",
-                "BrokerTypeOKX"
-            ]
-        },
         "personalfinancedss_internal_module_cashflow_account_dto.AccountResponse": {
             "type": "object",
             "properties": {
@@ -7515,89 +8292,6 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "is_primary": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "personalfinancedss_internal_module_cashflow_account_dto.CreateAccountWithBrokerRequest": {
-            "type": "object",
-            "required": [
-                "account_name",
-                "account_type",
-                "broker_type"
-            ],
-            "properties": {
-                "account_name": {
-                    "description": "Account info",
-                    "type": "string",
-                    "maxLength": 255,
-                    "minLength": 1
-                },
-                "account_type": {
-                    "type": "string",
-                    "enum": [
-                        "investment",
-                        "crypto_wallet"
-                    ]
-                },
-                "api_key": {
-                    "description": "OKX credentials",
-                    "type": "string"
-                },
-                "api_secret": {
-                    "type": "string"
-                },
-                "auto_sync": {
-                    "description": "Sync settings (optional)",
-                    "type": "boolean"
-                },
-                "broker_name": {
-                    "type": "string"
-                },
-                "broker_type": {
-                    "description": "Broker info",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/personalfinancedss_internal_module_cashflow_account_domain.BrokerType"
-                        }
-                    ]
-                },
-                "consumer_id": {
-                    "description": "SSI credentials",
-                    "type": "string"
-                },
-                "consumer_secret": {
-                    "type": "string"
-                },
-                "institution_name": {
-                    "type": "string",
-                    "maxLength": 255
-                },
-                "otp_code": {
-                    "description": "For initial authentication",
-                    "type": "string"
-                },
-                "otp_method": {
-                    "description": "PIN/SMS/EMAIL/SMART",
-                    "type": "string"
-                },
-                "passphrase": {
-                    "type": "string"
-                },
-                "sync_assets": {
-                    "type": "boolean"
-                },
-                "sync_balance": {
-                    "type": "boolean"
-                },
-                "sync_frequency": {
-                    "description": "minutes, default 60",
-                    "type": "integer"
-                },
-                "sync_prices": {
-                    "type": "boolean"
-                },
-                "sync_transactions": {
                     "type": "boolean"
                 }
             }
@@ -10825,6 +11519,334 @@ const docTemplate = `{
             "properties": {
                 "token": {
                     "type": "string"
+                }
+            }
+        },
+        "personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionListResponse": {
+            "type": "object",
+            "properties": {
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "personalfinancedss_internal_module_identify_broker_dto.BrokerConnectionResponse": {
+            "type": "object",
+            "properties": {
+                "auto_sync": {
+                    "description": "Sync settings",
+                    "type": "boolean",
+                    "example": true
+                },
+                "broker_name": {
+                    "type": "string",
+                    "example": "SSI Securities"
+                },
+                "broker_type": {
+                    "description": "ssi, okx, sepay",
+                    "type": "string",
+                    "example": "ssi"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "external_account_id": {
+                    "description": "External account info",
+                    "type": "string"
+                },
+                "external_account_name": {
+                    "type": "string"
+                },
+                "external_account_number": {
+                    "type": "string"
+                },
+                "failed_syncs": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "is_token_valid": {
+                    "type": "boolean"
+                },
+                "last_refreshed_at": {
+                    "type": "string"
+                },
+                "last_sync_at": {
+                    "description": "Sync status",
+                    "type": "string"
+                },
+                "last_sync_error": {
+                    "type": "string"
+                },
+                "last_sync_status": {
+                    "description": "success, failed",
+                    "type": "string"
+                },
+                "notes": {
+                    "description": "Metadata",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "active, disconnected, error, pending",
+                    "type": "string",
+                    "example": "active"
+                },
+                "successful_syncs": {
+                    "type": "integer",
+                    "example": 9
+                },
+                "sync_assets": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sync_balance": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sync_frequency": {
+                    "description": "minutes",
+                    "type": "integer",
+                    "example": 60
+                },
+                "sync_prices": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sync_transactions": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "token_expires_at": {
+                    "description": "Token info (NOT sensitive values, just metadata)",
+                    "type": "string"
+                },
+                "total_syncs": {
+                    "description": "Sync statistics",
+                    "type": "integer",
+                    "example": 10
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440001"
+                }
+            }
+        },
+        "personalfinancedss_internal_module_identify_broker_dto.BrokerProviderInfo": {
+            "type": "object",
+            "properties": {
+                "broker_type": {
+                    "type": "string",
+                    "example": "ssi"
+                },
+                "description": {
+                    "type": "string",
+                    "example": "Vietnam stock trading platform"
+                },
+                "display_name": {
+                    "type": "string",
+                    "example": "SSI Securities"
+                },
+                "logo": {
+                    "type": "string"
+                },
+                "required_fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "consumer_id",
+                        "consumer_secret",
+                        "otp_code"
+                    ]
+                },
+                "supported_features": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "portfolio",
+                        "transactions",
+                        "market_prices"
+                    ]
+                }
+            }
+        },
+        "personalfinancedss_internal_module_identify_broker_dto.CreateBrokerConnectionRequest": {
+            "type": "object",
+            "required": [
+                "broker_name",
+                "broker_type"
+            ],
+            "properties": {
+                "api_key": {
+                    "description": "Credentials (broker-specific)",
+                    "type": "string"
+                },
+                "api_secret": {
+                    "type": "string"
+                },
+                "auto_sync": {
+                    "description": "Sync settings (optional, defaults will be applied)",
+                    "type": "boolean",
+                    "example": true
+                },
+                "broker_name": {
+                    "type": "string",
+                    "example": "SSI Securities"
+                },
+                "broker_type": {
+                    "description": "ssi, okx, sepay",
+                    "type": "string",
+                    "example": "ssi"
+                },
+                "consumer_id": {
+                    "description": "For SSI",
+                    "type": "string"
+                },
+                "consumer_secret": {
+                    "description": "For SSI",
+                    "type": "string"
+                },
+                "notes": {
+                    "description": "Optional",
+                    "type": "string"
+                },
+                "otp_code": {
+                    "description": "For SSI initial auth",
+                    "type": "string"
+                },
+                "otp_method": {
+                    "description": "For SSI: PIN/SMS/EMAIL/SMART",
+                    "type": "string"
+                },
+                "passphrase": {
+                    "description": "For OKX",
+                    "type": "string"
+                },
+                "sync_assets": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sync_balance": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sync_frequency": {
+                    "description": "minutes",
+                    "type": "integer",
+                    "example": 60
+                },
+                "sync_prices": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "sync_transactions": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "personalfinancedss_internal_module_identify_broker_dto.ListBrokerProvidersResponse": {
+            "type": "object",
+            "properties": {
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/personalfinancedss_internal_module_identify_broker_dto.BrokerProviderInfo"
+                    }
+                }
+            }
+        },
+        "personalfinancedss_internal_module_identify_broker_dto.SyncResultResponse": {
+            "type": "object",
+            "properties": {
+                "assets_count": {
+                    "type": "integer"
+                },
+                "balance_updated": {
+                    "type": "boolean"
+                },
+                "details": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "synced_at": {
+                    "type": "string"
+                },
+                "transactions_count": {
+                    "type": "integer"
+                },
+                "updated_prices_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "personalfinancedss_internal_module_identify_broker_dto.UpdateBrokerConnectionRequest": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "description": "Update credentials (optional)",
+                    "type": "string"
+                },
+                "api_secret": {
+                    "type": "string"
+                },
+                "auto_sync": {
+                    "description": "Sync settings",
+                    "type": "boolean"
+                },
+                "broker_name": {
+                    "type": "string"
+                },
+                "consumer_id": {
+                    "type": "string"
+                },
+                "consumer_secret": {
+                    "type": "string"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "otp_method": {
+                    "type": "string"
+                },
+                "passphrase": {
+                    "type": "string"
+                },
+                "sync_assets": {
+                    "type": "boolean"
+                },
+                "sync_balance": {
+                    "type": "boolean"
+                },
+                "sync_frequency": {
+                    "type": "integer"
+                },
+                "sync_prices": {
+                    "type": "boolean"
+                },
+                "sync_transactions": {
+                    "type": "boolean"
                 }
             }
         },

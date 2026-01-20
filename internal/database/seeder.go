@@ -4,23 +4,18 @@ import (
 	"context"
 	"fmt"
 
-	categorydomain "personalfinancedss/internal/module/cashflow/category/domain"
-	categorydto "personalfinancedss/internal/module/cashflow/category/dto"
 	userdomain "personalfinancedss/internal/module/identify/user/domain"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 // PasswordHasher interface for password hashing
-// This allows us to inject the password service without circular dependencies
 type PasswordHasher interface {
 	HashPassword(password string) (string, error)
 }
 
 // UserService interface for user operations
-// This allows us to inject the user service without circular dependencies
 type UserService interface {
 	Create(ctx context.Context, user *userdomain.User) (*userdomain.User, error)
 }
@@ -51,229 +46,42 @@ func NewSeeder(db *gorm.DB, passwordHasher PasswordHasher, userService UserServi
 func (s *Seeder) SeedAll() error {
 	s.logger.Info("🌱 Running database seeder...")
 
-	// Run seeding in transaction for atomicity
+	// PHASE 1: Seed system categories FIRST (separate transaction, must commit before users)
+	// This is needed because UserService.Create() uses its own DB connection
+	// and won't see uncommitted categories from a parent transaction
+	s.logger.Info("Phase 1: Seeding default system categories...")
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		return s.seedDefaultCategories(tx)
+	}); err != nil {
+		s.logger.Error("Failed to seed default categories", zap.Error(err))
+		return fmt.Errorf("failed to seed default categories: %w", err)
+	}
+	s.logger.Info("✅ System categories seeded and committed")
+
+	// PHASE 2: Seed users and financial data (categories are now visible)
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 1. Seed admin user
-		s.logger.Info("Step 1: Seeding admin user...")
+		// 2. Seed admin user (will auto-clone categories from system)
+		s.logger.Info("Phase 2: Seeding admin user...")
 		if err := s.seedAdminUser(tx); err != nil {
 			s.logger.Error("Failed to seed admin user", zap.Error(err))
 			return fmt.Errorf("failed to seed admin user: %w", err)
 		}
 
-		// 2. Seed sample users
-		s.logger.Info("Step 2: Seeding sample users...")
+		// 3. Seed sample users (4 different financial profiles)
+		s.logger.Info("Phase 2: Seeding sample users...")
 		if err := s.seedSampleUsers(tx); err != nil {
 			s.logger.Error("Failed to seed sample users", zap.Error(err))
 			return fmt.Errorf("failed to seed sample users: %w", err)
 		}
 
-		// 3. Seed default categories
-		s.logger.Info("Step 3: Seeding default categories...")
-		if err := s.seedDefaultCategories(tx); err != nil {
-			s.logger.Error("Failed to seed default categories", zap.Error(err))
-			return fmt.Errorf("failed to seed default categories: %w", err)
+		// 4. Seed comprehensive financial data for all user profiles
+		s.logger.Info("Phase 2: Seeding financial data (budgets, income, goals, debts)...")
+		if err := s.SeedMonthDSSData(tx); err != nil {
+			s.logger.Error("Failed to seed financial data", zap.Error(err))
+			return fmt.Errorf("failed to seed financial data: %w", err)
 		}
 
 		s.logger.Info("✅ Database seeding completed successfully")
 		return nil
-	})
-}
-
-// seedAdminUser creates a default admin user with profile using UserService
-func (s *Seeder) seedAdminUser(tx *gorm.DB) error {
-	s.logger.Info("Checking for existing admin user...")
-
-	// Check if admin user already exists
-	var count int64
-	if err := tx.Model(&userdomain.User{}).Where("role = ?", userdomain.UserRoleAdmin).Count(&count).Error; err != nil {
-		s.logger.Error("Failed to check admin user count", zap.Error(err))
-		return err
-	}
-
-	if count > 0 {
-		s.logger.Info("ℹ️  Admin user already exists, skipping", zap.Int64("count", count))
-		return nil
-	}
-
-	// Hash password from config
-	s.logger.Info("Hashing admin password...")
-	hashedPassword, err := s.passwordHasher.HashPassword(s.adminPassword)
-	if err != nil {
-		s.logger.Error("Failed to hash admin password", zap.Error(err))
-		return fmt.Errorf("failed to hash admin password: %w", err)
-	}
-
-	// Create admin user with credentials from config
-	admin := &userdomain.User{
-		Email:            s.adminEmail,
-		Password:         hashedPassword,
-		FullName:         "System Administrator",
-		Role:             userdomain.UserRoleAdmin,
-		Status:           userdomain.UserStatusActive,
-		EmailVerified:    true,
-		AnalyticsConsent: true,
-	}
-
-	s.logger.Info("Creating admin user with profile...", zap.String("email", s.adminEmail))
-
-	// Create user using UserService (will also create default profile)
-	ctx := context.Background()
-	createdUser, err := s.userService.Create(ctx, admin)
-	if err != nil {
-		s.logger.Error("Failed to create admin user via UserService", zap.Error(err))
-		return fmt.Errorf("failed to create admin user: %w", err)
-	}
-
-	s.logger.Info("✅ Admin user and profile created successfully",
-		zap.String("email", createdUser.Email),
-		zap.String("id", createdUser.ID.String()),
-	)
-	return nil
-}
-
-// seedSampleUsers creates sample users for testing
-func (s *Seeder) seedSampleUsers(tx *gorm.DB) error {
-	s.logger.Info("Checking for existing sample users...")
-
-	// Check if sample users already exist
-	var count int64
-	if err := tx.Model(&userdomain.User{}).Where("email IN (?)", []string{
-		"john.doe@example.com",
-		"jane.smith@example.com",
-		"alice.johnson@example.com",
-		"bob.wilson@example.com",
-	}).Count(&count).Error; err != nil {
-		s.logger.Error("Failed to check sample users count", zap.Error(err))
-		return err
-	}
-
-	if count > 0 {
-		s.logger.Info("ℹ️  Sample users already exist, skipping", zap.Int64("count", count))
-		return nil
-	}
-
-	// Default password for all sample users: "Password123!"
-	defaultPassword := "Password123!"
-	hashedPassword, err := s.passwordHasher.HashPassword(defaultPassword)
-	if err != nil {
-		s.logger.Error("Failed to hash sample user password", zap.Error(err))
-		return fmt.Errorf("failed to hash sample user password: %w", err)
-	}
-
-	// Define sample users
-	sampleUsers := []*userdomain.User{
-		{
-			Email:            "john.doe@example.com",
-			Password:         hashedPassword,
-			FullName:         "John Doe",
-			Role:             userdomain.UserRoleUser,
-			Status:           userdomain.UserStatusActive,
-			EmailVerified:    true,
-			AnalyticsConsent: true,
-		},
-		{
-			Email:            "jane.smith@example.com",
-			Password:         hashedPassword,
-			FullName:         "Jane Smith",
-			Role:             userdomain.UserRoleUser,
-			Status:           userdomain.UserStatusActive,
-			EmailVerified:    true,
-			AnalyticsConsent: true,
-		},
-		{
-			Email:            "alice.johnson@example.com",
-			Password:         hashedPassword,
-			FullName:         "Alice Johnson",
-			Role:             userdomain.UserRoleUser,
-			Status:           userdomain.UserStatusActive,
-			EmailVerified:    true,
-			AnalyticsConsent: false,
-		},
-		{
-			Email:         "bob.wilson@example.com",
-			Password:      hashedPassword,
-			FullName:      "Bob Wilson",
-			Role:          userdomain.UserRoleUser,
-			Status:        userdomain.UserStatusPendingVerification,
-			EmailVerified: false,
-		},
-	}
-
-	ctx := context.Background()
-	for _, user := range sampleUsers {
-		s.logger.Info("Creating sample user...", zap.String("email", user.Email))
-		createdUser, err := s.userService.Create(ctx, user)
-		if err != nil {
-			s.logger.Error("Failed to create sample user", zap.String("email", user.Email), zap.Error(err))
-			return fmt.Errorf("failed to create sample user %s: %w", user.Email, err)
-		}
-		s.logger.Info("✅ Sample user created", zap.String("email", createdUser.Email), zap.String("id", createdUser.ID.String()))
-	}
-
-	s.logger.Info("✅ Seeded sample users successfully", zap.Int("count", len(sampleUsers)))
-	return nil
-}
-
-// seedDefaultCategories creates 26 default system categories
-func (s *Seeder) seedDefaultCategories(tx *gorm.DB) error {
-	s.logger.Info("Checking for existing default categories...")
-
-	// Check if default categories already exist
-	var count int64
-	if err := tx.Model(&categorydomain.Category{}).Where("is_default = ?", true).Count(&count).Error; err != nil {
-		s.logger.Error("Failed to check default categories count", zap.Error(err))
-		return err
-	}
-
-	if count > 0 {
-		s.logger.Info("ℹ️  Default categories already exist, skipping", zap.Int64("count", count))
-		return nil
-	}
-
-	s.logger.Info("Loading default categories from domain...")
-
-	// Get default categories from domain
-	// Use uuid.Nil as userID since these are system-wide categories (no specific user)
-	categories := categorydto.FromDefaultCategories(uuid.Nil, true, true)
-
-	if len(categories) == 0 {
-		s.logger.Warn("⚠️  No default categories defined in domain")
-		return nil
-	}
-
-	s.logger.Info("Bulk creating categories...", zap.Int("count", len(categories)))
-
-	// Bulk create categories
-	if err := tx.Create(categories).Error; err != nil {
-		s.logger.Error("Failed to create default categories", zap.Error(err))
-		return fmt.Errorf("failed to create default categories: %w", err)
-	}
-
-	// Count by type for logging
-	var expenseCount, incomeCount int64
-	tx.Model(&categorydomain.Category{}).Where("type = ? AND is_default = ?", categorydomain.CategoryTypeExpense, true).Count(&expenseCount)
-	tx.Model(&categorydomain.Category{}).Where("type = ? AND is_default = ?", categorydomain.CategoryTypeIncome, true).Count(&incomeCount)
-
-	s.logger.Info("✅ Seeded default categories successfully",
-		zap.Int("total", len(categories)),
-		zap.Int64("expense", expenseCount),
-		zap.Int64("income", incomeCount),
-	)
-	return nil
-}
-
-// SeedAdminUserOnly seeds only the admin user (useful for testing)
-func (s *Seeder) SeedAdminUserOnly() error {
-	s.logger.Info("🌱 Seeding admin user only...")
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		return s.seedAdminUser(tx)
-	})
-}
-
-// SeedCategoriesOnly seeds only default categories (useful for testing)
-func (s *Seeder) SeedCategoriesOnly() error {
-	s.logger.Info("🌱 Seeding categories only...")
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		return s.seedDefaultCategories(tx)
 	})
 }

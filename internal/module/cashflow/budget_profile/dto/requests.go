@@ -7,6 +7,7 @@ type CreateBudgetConstraintRequest struct {
 	CategoryID string `json:"category_id" binding:"required,uuid"`
 
 	// Period tracking
+	Period    *string    `json:"period" binding:"omitempty"`
 	StartDate time.Time  `json:"start_date" binding:"required"`
 	EndDate   *time.Time `json:"end_date,omitempty"`
 
@@ -39,6 +40,7 @@ type UpdateBudgetConstraintRequest struct {
 	Priority *int `json:"priority,omitempty" binding:"omitempty,gte=1"`
 
 	// Period
+	Period  *string    `json:"period,omitempty"`
 	EndDate *time.Time `json:"end_date,omitempty"`
 
 	// Additional metadata

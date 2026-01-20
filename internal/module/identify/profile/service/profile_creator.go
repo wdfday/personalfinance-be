@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"personalfinancedss/internal/module/identify/profile/domain"
 	profiledto "personalfinancedss/internal/module/identify/profile/dto"
@@ -21,7 +22,7 @@ func (s *profileService) CreateProfile(ctx context.Context, userID string, req p
 	// Check if profile already exists
 	if _, err := s.repo.GetByUserID(ctx, userID); err == nil {
 		return nil, shared.ErrConflict.WithDetails("resource", "profile").WithDetails("reason", "profile already exists")
-	} else if err != shared.ErrNotFound {
+	} else if !errors.Is(err, shared.ErrNotFound) && !errors.Is(err, shared.ErrProfileNotFound) {
 		return nil, shared.ErrInternal.WithError(err)
 	}
 

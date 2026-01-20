@@ -232,7 +232,7 @@ func TestBudgetReader_GetBudgetSummary_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, 3, result.TotalBudgets)
-	assert.Equal(t, 2, result.ActiveBudgets) // Active + Warning
+	assert.Equal(t, 1, result.ActiveBudgets) // Active only
 	assert.Equal(t, 1, result.ExceededBudgets)
 	assert.Equal(t, 1, result.WarningBudgets)
 	assert.Equal(t, 18000000.0, result.TotalAmount)
@@ -268,9 +268,10 @@ func TestBudgetReader_GetBudgetProgress_Success(t *testing.T) {
 	startDate := time.Now().AddDate(0, 0, -15) // 15 days ago
 	endDate := time.Now().AddDate(0, 0, 15)    // 15 days from now
 
+	userID := uuid.New()
 	budget := &domain.Budget{
 		ID:              budgetID,
-		UserID:          uuid.New(),
+		UserID:          userID,
 		Name:            "Test Budget",
 		Period:          domain.BudgetPeriodMonthly,
 		StartDate:       startDate,
@@ -278,13 +279,13 @@ func TestBudgetReader_GetBudgetProgress_Success(t *testing.T) {
 		Amount:          10000000,
 		SpentAmount:     5000000,
 		RemainingAmount: 5000000,
-		PercentageSpent: 50.0,
 		Status:          domain.BudgetStatusActive,
+		PercentageSpent: 50.0,
 	}
 
-	mockRepo.On("FindByID", ctx, budgetID).Return(budget, nil)
+	mockRepo.On("FindByIDAndUserID", ctx, budgetID, userID).Return(budget, nil)
 
-	result, err := service.GetBudgetProgress(ctx, budgetID)
+	result, err := service.GetBudgetProgress(ctx, budgetID, userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -303,9 +304,10 @@ func TestBudgetReader_GetBudgetAnalytics_Success(t *testing.T) {
 	ctx := context.Background()
 
 	budgetID := uuid.New()
+	userID := uuid.New()
 	budget := &domain.Budget{
 		ID:              budgetID,
-		UserID:          uuid.New(),
+		UserID:          userID,
 		Name:            "Test Budget",
 		Amount:          10000000,
 		SpentAmount:     5000000,
@@ -314,9 +316,9 @@ func TestBudgetReader_GetBudgetAnalytics_Success(t *testing.T) {
 		Status:          domain.BudgetStatusActive,
 	}
 
-	mockRepo.On("FindByID", ctx, budgetID).Return(budget, nil)
+	mockRepo.On("FindByIDAndUserID", ctx, budgetID, userID).Return(budget, nil)
 
-	result, err := service.GetBudgetAnalytics(ctx, budgetID)
+	result, err := service.GetBudgetAnalytics(ctx, budgetID, userID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)

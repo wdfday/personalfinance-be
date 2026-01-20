@@ -45,7 +45,7 @@ var Module = fx.Module("broker",
 		provideSyncWorker,
 	),
 	fx.Invoke(
-		registerBrokerRoutes,
+		// registerBrokerRoutes removed - routes registered centrally in app.go
 		registerSyncWorkerLifecycle,
 	),
 )

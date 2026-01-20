@@ -43,12 +43,14 @@ type Service interface {
 
 // transactionService implements all transaction use cases
 type transactionService struct {
-	repo repository.Repository
+	repo          repository.Repository
+	linkProcessor *LinkProcessor
 }
 
 // NewService creates a new transaction service
-func NewService(repo repository.Repository) Service {
+func NewService(repo repository.Repository, linkProcessor *LinkProcessor) Service {
 	return &transactionService{
-		repo: repo,
+		repo:          repo,
+		linkProcessor: linkProcessor,
 	}
 }

@@ -1,14 +1,14 @@
 
 # Swagger backups
 docs/*.backup
-/md/
-/CLAUDE.md
+
 /deploy/docker-compose.prod.yml
-/.env
+/deploy/.env
 /.claude/
 /.idea/
 
-*.md
-/internal/module/calendar/
-/internal/module/analytics/
+
+# Air hot reload
+tmp/
+build-errors.log
 /internal/module/chatbot/

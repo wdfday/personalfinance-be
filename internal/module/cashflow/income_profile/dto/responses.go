@@ -4,8 +4,9 @@ import "time"
 
 // IncomeProfileResponse represents an income profile in API responses
 type IncomeProfileResponse struct {
-	ID     string `json:"id"`
-	UserID string `json:"user_id"`
+	ID         string `json:"id"`
+	UserID     string `json:"user_id"`
+	CategoryID string `json:"category_id"`
 
 	// Period tracking
 	StartDate *time.Time `json:"start_date"`

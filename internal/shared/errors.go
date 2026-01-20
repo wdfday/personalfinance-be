@@ -23,6 +23,9 @@ const (
 	ErrCodeTokenExpired  = "TOKEN_EXPIRED"
 	ErrCodeTokenUsed     = "TOKEN_USED"
 	ErrCodeTokenInvalid  = "TOKEN_INVALID"
+
+	// Profile error codes
+	ErrCodeProfileNotFound = "PROFILE_NOT_FOUND"
 )
 
 // AppError represents an application error with status code and error code
@@ -110,6 +113,9 @@ var (
 	ErrTokenExpired  = NewAppError(ErrCodeTokenExpired, "Token has expired", http.StatusUnauthorized)
 	ErrTokenUsed     = NewAppError(ErrCodeTokenUsed, "Token has already been used", http.StatusUnauthorized)
 	ErrTokenInvalid  = NewAppError(ErrCodeTokenInvalid, "Invalid token", http.StatusUnauthorized)
+
+	// Profile errors
+	ErrProfileNotFound = NewAppError(ErrCodeProfileNotFound, "Profile not found", http.StatusNotFound)
 )
 
 // IsAppError checks if an error is an AppError

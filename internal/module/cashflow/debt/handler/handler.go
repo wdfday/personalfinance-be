@@ -6,6 +6,7 @@ import (
 	"personalfinancedss/internal/module/cashflow/debt/domain"
 	"personalfinancedss/internal/module/cashflow/debt/dto"
 	"personalfinancedss/internal/module/cashflow/debt/service"
+	"personalfinancedss/internal/shared"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -63,7 +64,7 @@ func (h *Handler) CreateDebt(c *gin.Context) {
 
 	userID, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not authenticated")
 		return
 	}
 
@@ -77,6 +78,7 @@ func (h *Handler) CreateDebt(c *gin.Context) {
 		Name:              req.Name,
 		Description:       req.Description,
 		Type:              req.Type,
+		Behavior:          req.Behavior,
 		Status:            status,
 		PrincipalAmount:   req.PrincipalAmount,
 		CurrentBalance:    req.CurrentBalance,
@@ -99,11 +101,11 @@ func (h *Handler) CreateDebt(c *gin.Context) {
 
 	if err := h.service.CreateDebt(c.Request.Context(), debt); err != nil {
 		h.logger.Error("Failed to create debt", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.ToDebtResponse(debt))
+	shared.RespondWithSuccess(c, http.StatusCreated, "Debt created successfully", dto.ToDebtResponse(debt))
 }
 
 // GetUserDebts godoc
@@ -124,11 +126,11 @@ func (h *Handler) GetUserDebts(c *gin.Context) {
 	debts, err := h.service.GetUserDebts(c.Request.Context(), userID.(uuid.UUID))
 	if err != nil {
 		h.logger.Error("Failed to get user debts", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToDebtResponseList(debts))
+	shared.RespondWithSuccess(c, http.StatusOK, "User debts retrieved successfully", dto.ToDebtResponseList(debts))
 }
 
 // GetActiveDebts godoc
@@ -149,11 +151,11 @@ func (h *Handler) GetActiveDebts(c *gin.Context) {
 	debts, err := h.service.GetActiveDebts(c.Request.Context(), userID.(uuid.UUID))
 	if err != nil {
 		h.logger.Error("Failed to get active debts", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToDebtResponseList(debts))
+	shared.RespondWithSuccess(c, http.StatusOK, "Active debts retrieved successfully", dto.ToDebtResponseList(debts))
 }
 
 // GetPaidOffDebts godoc
@@ -174,11 +176,11 @@ func (h *Handler) GetPaidOffDebts(c *gin.Context) {
 	debts, err := h.service.GetPaidOffDebts(c.Request.Context(), userID.(uuid.UUID))
 	if err != nil {
 		h.logger.Error("Failed to get paid off debts", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToDebtResponseList(debts))
+	shared.RespondWithSuccess(c, http.StatusOK, "Paid off debts retrieved successfully", dto.ToDebtResponseList(debts))
 }
 
 // GetDebtByID godoc
@@ -201,11 +203,11 @@ func (h *Handler) GetDebtByID(c *gin.Context) {
 
 	debt, err := h.service.GetDebtByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToDebtResponse(debt))
+	shared.RespondWithSuccess(c, http.StatusOK, "Debt retrieved successfully", dto.ToDebtResponse(debt))
 }
 
 // UpdateDebt godoc
@@ -237,7 +239,7 @@ func (h *Handler) UpdateDebt(c *gin.Context) {
 
 	debt, err := h.service.GetDebtByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
@@ -250,6 +252,9 @@ func (h *Handler) UpdateDebt(c *gin.Context) {
 	}
 	if req.Type != nil {
 		debt.Type = *req.Type
+	}
+	if req.Behavior != nil {
+		debt.Behavior = *req.Behavior
 	}
 	if req.Status != nil {
 		debt.Status = *req.Status
@@ -311,11 +316,11 @@ func (h *Handler) UpdateDebt(c *gin.Context) {
 
 	if err := h.service.UpdateDebt(c.Request.Context(), debt); err != nil {
 		h.logger.Error("Failed to update debt", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToDebtResponse(debt))
+	shared.RespondWithSuccess(c, http.StatusOK, "Debt updated successfully", dto.ToDebtResponse(debt))
 }
 
 // DeleteDebt godoc
@@ -337,11 +342,11 @@ func (h *Handler) DeleteDebt(c *gin.Context) {
 
 	if err := h.service.DeleteDebt(c.Request.Context(), id); err != nil {
 		h.logger.Error("Failed to delete debt", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	shared.RespondWithNoContent(c)
 }
 
 // AddPayment godoc
@@ -373,11 +378,11 @@ func (h *Handler) AddPayment(c *gin.Context) {
 	debt, err := h.service.AddPayment(c.Request.Context(), id, req.Amount)
 	if err != nil {
 		h.logger.Error("Failed to add payment", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToDebtResponse(debt))
+	shared.RespondWithSuccess(c, http.StatusOK, "Payment added successfully", dto.ToDebtResponse(debt))
 }
 
 // MarkAsPaidOff godoc
@@ -399,17 +404,17 @@ func (h *Handler) MarkAsPaidOff(c *gin.Context) {
 
 	if err := h.service.MarkAsPaidOff(c.Request.Context(), id); err != nil {
 		h.logger.Error("Failed to mark debt as paid off", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
 	debt, err := h.service.GetDebtByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToDebtResponse(debt))
+	shared.RespondWithSuccess(c, http.StatusOK, "Debt marked as paid off", dto.ToDebtResponse(debt))
 }
 
 // GetDebtSummary godoc
@@ -430,9 +435,9 @@ func (h *Handler) GetDebtSummary(c *gin.Context) {
 	summary, err := h.service.GetDebtSummary(c.Request.Context(), userID.(uuid.UUID))
 	if err != nil {
 		h.logger.Error("Failed to get debt summary", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		shared.HandleError(c, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToDebtSummaryResponse(summary))
+	shared.RespondWithSuccess(c, http.StatusOK, "Debt summary retrieved successfully", dto.ToDebtSummaryResponse(summary))
 }

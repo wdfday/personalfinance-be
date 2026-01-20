@@ -9,10 +9,11 @@ import (
 
 // CreateDebtRequest represents a request to create a new debt
 type CreateDebtRequest struct {
-	Name        string             `json:"name" binding:"required"`
-	Description *string            `json:"description"`
-	Type        domain.DebtType    `json:"type" binding:"required"`
-	Status      *domain.DebtStatus `json:"status"`
+	Name        string              `json:"name" binding:"required"`
+	Description *string             `json:"description"`
+	Type        domain.DebtType     `json:"type" binding:"required"`
+	Behavior    domain.DebtBehavior `json:"behavior" binding:"required"`
+	Status      *domain.DebtStatus  `json:"status"`
 
 	PrincipalAmount float64 `json:"principal_amount" binding:"required,gt=0"`
 	CurrentBalance  float64 `json:"current_balance" binding:"required,gt=0"`
@@ -40,10 +41,11 @@ type CreateDebtRequest struct {
 
 // UpdateDebtRequest represents a request to update an existing debt
 type UpdateDebtRequest struct {
-	Name        *string            `json:"name"`
-	Description *string            `json:"description"`
-	Type        *domain.DebtType   `json:"type"`
-	Status      *domain.DebtStatus `json:"status"`
+	Name        *string              `json:"name"`
+	Description *string              `json:"description"`
+	Type        *domain.DebtType     `json:"type"`
+	Behavior    *domain.DebtBehavior `json:"behavior"`
+	Status      *domain.DebtStatus   `json:"status"`
 
 	PrincipalAmount *float64 `json:"principal_amount" binding:"omitempty,gt=0"`
 	CurrentBalance  *float64 `json:"current_balance" binding:"omitempty,gte=0"`

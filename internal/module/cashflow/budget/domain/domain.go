@@ -136,7 +136,12 @@ func (b *Budget) UpdateCalculatedFields() {
 	b.LastCalculatedAt = &now
 }
 
-//func (b *Budget) IsActive(){
-//	var status = b.Status == BudgetStatusActive
-//	return status
-//}
+// IsActive checks if the budget is active
+func (b *Budget) IsActive() bool {
+	return b.Status == BudgetStatusActive || b.Status == BudgetStatusWarning
+}
+
+// BelongsTo checks if the budget belongs to the given user
+func (b *Budget) BelongsTo(userID uuid.UUID) bool {
+	return b.UserID == userID
+}

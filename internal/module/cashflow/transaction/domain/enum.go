@@ -49,12 +49,13 @@ const (
 )
 
 // =========================
-// Unified links (GOAL / BUDGET / DEBT)
+// Unified links (GOAL / BUDGET / DEBT / INCOME_PROFILE)
 // =========================
 type LinkType string
 
 const (
-	LinkGoal   LinkType = "GOAL"
-	LinkBudget LinkType = "BUDGET"
-	LinkDebt   LinkType = "DEBT"
+	LinkGoal          LinkType = "GOAL"
+	LinkBudget        LinkType = "BUDGET"
+	LinkDebt          LinkType = "DEBT"
+	LinkIncomeProfile LinkType = "INCOME_PROFILE"
 )

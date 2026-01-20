@@ -7,14 +7,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCategory_IsParent(t *testing.T) {
+func TestCategory_IsRootCategory(t *testing.T) {
 	tests := []struct {
 		name     string
 		category *Category
 		expected bool
 	}{
 		{
-			name:     "parent category",
+			name:     "root category",
 			category: &Category{ParentID: nil},
 			expected: true,
 		},
@@ -29,7 +29,7 @@ func TestCategory_IsParent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.category.IsParent()
+			result := tt.category.IsRootCategory()
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -55,16 +55,16 @@ func TestCategory_IsActive(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := tt.category.IsActive()
+			result := tt.category.IsActive
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
 func TestCategoryType_IsValid(t *testing.T) {
-	assert.True(t, CategoryTypeIncome.IsValid())
-	assert.True(t, CategoryTypeExpense.IsValid())
-	assert.False(t, CategoryType("invalid").IsValid())
+	assert.True(t, ValidateCategoryType(CategoryTypeIncome))
+	assert.True(t, ValidateCategoryType(CategoryTypeExpense))
+	assert.False(t, ValidateCategoryType(CategoryType("invalid")))
 }
 
 func TestCategory_TableName(t *testing.T) {

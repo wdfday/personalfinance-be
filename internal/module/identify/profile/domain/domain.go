@@ -112,5 +112,11 @@ type Settings struct {
 		CompactUI bool    `json:"compact_ui,omitempty"`
 	} `json:"appearance,omitempty"`
 
+	// Budget period settings for month module
+	Budget struct {
+		PeriodType     string `json:"period_type"`      // "calendar_month" or "pay_period"
+		PeriodStartDay int    `json:"period_start_day"` // 1-31, only for pay_period
+	} `json:"budget,omitempty"`
+
 	Extra map[string]any `json:"extra,omitempty"`
 }

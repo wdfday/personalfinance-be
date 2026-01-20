@@ -4,8 +4,12 @@ import (
 	"context"
 	"errors"
 	"personalfinancedss/internal/module/cashflow/budget/domain"
+	"personalfinancedss/internal/module/cashflow/budget/repository"
 	"testing"
 	"time"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -61,6 +65,11 @@ func (m *MockRepository) Update(ctx context.Context, budget *domain.Budget) erro
 	return args.Error(0)
 }
 
+func (m *MockRepository) DeleteByIDAndUserID(ctx context.Context, id, userID uuid.UUID) error {
+	args := m.Called(ctx, id, userID)
+	return args.Error(0)
+}
+
 func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	args := m.Called(ctx, id)
 	return args.Error(0)
@@ -81,14 +90,37 @@ func (m *MockRepository) FindBudgetsNeedingRecalculation(ctx context.Context, th
 	return args.Get(0).([]domain.Budget), args.Error(1)
 }
 
+func (m *MockRepository) ExistsByUserIDAndName(ctx context.Context, userID uuid.UUID, name string) (bool, error) {
+	args := m.Called(ctx, userID, name)
+	return args.Get(0).(bool), args.Error(1)
+}
+
+func (m *MockRepository) FindByIDAndUserID(ctx context.Context, id, userID uuid.UUID) (*domain.Budget, error) {
+	args := m.Called(ctx, id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Budget), args.Error(1)
+}
+
+func (m *MockRepository) FindByUserIDPaginated(ctx context.Context, userID uuid.UUID, params repository.PaginationParams) (*repository.PaginatedResult, error) {
+	args := m.Called(ctx, userID, params)
+	return args.Get(0).(*repository.PaginatedResult), args.Error(1)
+}
+
 // Test helpers
 func setupBudgetService() (*budgetService, *MockRepository) {
 	mockRepo := new(MockRepository)
 	logger, _ := zap.NewDevelopment()
+	db, _ := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err := db.Exec("CREATE TABLE transactions (user_id text, direction text, booking_date datetime, classification text, amount integer)").Error; err != nil {
+		panic(err)
+	}
 
 	service := &budgetService{
 		repo:   mockRepo,
 		logger: logger,
+		db:     db,
 	}
 
 	// Initialize sub-services
@@ -116,6 +148,7 @@ func TestBudgetCreator_CreateBudget_Success(t *testing.T) {
 		CategoryID: &categoryID,
 	}
 
+	mockRepo.On("FindByUserIDAndCategory", ctx, userID, categoryID).Return([]domain.Budget{}, nil)
 	mockRepo.On("Create", ctx, budget).Return(nil)
 
 	err := service.CreateBudget(ctx, budget)
@@ -196,7 +229,7 @@ func TestBudgetCreator_CreateBudget_ValidationError_InvalidPeriod(t *testing.T) 
 	err := service.CreateBudget(ctx, budget)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid budget period")
+	assert.Contains(t, err.Error(), "unknown budget period")
 }
 
 func TestBudgetCreator_CreateBudget_ValidationError_EndDateBeforeStart(t *testing.T) {

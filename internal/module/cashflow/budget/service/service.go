@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"personalfinancedss/internal/module/cashflow/budget/domain"
+	"personalfinancedss/internal/module/cashflow/budget/repository"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,26 +16,31 @@ type Service interface {
 
 	// Read operations
 	GetBudgetByID(ctx context.Context, budgetID uuid.UUID) (*domain.Budget, error)
+	GetBudgetByIDForUser(ctx context.Context, budgetID, userID uuid.UUID) (*domain.Budget, error)
 	GetUserBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error)
+	GetUserBudgetsPaginated(ctx context.Context, userID uuid.UUID, page, pageSize int) (*repository.PaginatedResult, error)
 	GetActiveBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error)
 	GetBudgetsByCategory(ctx context.Context, userID, categoryID uuid.UUID) ([]domain.Budget, error)
 	GetBudgetsByAccount(ctx context.Context, userID, accountID uuid.UUID) ([]domain.Budget, error)
 	GetBudgetsByPeriod(ctx context.Context, userID uuid.UUID, period domain.BudgetPeriod) ([]domain.Budget, error)
 	GetBudgetSummary(ctx context.Context, userID uuid.UUID, period time.Time) (*BudgetSummary, error)
 	GetBudgetVsActual(ctx context.Context, userID uuid.UUID, period domain.BudgetPeriod, startDate, endDate time.Time) ([]*BudgetVsActual, error)
-	GetBudgetProgress(ctx context.Context, budgetID uuid.UUID) (*BudgetProgress, error)
-	GetBudgetAnalytics(ctx context.Context, budgetID uuid.UUID) (*BudgetAnalytics, error)
+	GetBudgetProgress(ctx context.Context, budgetID, userID uuid.UUID) (*BudgetProgress, error)
+	GetBudgetAnalytics(ctx context.Context, budgetID, userID uuid.UUID) (*BudgetAnalytics, error)
 
 	// Update operations
 	UpdateBudget(ctx context.Context, budget *domain.Budget) error
+	UpdateBudgetForUser(ctx context.Context, budget *domain.Budget, userID uuid.UUID) error
 	CheckBudgetAlerts(ctx context.Context, budgetID uuid.UUID) ([]domain.AlertThreshold, error)
 	MarkExpiredBudgets(ctx context.Context) error
 
 	// Delete operations
 	DeleteBudget(ctx context.Context, budgetID uuid.UUID) error
+	DeleteBudgetForUser(ctx context.Context, budgetID, userID uuid.UUID) error
 
 	// Calculation operations
 	RecalculateBudgetSpending(ctx context.Context, budgetID uuid.UUID) error
+	RecalculateBudgetSpendingForUser(ctx context.Context, budgetID, userID uuid.UUID) error
 	RecalculateAllBudgets(ctx context.Context, userID uuid.UUID) error
 	RolloverBudgets(ctx context.Context, userID uuid.UUID) error
 }

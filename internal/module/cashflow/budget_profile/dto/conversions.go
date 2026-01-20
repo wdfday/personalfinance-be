@@ -23,6 +23,9 @@ func FromCreateBudgetConstraintRequest(req CreateBudgetConstraintRequest, userID
 	}
 
 	// Set optional fields
+	if req.Period != nil {
+		bc.Period = *req.Period
+	}
 	if req.EndDate != nil {
 		bc.EndDate = req.EndDate
 	}
@@ -109,6 +112,11 @@ func ApplyUpdateBudgetConstraintRequest(req UpdateBudgetConstraintRequest, exist
 		newVersion.EndDate = req.EndDate
 	}
 
+	// Update period
+	if req.Period != nil {
+		newVersion.Period = *req.Period
+	}
+
 	// Update description
 	if req.Description != nil {
 		newVersion.Description = *req.Description
@@ -138,6 +146,7 @@ func ToBudgetConstraintResponse(bc *domain.BudgetConstraint, includeDetails bool
 		ID:            bc.ID.String(),
 		UserID:        bc.UserID.String(),
 		CategoryID:    bc.CategoryID.String(),
+		Period:        bc.Period,
 		StartDate:     &bc.StartDate,
 		EndDate:       bc.EndDate,
 		Duration:      duration,

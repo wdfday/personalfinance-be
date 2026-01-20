@@ -78,13 +78,79 @@ func (h *Handler) createAccount(c *gin.Context) {
 	shared.RespondWithSuccess(c, http.StatusCreated, "Account created successfully", accountdto.ToResponse(*account))
 }
 
-// createWithBroker godoc
-// @Summary Create investment account with broker integration
-// @Description Create a new investment/crypto account with broker (SSI or OKX) integration. The server will validate credentials by authenticating with broker API, fetch account info, and create account with real data from broker.
+// updateAccount godoc
+// @Summary Update an account
+// @Description Update an account for the authenticated user
 // @Tags accounts
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Param id path string true "Account ID"
+// @Param account body accountdto.UpdateAccountRequest true "Account data"
+// @Success 200 {object} accountdto.AccountResponse
+// @Failure 400 {object} shared.ErrorResponse
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 404 {object} shared.ErrorResponse
+// @Failure 500 {object} shared.ErrorResponse
+// @Router /api/v1/accounts/{id} [put]
+func (h *Handler) updateAccount(c *gin.Context) {
+	currentUser, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
 
-// DEPRECATED: Broker integration moved to /api/v1/broker-connections
+	id := c.Param("id")
+	if id == "" {
+		shared.RespondWithError(c, http.StatusBadRequest, "account id is required")
+		return
+	}
 
+	var req accountdto.UpdateAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, "invalid request data")
+		return
+	}
+
+	account, err := h.service.UpdateAccount(c.Request.Context(), id, currentUser.ID.String(), req)
+	if err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	shared.RespondWithSuccess(c, http.StatusOK, "Account updated successfully", accountdto.ToResponse(*account))
+}
+
+// deleteAccount godoc
+// @Summary Delete an account
+// @Description Soft delete an account for the authenticated user
+// @Tags accounts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Account ID"
+// @Success 204 "No Content"
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 404 {object} shared.ErrorResponse
+// @Failure 500 {object} shared.ErrorResponse
+// @Router /api/v1/accounts/{id} [delete]
+func (h *Handler) deleteAccount(c *gin.Context) {
+	currentUser, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		shared.RespondWithError(c, http.StatusBadRequest, "account id is required")
+		return
+	}
+
+	if err := h.service.DeleteAccount(c.Request.Context(), id, currentUser.ID.String()); err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	shared.RespondWithNoContent(c)
+}

@@ -9,21 +9,11 @@ import (
 	"go.uber.org/zap"
 )
 
-// GoalReader handles goal read operations
-type GoalReader struct {
-	service *goalService
-}
-
-// NewGoalReader creates a new goal reader
-func NewGoalReader(service *goalService) *GoalReader {
-	return &GoalReader{service: service}
-}
-
 // GetGoalByID retrieves a goal by ID
-func (r *GoalReader) GetGoalByID(ctx context.Context, goalID uuid.UUID) (*domain.Goal, error) {
-	goal, err := r.service.repo.FindByID(ctx, goalID)
+func (s *goalService) GetGoalByID(ctx context.Context, goalID uuid.UUID) (*domain.Goal, error) {
+	goal, err := s.repo.FindByID(ctx, goalID)
 	if err != nil {
-		r.service.logger.Error("Failed to get goal by ID",
+		s.logger.Error("Failed to get goal by ID",
 			zap.String("goal_id", goalID.String()),
 			zap.Error(err),
 		)
@@ -33,10 +23,10 @@ func (r *GoalReader) GetGoalByID(ctx context.Context, goalID uuid.UUID) (*domain
 }
 
 // GetUserGoals retrieves all goals for a user
-func (r *GoalReader) GetUserGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error) {
-	goals, err := r.service.repo.FindByUserID(ctx, userID)
+func (s *goalService) GetUserGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error) {
+	goals, err := s.repo.FindByUserID(ctx, userID)
 	if err != nil {
-		r.service.logger.Error("Failed to get user goals",
+		s.logger.Error("Failed to get user goals",
 			zap.String("user_id", userID.String()),
 			zap.Error(err),
 		)
@@ -46,10 +36,10 @@ func (r *GoalReader) GetUserGoals(ctx context.Context, userID uuid.UUID) ([]doma
 }
 
 // GetActiveGoals retrieves all active goals for a user
-func (r *GoalReader) GetActiveGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error) {
-	goals, err := r.service.repo.FindActiveByUserID(ctx, userID)
+func (s *goalService) GetActiveGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error) {
+	goals, err := s.repo.FindActiveByUserID(ctx, userID)
 	if err != nil {
-		r.service.logger.Error("Failed to get active goals",
+		s.logger.Error("Failed to get active goals",
 			zap.String("user_id", userID.String()),
 			zap.Error(err),
 		)
@@ -58,13 +48,13 @@ func (r *GoalReader) GetActiveGoals(ctx context.Context, userID uuid.UUID) ([]do
 	return goals, nil
 }
 
-// GetGoalsByType retrieves goals of a specific type
-func (r *GoalReader) GetGoalsByType(ctx context.Context, userID uuid.UUID, goalType domain.GoalType) ([]domain.Goal, error) {
-	goals, err := r.service.repo.FindByType(ctx, userID, goalType)
+// GetGoalsByCategory retrieves goals of a specific category
+func (s *goalService) GetGoalsByCategory(ctx context.Context, userID uuid.UUID, category domain.GoalCategory) ([]domain.Goal, error) {
+	goals, err := s.repo.FindByCategory(ctx, userID, category)
 	if err != nil {
-		r.service.logger.Error("Failed to get goals by type",
+		s.logger.Error("Failed to get goals by category",
 			zap.String("user_id", userID.String()),
-			zap.String("goal_type", string(goalType)),
+			zap.String("goal_category", string(category)),
 			zap.Error(err),
 		)
 		return nil, err
@@ -73,10 +63,23 @@ func (r *GoalReader) GetGoalsByType(ctx context.Context, userID uuid.UUID, goalT
 }
 
 // GetCompletedGoals retrieves completed goals
-func (r *GoalReader) GetCompletedGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error) {
-	goals, err := r.service.repo.FindCompletedGoals(ctx, userID)
+func (s *goalService) GetCompletedGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error) {
+	goals, err := s.repo.FindCompletedGoals(ctx, userID)
 	if err != nil {
-		r.service.logger.Error("Failed to get completed goals",
+		s.logger.Error("Failed to get completed goals",
+			zap.String("user_id", userID.String()),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	return goals, nil
+}
+
+// GetArchivedGoals retrieves archived goals
+func (s *goalService) GetArchivedGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error) {
+	goals, err := s.repo.FindByStatus(ctx, userID, domain.GoalStatusArchived)
+	if err != nil {
+		s.logger.Error("Failed to get archived goals",
 			zap.String("user_id", userID.String()),
 			zap.Error(err),
 		)
@@ -86,18 +89,18 @@ func (r *GoalReader) GetCompletedGoals(ctx context.Context, userID uuid.UUID) ([
 }
 
 // GetGoalSummary calculates and returns a summary of all goals for a user
-func (r *GoalReader) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*GoalSummary, error) {
-	goals, err := r.service.repo.FindByUserID(ctx, userID)
+func (s *goalService) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*domain.GoalSummary, error) {
+	goals, err := s.repo.FindByUserID(ctx, userID)
 	if err != nil {
-		r.service.logger.Error("Failed to get goals for summary",
+		s.logger.Error("Failed to get goals for summary",
 			zap.String("user_id", userID.String()),
 			zap.Error(err),
 		)
 		return nil, err
 	}
 
-	summary := &GoalSummary{
-		GoalsByType:     make(map[string]*GoalTypeSum),
+	summary := &domain.GoalSummary{
+		GoalsByCategory: make(map[string]*domain.GoalCategorySum),
 		GoalsByPriority: make(map[string]int),
 	}
 
@@ -120,17 +123,17 @@ func (r *GoalReader) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*Goa
 			summary.OverdueGoals++
 		}
 
-		// Sum by type
-		typeKey := string(goal.Type)
-		if summary.GoalsByType[typeKey] == nil {
-			summary.GoalsByType[typeKey] = &GoalTypeSum{}
+		// Sum by category
+		categoryKey := string(goal.Category)
+		if summary.GoalsByCategory[categoryKey] == nil {
+			summary.GoalsByCategory[categoryKey] = &domain.GoalCategorySum{}
 		}
-		typeSum := summary.GoalsByType[typeKey]
-		typeSum.Count++
-		typeSum.TargetAmount += goal.TargetAmount
-		typeSum.CurrentAmount += goal.CurrentAmount
-		if typeSum.TargetAmount > 0 {
-			typeSum.Progress = (typeSum.CurrentAmount / typeSum.TargetAmount) * 100
+		categorySum := summary.GoalsByCategory[categoryKey]
+		categorySum.Count++
+		categorySum.TargetAmount += goal.TargetAmount
+		categorySum.CurrentAmount += goal.CurrentAmount
+		if categorySum.TargetAmount > 0 {
+			categorySum.Progress = (categorySum.CurrentAmount / categorySum.TargetAmount) * 100
 		}
 
 		// Count by priority
@@ -142,7 +145,7 @@ func (r *GoalReader) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*Goa
 		summary.AverageProgress = totalProgress / float64(summary.TotalGoals)
 	}
 
-	r.service.logger.Info("Goal summary calculated",
+	s.logger.Info("Goal summary calculated",
 		zap.String("user_id", userID.String()),
 		zap.Int("total_goals", summary.TotalGoals),
 		zap.Int("active_goals", summary.ActiveGoals),
@@ -152,20 +155,21 @@ func (r *GoalReader) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*Goa
 }
 
 // GetGoalProgress retrieves detailed progress information for a goal
-func (r *GoalReader) GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*GoalProgress, error) {
-	goal, err := r.service.repo.FindByID(ctx, goalID)
+func (s *goalService) GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*domain.GoalProgress, error) {
+	goal, err := s.repo.FindByID(ctx, goalID)
 	if err != nil {
-		r.service.logger.Error("Failed to get goal for progress",
+		s.logger.Error("Failed to get goal for progress",
 			zap.String("goal_id", goalID.String()),
 			zap.Error(err),
 		)
 		return nil, err
 	}
 
-	progress := &GoalProgress{
+	progress := &domain.GoalProgress{
 		GoalID:             goal.ID,
 		Name:               goal.Name,
-		Type:               goal.Type,
+		Behavior:           goal.Behavior,
+		Category:           goal.Category,
 		Priority:           goal.Priority,
 		TargetAmount:       goal.TargetAmount,
 		CurrentAmount:      goal.CurrentAmount,
@@ -203,8 +207,8 @@ func (r *GoalReader) GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*Go
 	}
 
 	// Calculate projected completion date
-	if goal.ContributionFrequency != nil && goal.SuggestedContribution != nil && *goal.SuggestedContribution > 0 {
-		periodsRemaining := goal.RemainingAmount / *goal.SuggestedContribution
+	if goal.ContributionFrequency != nil && progress.SuggestedContribution != nil && *progress.SuggestedContribution > 0 {
+		periodsRemaining := goal.RemainingAmount / *progress.SuggestedContribution
 		daysPerPeriod := goal.ContributionFrequency.DaysPerPeriod()
 		daysToCompletion := int(periodsRemaining * float64(daysPerPeriod))
 		projectedDate := now.AddDate(0, 0, daysToCompletion)
@@ -215,20 +219,21 @@ func (r *GoalReader) GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*Go
 }
 
 // GetGoalAnalytics retrieves analytics for a goal
-func (r *GoalReader) GetGoalAnalytics(ctx context.Context, goalID uuid.UUID) (*GoalAnalytics, error) {
-	goal, err := r.service.repo.FindByID(ctx, goalID)
+func (s *goalService) GetGoalAnalytics(ctx context.Context, goalID uuid.UUID) (*domain.GoalAnalytics, error) {
+	goal, err := s.repo.FindByID(ctx, goalID)
 	if err != nil {
-		r.service.logger.Error("Failed to get goal for analytics",
+		s.logger.Error("Failed to get goal for analytics",
 			zap.String("goal_id", goalID.String()),
 			zap.Error(err),
 		)
 		return nil, err
 	}
 
-	analytics := &GoalAnalytics{
+	analytics := &domain.GoalAnalytics{
 		GoalID:             goal.ID,
 		Name:               goal.Name,
-		Type:               goal.Type,
+		Behavior:           goal.Behavior,
+		Category:           goal.Category,
 		TargetAmount:       goal.TargetAmount,
 		CurrentAmount:      goal.CurrentAmount,
 		PercentageComplete: goal.PercentageComplete,

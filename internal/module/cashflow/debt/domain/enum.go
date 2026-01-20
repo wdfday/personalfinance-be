@@ -7,17 +7,31 @@ const (
 	DebtTypeCreditCard   DebtType = "credit_card"   // Credit card debt
 	DebtTypePersonalLoan DebtType = "personal_loan" // Personal loan
 	DebtTypeMortgage     DebtType = "mortgage"      // Mortgage
-	DebtTypeAutoLoan     DebtType = "auto_loan"     // Auto loan
-	DebtTypeStudentLoan  DebtType = "student_loan"  // Student loan
-	DebtTypeMedical      DebtType = "medical"       // Medical debt
 	DebtTypeOther        DebtType = "other"         // Other debt
 )
 
 // IsValid checks if the debt type is valid
 func (dt DebtType) IsValid() bool {
 	switch dt {
-	case DebtTypeCreditCard, DebtTypePersonalLoan, DebtTypeMortgage,
-		DebtTypeAutoLoan, DebtTypeStudentLoan, DebtTypeMedical, DebtTypeOther:
+	case DebtTypeCreditCard, DebtTypePersonalLoan, DebtTypeMortgage, DebtTypeOther:
+		return true
+	}
+	return false
+}
+
+// DebtBehavior represents how the debt is paid off
+type DebtBehavior string
+
+const (
+	DebtBehaviorRevolving    DebtBehavior = "revolving"     // Flexible payment (e.g., Credit Card)
+	DebtBehaviorInstallment  DebtBehavior = "installment"   // Fixed regular payments (e.g., Loan)
+	DebtBehaviorInterestOnly DebtBehavior = "interest_only" // Pay interest only, then principal
+)
+
+// IsValid checks if the debt behavior is valid
+func (db DebtBehavior) IsValid() bool {
+	switch db {
+	case DebtBehaviorRevolving, DebtBehaviorInstallment, DebtBehaviorInterestOnly:
 		return true
 	}
 	return false

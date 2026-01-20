@@ -85,7 +85,11 @@ type ExternalAPIsConfig struct {
 }
 
 type RedisConfig struct {
-	URL string
+	URL      string
+	Host     string
+	Port     int
+	Password string
+	DB       int
 }
 
 type ElasticsearchConfig struct {
@@ -129,8 +133,10 @@ func Load() *Config {
 	viper.SetConfigName(".env")
 	viper.SetConfigType("env")
 	viper.AddConfigPath(".")
-	viper.AddConfigPath("./server")
-	viper.AddConfigPath("../../")
+	viper.AddConfigPath("./deploy") // .env moved to deploy/
+	viper.AddConfigPath("./server/deploy")
+	viper.AddConfigPath("../deploy") // When running from cmd/server
+	viper.AddConfigPath("../../deploy")
 
 	// Enable automatic environment variable reading
 	viper.AutomaticEnv()
@@ -212,7 +218,11 @@ func Load() *Config {
 			CoinMarketCapAPIKey: viper.GetString("COINMARKETCAP_API_KEY"),
 		},
 		Redis: RedisConfig{
-			URL: viper.GetString("REDIS_URL"),
+			URL:      viper.GetString("REDIS_URL"),
+			Host:     viper.GetString("REDIS_HOST"),
+			Port:     viper.GetInt("REDIS_PORT"),
+			Password: viper.GetString("REDIS_PASSWORD"),
+			DB:       viper.GetInt("REDIS_DB"),
 		},
 		Elasticsearch: ElasticsearchConfig{
 			URL: viper.GetString("ELASTICSEARCH_URL"),
@@ -308,6 +318,10 @@ func setDefaults() {
 
 	// Redis Configuration
 	viper.SetDefault("REDIS_URL", "redis://localhost:6379")
+	viper.SetDefault("REDIS_HOST", "localhost")
+	viper.SetDefault("REDIS_PORT", 6379)
+	viper.SetDefault("REDIS_PASSWORD", "")
+	viper.SetDefault("REDIS_DB", 0)
 
 	// Elasticsearch Configuration
 	viper.SetDefault("ELASTICSEARCH_URL", "http://localhost:9200")

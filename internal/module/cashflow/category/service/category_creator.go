@@ -70,7 +70,6 @@ func (s *categoryService) CreateCategory(ctx context.Context, userID string, req
 
 // InitializeDefaultCategories creates default system categories for a new user
 func (s *categoryService) InitializeDefaultCategories(ctx context.Context, userID string) error {
-	// Parse and validate user ID
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
 		return shared.ErrBadRequest.
@@ -78,82 +77,36 @@ func (s *categoryService) InitializeDefaultCategories(ctx context.Context, userI
 			WithDetails("reason", "invalid UUID format")
 	}
 
-	// Kiểm tra xem user đã có default categories chưa (tránh duplicate)
-	existingCategories, err := s.repo.List(ctx, userUUID, dto.ListCategoriesQuery{
-		IsRootOnly: true,
-	})
-	if err != nil {
-		return shared.ErrInternal.WithError(err)
-	}
-	if len(existingCategories) > 0 {
+	// Skip if user already has categories
+	if hasCategories, err := s.userHasCategories(ctx, userUUID); err != nil {
+		return err
+	} else if hasCategories {
 		s.logger.Info("user already has categories, skipping initialization",
-			zap.String("user_id", userID),
-			zap.Int("existing_count", len(existingCategories)))
+			zap.String("user_id", userID))
 		return nil
 	}
 
-	// Lấy system categories (user_id = NULL)
-	categories, err := s.repo.GetSystemCategories(ctx)
+	// Fetch system categories
+	systemCategories, err := s.repo.GetSystemCategories(ctx)
 	if err != nil {
 		return shared.ErrInternal.WithError(err)
 	}
 
-	if len(categories) == 0 {
+	if len(systemCategories) == 0 {
 		s.logger.Warn("no system categories found to initialize",
 			zap.String("user_id", userID))
 		return nil
 	}
 
-	// Map để lưu old ID -> new ID để xử lý ParentID
-	idMap := make(map[uuid.UUID]uuid.UUID, len(categories))
-	clones := make([]*domain.Category, 0, len(categories))
-
-	// Pass 1: Clone tất cả categories và tạo ID mapping
-	for _, cat := range categories {
-		// Copy value ra biến mới
-		newCategory := *cat
-
-		// Lưu mapping old ID -> new ID
-		oldID := cat.ID
-		newID := uuid.New()
-		idMap[oldID] = newID
-
-		// Gán ID mới + UserID mới
-		newCategory.ID = newID
-		newCategory.UserID = &userUUID
-
-		// Reset runtime-only fields
-		newCategory.Parent = nil
-		newCategory.Children = nil
-		newCategory.TransactionCount = 0
-		newCategory.TotalAmount = 0
-
-		// ParentID sẽ được update ở pass 2
-		clones = append(clones, &newCategory)
-	}
-
-	// Pass 2: Update ParentID với new IDs từ mapping
-	for _, clone := range clones {
-		if clone.ParentID != nil {
-			if newParentID, exists := idMap[*clone.ParentID]; exists {
-				clone.ParentID = &newParentID
-			} else {
-				// Parent không tồn tại trong system categories, reset ParentID
-				s.logger.Warn("parent category not found in system categories, resetting ParentID",
-					zap.String("category_id", clone.ID.String()),
-					zap.String("old_parent_id", clone.ParentID.String()))
-				clone.ParentID = nil
-				clone.Level = 0
-			}
-		}
-	}
+	// Clone categories for user with updated IDs and parent references
+	userCategories := s.cloneCategoriesForUser(systemCategories, userUUID)
 
 	s.logger.Info("initializing default categories for user",
 		zap.String("user_id", userID),
-		zap.Int("count", len(clones)))
+		zap.Int("count", len(userCategories)))
 
-	// Bulk create clones, không phải system categories
-	if err := s.repo.BulkCreate(ctx, clones); err != nil {
+	// Bulk create user categories
+	if err := s.repo.BulkCreate(ctx, userCategories); err != nil {
 		s.logger.Error("failed to bulk create default categories",
 			zap.String("user_id", userID),
 			zap.Error(err))
@@ -162,7 +115,71 @@ func (s *categoryService) InitializeDefaultCategories(ctx context.Context, userI
 
 	s.logger.Info("successfully initialized default categories",
 		zap.String("user_id", userID),
-		zap.Int("count", len(clones)))
+		zap.Int("count", len(userCategories)))
 
 	return nil
+}
+
+// userHasCategories checks if user already has any categories
+func (s *categoryService) userHasCategories(ctx context.Context, userID uuid.UUID) (bool, error) {
+	categories, err := s.repo.List(ctx, userID, dto.ListCategoriesQuery{
+		IsRootOnly: true,
+	})
+	if err != nil {
+		return false, shared.ErrInternal.WithError(err)
+	}
+	return len(categories) > 0, nil
+}
+
+// cloneCategoriesForUser creates copies of system categories for a specific user
+// It maintains the hierarchical structure by remapping parent IDs
+func (s *categoryService) cloneCategoriesForUser(systemCategories []*domain.Category, userID uuid.UUID) []*domain.Category {
+	idMap := make(map[uuid.UUID]uuid.UUID, len(systemCategories))
+	userCategories := make([]*domain.Category, 0, len(systemCategories))
+
+	// First pass: clone categories and create ID mapping
+	for _, systemCat := range systemCategories {
+		newCat := s.cloneSingleCategory(systemCat, userID)
+		idMap[systemCat.ID] = newCat.ID
+		userCategories = append(userCategories, newCat)
+	}
+
+	// Second pass: remap parent IDs to new user-specific IDs
+	for _, userCat := range userCategories {
+		if userCat.ParentID != nil {
+			if newParentID, exists := idMap[*userCat.ParentID]; exists {
+				userCat.ParentID = &newParentID
+			} else {
+				// Orphaned category - reset to root level
+				s.logger.Warn("parent category not found, resetting to root",
+					zap.String("category_id", userCat.ID.String()))
+				userCat.ParentID = nil
+				userCat.Level = 0
+			}
+		}
+	}
+
+	return userCategories
+}
+
+// cloneSingleCategory creates a copy of a category for a specific user
+func (s *categoryService) cloneSingleCategory(systemCat *domain.Category, userID uuid.UUID) *domain.Category {
+	return &domain.Category{
+		ID:               uuid.New(),
+		UserID:           &userID,
+		Name:             systemCat.Name,
+		Description:      systemCat.Description,
+		Type:             systemCat.Type,
+		Icon:             systemCat.Icon,
+		Color:            systemCat.Color,
+		IsDefault:        false, // User copy is not a system default
+		IsActive:         true,
+		Level:            systemCat.Level,
+		DisplayOrder:     systemCat.DisplayOrder,
+		ParentID:         systemCat.ParentID, // Will be remapped in second pass
+		Parent:           nil,
+		Children:         nil,
+		TransactionCount: 0,
+		TotalAmount:      0,
+	}
 }

@@ -36,9 +36,12 @@ func (h *Handler) RegisterRoutes(router *gin.Engine, authMiddleware *middleware.
 		goals.GET("", h.GetUserGoals)
 		goals.GET("/active", h.GetActiveGoals)
 		goals.GET("/completed", h.GetCompletedGoals)
+		goals.GET("/archived", h.GetArchivedGoals)
 		goals.GET("/summary", h.GetGoalSummary)
 		goals.GET("/:id", h.GetGoalByID)
 		goals.PUT("/:id", h.UpdateGoal)
+		goals.PUT("/:id/archive", h.ArchiveGoal)
+		goals.PUT("/:id/unarchive", h.UnarchiveGoal)
 		goals.DELETE("/:id", h.DeleteGoal)
 		goals.POST("/:id/contribute", h.AddContribution)
 		goals.POST("/:id/complete", h.MarkAsCompleted)
@@ -75,7 +78,8 @@ func (h *Handler) CreateGoal(c *gin.Context) {
 		UserID:                  user.ID,
 		Name:                    req.Name,
 		Description:             req.Description,
-		Type:                    req.Type,
+		Behavior:                req.Behavior,
+		Category:                req.Category,
 		Priority:                req.Priority,
 		TargetAmount:            req.TargetAmount,
 		Currency:                req.Currency,
@@ -85,7 +89,7 @@ func (h *Handler) CreateGoal(c *gin.Context) {
 		AutoContribute:          req.AutoContribute,
 		AutoContributeAmount:    req.AutoContributeAmount,
 		AutoContributeAccountID: req.AutoContributeAccountID,
-		LinkedAccountID:         req.LinkedAccountID,
+		AccountID:               req.AccountID,
 		EnableReminders:         req.EnableReminders,
 		ReminderFrequency:       req.ReminderFrequency,
 		Notes:                   req.Notes,
@@ -332,13 +336,13 @@ func (h *Handler) AddContribution(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.AddContribution(c.Request.Context(), id, req.Amount); err != nil {
-		shared.HandleError(c, err)
-		return
+	// Default source to "manual" if not provided
+	source := "manual"
+	if req.Source != nil {
+		source = *req.Source
 	}
 
-	// Fetch updated goal
-	goal, err := h.service.GetGoalByID(c.Request.Context(), id)
+	goal, err := h.service.AddContribution(c.Request.Context(), id, req.Amount, req.Note, source)
 	if err != nil {
 		shared.HandleError(c, err)
 		return

@@ -63,6 +63,9 @@ func (s *accountService) CreateAccount(ctx context.Context, userID string, req a
 	if req.IncludeInNetWorth != nil {
 		account.IncludeInNetWorth = *req.IncludeInNetWorth
 	}
+	if req.CreditLimit != nil {
+		account.CreditLimit = req.CreditLimit
+	}
 
 	account.CreatedAt = time.Now().UTC()
 	account.UpdatedAt = account.CreatedAt

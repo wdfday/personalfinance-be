@@ -14,7 +14,7 @@ import (
 // - Cash transaction (cash in/out)
 // - Any other "account" type modeled in your system
 type Transaction struct {
-	ID        uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`   // internal ID (UUID / snowflake / ... )
+	ID        uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`             // internal ID (UUID / snowflake / ... )
 	UserID    uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"userId"`       // FK to user
 	AccountID uuid.UUID `gorm:"type:uuid;not null;index;column:account_id" json:"accountId"` // FK to account (bank account / e-wallet / cash account ...)
 
@@ -70,41 +70,6 @@ type Transaction struct {
 
 	// DSS Metadata for Analytics & Pattern Detection
 	DSSMetadata *TransactionDSSMetadata `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
-	// Structure:
-	// {
-	//   "is_recurring": true,                 // Detected as recurring
-	//   "recurring_group_id": "uuid",         // Group ID for recurring transactions
-	//   "recurring_frequency": "monthly",     // daily, weekly, monthly, etc.
-	//   "recurring_confidence": 0.95,         // Confidence in recurring detection
-	//   "is_anomaly": false,                  // Flagged as anomaly
-	//   "anomaly_score": 0.05,                // Anomaly score (0-1)
-	//   "anomaly_reason": "",                 // Why flagged as anomaly
-	//   "is_large_transaction": false,        // Unusually large amount
-	//   "amount_percentile": 0.65,            // Percentile in user's transactions
-	//   "category_confidence": 0.92,          // Confidence in categorization
-	//   "suggested_category": "uuid",         // AI suggested category
-	//   "merchant_category": "5411",          // MCC code
-	//   "merchant_id": "merchant_123",        // Merchant identifier
-	//   "location": {
-	//     "city": "Ho Chi Minh",
-	//     "district": "District 1",
-	//     "country": "VN",
-	//     "lat": 10.762622,
-	//     "lng": 106.660172
-	//   },
-	//   "time_of_day": "evening",             // morning, afternoon, evening, night
-	//   "day_of_week": 5,                     // 0-6 (Sunday-Saturday)
-	//   "is_weekend": false,
-	//   "is_holiday": false,
-	//   "spending_pattern": "normal",         // normal, impulse, planned
-	//   "enrichment_data": {
-	//     "merchant_logo": "https://...",
-	//     "merchant_website": "https://...",
-	//     "enriched_at": "2024-01-15T10:00:00Z",
-	//     "enrichment_source": "AI_MODEL_V1"
-	//   },
-	//   "last_analyzed": "2024-01-15T10:00:00Z"
-	// }
 }
 
 // TableName specifies the database table name

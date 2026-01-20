@@ -29,3 +29,13 @@ func (d *BudgetDeleter) DeleteBudget(ctx context.Context, budgetID uuid.UUID) er
 
 	return d.service.repo.Delete(ctx, budgetID)
 }
+
+// DeleteBudgetForUser deletes a budget with ownership verification (soft delete)
+func (d *BudgetDeleter) DeleteBudgetForUser(ctx context.Context, budgetID, userID uuid.UUID) error {
+	d.service.logger.Info("Deleting budget for user",
+		zap.String("budget_id", budgetID.String()),
+		zap.String("user_id", userID.String()),
+	)
+
+	return d.service.repo.DeleteByIDAndUserID(ctx, budgetID, userID)
+}

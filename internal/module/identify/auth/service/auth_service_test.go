@@ -14,6 +14,7 @@ import (
 	"personalfinancedss/internal/config"
 	"personalfinancedss/internal/module/identify/auth/dto"
 	userdomain "personalfinancedss/internal/module/identify/user/domain"
+	notificationDomain "personalfinancedss/internal/module/notification/domain"
 	"personalfinancedss/internal/shared"
 )
 
@@ -78,13 +79,30 @@ func (m *MockUserService) MarkEmailVerified(ctx context.Context, userID string, 
 }
 
 // Placeholder methods (not used in auth service but part of interface)
-func (m *MockUserService) List(ctx context.Context, filters map[string]interface{}) ([]*userdomain.User, error) {
-	return nil, nil
+func (m *MockUserService) List(ctx context.Context, filter userdomain.ListUsersFilter, pagination shared.Pagination) (shared.Page[userdomain.User], error) {
+	return shared.Page[userdomain.User]{}, nil
 }
 func (m *MockUserService) Update(ctx context.Context, user *userdomain.User) error { return nil }
-func (m *MockUserService) Delete(ctx context.Context, id string) error             { return nil }
+func (m *MockUserService) UpdateColumns(ctx context.Context, id string, cols map[string]any) error {
+	return nil
+}
+func (m *MockUserService) UpdatePassword(ctx context.Context, id string, passwordHash string) error {
+	args := m.Called(ctx, id, passwordHash)
+	return args.Error(0)
+}
+
+func (m *MockUserService) Delete(ctx context.Context, id string) error { return nil }
 func (m *MockUserService) ExistsByUsername(ctx context.Context, username string) (bool, error) {
 	return false, nil
+}
+func (m *MockUserService) SoftDelete(ctx context.Context, id string) error {
+	return nil
+}
+func (m *MockUserService) HardDelete(ctx context.Context, id string) error {
+	return nil
+}
+func (m *MockUserService) Restore(ctx context.Context, id string) error {
+	return nil
 }
 
 type MockJWTService struct {
@@ -166,6 +184,10 @@ func (m *MockTokenBlacklistRepo) CleanupExpired(ctx context.Context) error {
 	return nil
 }
 
+func (m *MockTokenBlacklistRepo) BlacklistAllUserTokens(ctx context.Context, userID uuid.UUID, reason string) error {
+	return nil
+}
+
 type MockSecurityLogger struct {
 	mock.Mock
 }
@@ -194,12 +216,16 @@ func (m *MockSecurityLogger) LogGoogleOAuthLogin(ctx context.Context, userID, em
 	m.Called(ctx, userID, email, ipAddress, isNewUser)
 }
 
-func (m *MockSecurityLogger) LogPasswordChanged(ctx context.Context, userID, email, ipAddress string) {
+func (m *MockSecurityLogger) LogPasswordResetRequest(ctx context.Context, email, ipAddress string) {
 }
-func (m *MockSecurityLogger) LogPasswordResetRequested(ctx context.Context, email, ipAddress string) {
-}
+func (m *MockSecurityLogger) LogPasswordReset(ctx context.Context, userID, email string)          {}
 func (m *MockSecurityLogger) LogPasswordResetCompleted(ctx context.Context, userID, email string) {}
 func (m *MockSecurityLogger) LogEmailVerified(ctx context.Context, userID, email string)          {}
+func (m *MockSecurityLogger) LogTokenRefreshed(ctx context.Context, userID, email string)         {}
+func (m *MockSecurityLogger) LogPasswordChanged(ctx context.Context, userID, email string)        {}
+func (m *MockSecurityLogger) LogEvent(ctx context.Context, event notificationDomain.SecurityEvent) {
+	m.Called(ctx, event)
+}
 
 type MockGoogleOAuthService struct {
 	mock.Mock
@@ -420,7 +446,7 @@ func TestLogin(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "unauthorized")
+		assert.Contains(t, err.Error(), "Unauthorized")
 
 		mockUserService.AssertExpectations(t)
 		mockSecurityLogger.AssertExpectations(t)
@@ -496,7 +522,7 @@ func TestLogin(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "locked")
+		assert.Contains(t, err.Error(), "Unauthorized")
 
 		mockUserService.AssertExpectations(t)
 	})
@@ -531,7 +557,7 @@ func TestLogin(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "suspended")
+		assert.Contains(t, err.Error(), "Unauthorized")
 
 		mockUserService.AssertExpectations(t)
 		mockPasswordService.AssertExpectations(t)
@@ -596,7 +622,7 @@ func TestLogout(t *testing.T) {
 		err := service.Logout(ctx, "user-id", refreshToken, "192.168.1.1")
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unauthorized")
+		assert.Contains(t, err.Error(), "Unauthorized")
 
 		mockJWTService.AssertExpectations(t)
 	})
@@ -619,7 +645,7 @@ func TestLogout(t *testing.T) {
 		err := service.Logout(ctx, userID.String(), refreshToken, "192.168.1.1")
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "does not belong to user")
+		assert.Contains(t, err.Error(), "Unauthorized")
 
 		mockJWTService.AssertExpectations(t)
 	})
@@ -661,7 +687,7 @@ func TestRefreshToken(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, "new_access_token", result.AccessToken)
-		assert.Equal(t, int64(3600), result.ExpiresAt)
+		assert.Equal(t, int64(3600), result.ExpiresIn)
 
 		mockJWTService.AssertExpectations(t)
 		mockTokenBlacklistRepo.AssertExpectations(t)
@@ -684,7 +710,7 @@ func TestRefreshToken(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "revoked")
+		assert.Contains(t, err.Error(), "Unauthorized")
 
 		mockTokenBlacklistRepo.AssertExpectations(t)
 	})
@@ -712,5 +738,340 @@ func TestRefreshToken(t *testing.T) {
 		mockJWTService.AssertExpectations(t)
 		mockTokenBlacklistRepo.AssertExpectations(t)
 	})
+
+	t.Run("Error - User not found", func(t *testing.T) {
+		mockJWTService := new(MockJWTService)
+		mockTokenBlacklistRepo := new(MockTokenBlacklistRepo)
+		mockUserService := new(MockUserService)
+
+		service := &Service{
+			jwtService:         mockJWTService,
+			tokenBlacklistRepo: mockTokenBlacklistRepo,
+			userService:        mockUserService,
+			config:             &config.Config{},
+			logger:             zap.NewNop(),
+		}
+
+		userID := uuid.New()
+		refreshToken := "valid_refresh_token"
+
+		mockTokenBlacklistRepo.On("IsBlacklisted", ctx, refreshToken).Return(false, nil)
+		mockJWTService.On("ValidateRefreshToken", refreshToken).Return(userID.String(), nil)
+		mockUserService.On("GetByID", ctx, userID.String()).Return(nil, shared.ErrUserNotFound)
+
+		result, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "Unauthorized")
+
+		mockJWTService.AssertExpectations(t)
+		mockTokenBlacklistRepo.AssertExpectations(t)
+		mockUserService.AssertExpectations(t)
+	})
+
+	t.Run("Error - Blacklist check fails", func(t *testing.T) {
+		mockTokenBlacklistRepo := new(MockTokenBlacklistRepo)
+
+		service := &Service{
+			tokenBlacklistRepo: mockTokenBlacklistRepo,
+			config:             &config.Config{},
+			logger:             zap.NewNop(),
+		}
+
+		refreshToken := "some_token"
+		mockTokenBlacklistRepo.On("IsBlacklisted", ctx, refreshToken).Return(false, errors.New("db error"))
+
+		result, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+
+		mockTokenBlacklistRepo.AssertExpectations(t)
+	})
+
+	t.Run("Error - Token generation fails", func(t *testing.T) {
+		mockJWTService := new(MockJWTService)
+		mockTokenBlacklistRepo := new(MockTokenBlacklistRepo)
+		mockUserService := new(MockUserService)
+
+		service := &Service{
+			jwtService:         mockJWTService,
+			tokenBlacklistRepo: mockTokenBlacklistRepo,
+			userService:        mockUserService,
+			config:             &config.Config{},
+			logger:             zap.NewNop(),
+		}
+
+		userID := uuid.New()
+		refreshToken := "valid_refresh_token"
+		user := &userdomain.User{
+			ID:    userID,
+			Email: "test@example.com",
+			Role:  userdomain.UserRoleUser,
+		}
+
+		mockTokenBlacklistRepo.On("IsBlacklisted", ctx, refreshToken).Return(false, nil)
+		mockJWTService.On("ValidateRefreshToken", refreshToken).Return(userID.String(), nil)
+		mockUserService.On("GetByID", ctx, userID.String()).Return(user, nil)
+		mockJWTService.On("GenerateAccessToken", user.ID.String(), user.Email, user.Role).
+			Return("", int64(0), errors.New("token generation failed"))
+
+		result, err := service.RefreshToken(ctx, refreshToken)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+
+		mockJWTService.AssertExpectations(t)
+	})
 }
 
+// TestLoginAccountLocking tests account locking after failed attempts
+func TestLoginAccountLocking(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Account locked after 5th failed attempt", func(t *testing.T) {
+		mockUserService := new(MockUserService)
+		mockPasswordService := new(MockPasswordService)
+		mockSecurityLogger := new(MockSecurityLogger)
+
+		service := &Service{
+			userService:     mockUserService,
+			passwordService: mockPasswordService,
+			securityLogger:  mockSecurityLogger,
+			config:          &config.Config{},
+			logger:          zap.NewNop(),
+		}
+
+		req := dto.LoginRequest{
+			Email:    "test@example.com",
+			Password: "WrongPassword",
+			IP:       "192.168.1.1",
+		}
+
+		userID := uuid.New()
+		user := &userdomain.User{
+			ID:            userID,
+			Email:         req.Email,
+			Password:      "hashed_password",
+			LoginAttempts: 4, // Already 4 failed attempts
+		}
+
+		mockUserService.On("GetByEmail", ctx, req.Email).Return(user, nil)
+		mockPasswordService.On("VerifyPassword", user.Password, req.Password).Return(errors.New("invalid password"))
+		mockUserService.On("IncLoginAttempts", ctx, user.ID.String()).Return(nil)
+		mockUserService.On("SetLockedUntil", ctx, user.ID.String(), mock.AnythingOfType("*time.Time")).Return(nil)
+		mockSecurityLogger.On("LogAccountLocked", ctx, user.ID.String(), user.Email, req.IP, mock.AnythingOfType("time.Time"))
+
+		result, err := service.Login(ctx, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "Unauthorized")
+
+		mockUserService.AssertExpectations(t)
+		mockPasswordService.AssertExpectations(t)
+		mockSecurityLogger.AssertExpectations(t)
+	})
+}
+
+// TestLogoutEdgeCases tests additional logout edge cases
+func TestLogoutEdgeCases(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Success - Logout even if user not found for logging", func(t *testing.T) {
+		mockJWTService := new(MockJWTService)
+		mockTokenBlacklistRepo := new(MockTokenBlacklistRepo)
+		mockUserService := new(MockUserService)
+		mockSecurityLogger := new(MockSecurityLogger)
+
+		service := &Service{
+			jwtService:         mockJWTService,
+			tokenBlacklistRepo: mockTokenBlacklistRepo,
+			userService:        mockUserService,
+			securityLogger:     mockSecurityLogger,
+			config:             &config.Config{},
+			logger:             zap.NewNop(),
+		}
+
+		userID := uuid.New()
+		refreshToken := "valid_refresh_token"
+		ipAddress := "192.168.1.1"
+
+		mockJWTService.On("ValidateRefreshToken", refreshToken).Return(userID.String(), nil)
+		mockTokenBlacklistRepo.On("Add", ctx, refreshToken, userID, "logout", mock.AnythingOfType("time.Time")).Return(nil)
+		mockUserService.On("GetByID", ctx, userID.String()).Return(nil, shared.ErrUserNotFound)
+		mockSecurityLogger.On("LogLogout", ctx, userID.String(), "", ipAddress)
+
+		err := service.Logout(ctx, userID.String(), refreshToken, ipAddress)
+
+		assert.NoError(t, err) // Should succeed even if user not found for logging
+
+		mockJWTService.AssertExpectations(t)
+		mockTokenBlacklistRepo.AssertExpectations(t)
+		mockSecurityLogger.AssertExpectations(t)
+	})
+
+	t.Run("Error - Invalid user ID format", func(t *testing.T) {
+		mockJWTService := new(MockJWTService)
+
+		service := &Service{
+			jwtService: mockJWTService,
+			config:     &config.Config{},
+			logger:     zap.NewNop(),
+		}
+
+		invalidUserID := "not-a-uuid"
+		refreshToken := "valid_refresh_token"
+
+		mockJWTService.On("ValidateRefreshToken", refreshToken).Return(invalidUserID, nil)
+
+		err := service.Logout(ctx, invalidUserID, refreshToken, "192.168.1.1")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "Bad request")
+
+		mockJWTService.AssertExpectations(t)
+	})
+
+	t.Run("Error - Blacklist add fails", func(t *testing.T) {
+		mockJWTService := new(MockJWTService)
+		mockTokenBlacklistRepo := new(MockTokenBlacklistRepo)
+
+		service := &Service{
+			jwtService:         mockJWTService,
+			tokenBlacklistRepo: mockTokenBlacklistRepo,
+			config:             &config.Config{},
+			logger:             zap.NewNop(),
+		}
+
+		userID := uuid.New()
+		refreshToken := "valid_refresh_token"
+
+		mockJWTService.On("ValidateRefreshToken", refreshToken).Return(userID.String(), nil)
+		mockTokenBlacklistRepo.On("Add", ctx, refreshToken, userID, "logout", mock.AnythingOfType("time.Time")).Return(errors.New("db error"))
+
+		err := service.Logout(ctx, userID.String(), refreshToken, "192.168.1.1")
+
+		assert.Error(t, err)
+
+		mockJWTService.AssertExpectations(t)
+		mockTokenBlacklistRepo.AssertExpectations(t)
+	})
+}
+
+// TestRegisterEdgeCases tests additional register edge cases
+func TestRegisterEdgeCases(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Error - ExistsByEmail check fails", func(t *testing.T) {
+		mockUserService := new(MockUserService)
+
+		service := &Service{
+			userService: mockUserService,
+			config:      &config.Config{},
+			logger:      zap.NewNop(),
+		}
+
+		req := dto.RegisterRequest{
+			Email:    "test@example.com",
+			Password: "Password123!",
+			FullName: "Test User",
+		}
+
+		mockUserService.On("ExistsByEmail", ctx, req.Email).Return(false, errors.New("db error"))
+
+		result, err := service.Register(ctx, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+
+		mockUserService.AssertExpectations(t)
+	})
+
+	t.Run("Error - Access token generation fails", func(t *testing.T) {
+		mockUserService := new(MockUserService)
+		mockJWTService := new(MockJWTService)
+		mockPasswordService := new(MockPasswordService)
+
+		service := &Service{
+			userService:     mockUserService,
+			jwtService:      mockJWTService,
+			passwordService: mockPasswordService,
+			config:          &config.Config{},
+			logger:          zap.NewNop(),
+		}
+
+		req := dto.RegisterRequest{
+			Email:    "test@example.com",
+			Password: "Password123!",
+			FullName: "Test User",
+		}
+
+		userID := uuid.New()
+		createdUser := &userdomain.User{
+			ID:       userID,
+			Email:    req.Email,
+			FullName: req.FullName,
+			Role:     userdomain.UserRoleUser,
+		}
+
+		mockUserService.On("ExistsByEmail", ctx, req.Email).Return(false, nil)
+		mockPasswordService.On("HashPassword", req.Password).Return("hashed_password", nil)
+		mockUserService.On("Create", ctx, mock.AnythingOfType("*domain.User")).Return(createdUser, nil)
+		mockJWTService.On("GenerateAccessToken", createdUser.ID.String(), createdUser.Email, createdUser.Role).
+			Return("", int64(0), errors.New("token generation failed"))
+
+		result, err := service.Register(ctx, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+
+		mockUserService.AssertExpectations(t)
+		mockJWTService.AssertExpectations(t)
+	})
+
+	t.Run("Error - Refresh token generation fails", func(t *testing.T) {
+		mockUserService := new(MockUserService)
+		mockJWTService := new(MockJWTService)
+		mockPasswordService := new(MockPasswordService)
+
+		service := &Service{
+			userService:     mockUserService,
+			jwtService:      mockJWTService,
+			passwordService: mockPasswordService,
+			config:          &config.Config{},
+			logger:          zap.NewNop(),
+		}
+
+		req := dto.RegisterRequest{
+			Email:    "test@example.com",
+			Password: "Password123!",
+			FullName: "Test User",
+		}
+
+		userID := uuid.New()
+		createdUser := &userdomain.User{
+			ID:       userID,
+			Email:    req.Email,
+			FullName: req.FullName,
+			Role:     userdomain.UserRoleUser,
+		}
+
+		mockUserService.On("ExistsByEmail", ctx, req.Email).Return(false, nil)
+		mockPasswordService.On("HashPassword", req.Password).Return("hashed_password", nil)
+		mockUserService.On("Create", ctx, mock.AnythingOfType("*domain.User")).Return(createdUser, nil)
+		mockJWTService.On("GenerateAccessToken", createdUser.ID.String(), createdUser.Email, createdUser.Role).
+			Return("access_token", int64(3600), nil)
+		mockJWTService.On("GenerateRefreshToken", createdUser.ID.String()).
+			Return("", int64(0), errors.New("refresh token generation failed"))
+
+		result, err := service.Register(ctx, req)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+
+		mockUserService.AssertExpectations(t)
+		mockJWTService.AssertExpectations(t)
+	})
+}

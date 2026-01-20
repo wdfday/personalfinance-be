@@ -20,7 +20,10 @@ func New(db *gorm.DB) Repository {
 }
 
 func (r *repository) Create(ctx context.Context, budget *domain.Budget) error {
-	return r.db.WithContext(ctx).Create(budget).Error
+	if err := r.db.WithContext(ctx).Create(budget).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *repository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Budget, error) {
@@ -28,7 +31,22 @@ func (r *repository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Budget
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&budget).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("budget not found")
+			return nil, domain.ErrBudgetNotFound
+		}
+		return nil, err
+	}
+	return &budget, nil
+}
+
+// FindByIDAndUserID retrieves a budget by ID and verifies user ownership
+func (r *repository) FindByIDAndUserID(ctx context.Context, id, userID uuid.UUID) (*domain.Budget, error) {
+	var budget domain.Budget
+	err := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ?", id, userID).
+		First(&budget).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrBudgetNotFound
 		}
 		return nil, err
 	}
@@ -123,4 +141,83 @@ func (r *repository) FindBudgetsNeedingRecalculation(ctx context.Context, thresh
 		}).
 		Find(&budgets).Error
 	return budgets, err
+}
+
+// FindByUserIDPaginated retrieves budgets for a user with pagination
+func (r *repository) FindByUserIDPaginated(ctx context.Context, userID uuid.UUID, params PaginationParams) (*PaginatedResult, error) {
+	var budgets []domain.Budget
+	var total int64
+
+	// Set default values
+	if params.Page < 1 {
+		params.Page = 1
+	}
+	if params.PageSize < 1 {
+		params.PageSize = 10
+	}
+	if params.PageSize > 100 {
+		params.PageSize = 100
+	}
+
+	// Count total
+	if err := r.db.WithContext(ctx).
+		Model(&domain.Budget{}).
+		Where("user_id = ?", userID).
+		Count(&total).Error; err != nil {
+		return nil, err
+	}
+
+	// Get paginated data
+	offset := (params.Page - 1) * params.PageSize
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(params.PageSize).
+		Find(&budgets).Error; err != nil {
+		return nil, err
+	}
+
+	totalPages := int(total) / params.PageSize
+	if int(total)%params.PageSize > 0 {
+		totalPages++
+	}
+
+	return &PaginatedResult{
+		Data:       budgets,
+		Total:      total,
+		Page:       params.Page,
+		PageSize:   params.PageSize,
+		TotalPages: totalPages,
+	}, nil
+}
+
+// DeleteByIDAndUserID deletes a budget with ownership verification
+func (r *repository) DeleteByIDAndUserID(ctx context.Context, id, userID uuid.UUID) error {
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND user_id = ?", id, userID).
+		Delete(&domain.Budget{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return domain.ErrBudgetNotFound
+	}
+
+	return nil
+}
+
+// ExistsByUserIDAndName checks if a budget with the same name exists for user
+func (r *repository) ExistsByUserIDAndName(ctx context.Context, userID uuid.UUID, name string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&domain.Budget{}).
+		Where("user_id = ? AND name = ?", userID, name).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

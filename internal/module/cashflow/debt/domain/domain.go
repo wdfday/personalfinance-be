@@ -14,10 +14,11 @@ type Debt struct {
 	UserID uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"user_id"`
 
 	// Debt Details
-	Name        string     `gorm:"type:varchar(255);not null;column:name" json:"name"`
-	Description *string    `gorm:"type:text;column:description" json:"description,omitempty"`
-	Type        DebtType   `gorm:"type:varchar(50);not null;column:type" json:"type"`
-	Status      DebtStatus `gorm:"type:varchar(20);default:'active';column:status" json:"status"`
+	Name        string       `gorm:"type:varchar(255);not null;column:name" json:"name"`
+	Description *string      `gorm:"type:text;column:description" json:"description,omitempty"`
+	Type        DebtType     `gorm:"type:varchar(50);not null;column:type" json:"type"`
+	Behavior    DebtBehavior `gorm:"type:varchar(20);not null;default:'installment';column:behavior" json:"behavior"`
+	Status      DebtStatus   `gorm:"type:varchar(20);default:'active';column:status" json:"status"`
 
 	// Financial Details
 	PrincipalAmount float64 `gorm:"type:decimal(15,2);not null;column:principal_amount" json:"principal_amount"` // Original debt amount

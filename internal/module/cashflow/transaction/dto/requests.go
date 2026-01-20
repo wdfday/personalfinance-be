@@ -102,8 +102,8 @@ type UpdateTransactionRequest struct {
 
 // TransactionLinkDTO represents a link to another financial entity
 type TransactionLinkDTO struct {
-	Type string `json:"type" binding:"required,oneof=GOAL BUDGET DEBT"` // GOAL / BUDGET / DEBT
-	ID   string `json:"id" binding:"required,uuid"`                     // Entity ID
+	Type string `json:"type" binding:"required,oneof=GOAL BUDGET DEBT INCOME_PROFILE"` // GOAL / BUDGET / DEBT / INCOME_PROFILE
+	ID   string `json:"id" binding:"required,uuid"`                                    // Entity ID
 }
 
 // ListTransactionsQuery represents query parameters for listing transactions

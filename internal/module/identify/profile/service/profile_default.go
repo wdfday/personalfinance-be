@@ -21,7 +21,7 @@ func (s *profileService) CreateDefaultProfile(ctx context.Context, userID string
 	if existingProfile, err := s.repo.GetByUserID(ctx, userID); err == nil {
 		// Profile already exists, return it
 		return existingProfile, nil
-	} else if err != shared.ErrNotFound {
+	} else if err != shared.ErrNotFound && err != shared.ErrProfileNotFound {
 		return nil, shared.ErrInternal.WithError(err)
 	}
 

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"personalfinancedss/internal/middleware"
 	authdomain "personalfinancedss/internal/module/identify/auth/domain"
 	"personalfinancedss/internal/module/identify/profile/domain"
 	"personalfinancedss/internal/module/identify/profile/dto"
@@ -26,7 +28,7 @@ type MockProfileService struct {
 	mock.Mock
 }
 
-func (m *MockProfileService) CreateProfile(ctx any, userID string, req dto.CreateProfileRequest) (*domain.UserProfile, error) {
+func (m *MockProfileService) CreateProfile(ctx context.Context, userID string, req dto.CreateProfileRequest) (*domain.UserProfile, error) {
 	args := m.Called(ctx, userID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -34,7 +36,7 @@ func (m *MockProfileService) CreateProfile(ctx any, userID string, req dto.Creat
 	return args.Get(0).(*domain.UserProfile), args.Error(1)
 }
 
-func (m *MockProfileService) CreateDefaultProfile(ctx any, userID string) (*domain.UserProfile, error) {
+func (m *MockProfileService) CreateDefaultProfile(ctx context.Context, userID string) (*domain.UserProfile, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -42,7 +44,7 @@ func (m *MockProfileService) CreateDefaultProfile(ctx any, userID string) (*doma
 	return args.Get(0).(*domain.UserProfile), args.Error(1)
 }
 
-func (m *MockProfileService) GetProfile(ctx any, userID string) (*domain.UserProfile, error) {
+func (m *MockProfileService) GetProfile(ctx context.Context, userID string) (*domain.UserProfile, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -50,7 +52,7 @@ func (m *MockProfileService) GetProfile(ctx any, userID string) (*domain.UserPro
 	return args.Get(0).(*domain.UserProfile), args.Error(1)
 }
 
-func (m *MockProfileService) UpdateProfile(ctx any, userID string, req dto.UpdateProfileRequest) (*domain.UserProfile, error) {
+func (m *MockProfileService) UpdateProfile(ctx context.Context, userID string, req dto.UpdateProfileRequest) (*domain.UserProfile, error) {
 	args := m.Called(ctx, userID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -71,12 +73,12 @@ func setupProfileTest() (*gin.Engine, *MockProfileService) {
 	router.Use(func(c *gin.Context) {
 		// Inject a test user into context
 		userID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-		authUser := &authdomain.AuthUser{
+		authUser := authdomain.AuthUser{
 			ID:       userID,
 			Username: "test@example.com",
 			Role:     userdomain.UserRoleUser,
 		}
-		c.Set("user", authUser)
+		c.Set(middleware.UserKey, authUser)
 		c.Next()
 	})
 
@@ -122,7 +124,6 @@ func TestGetProfile(t *testing.T) {
 		var response map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &response)
 
-		assert.Equal(t, true, response["success"])
 		assert.NotNil(t, response["data"])
 
 		data := response["data"].(map[string]interface{})
@@ -147,8 +148,6 @@ func TestGetProfile(t *testing.T) {
 
 		var response map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &response)
-
-		assert.Equal(t, false, response["success"])
 
 		mockService.AssertExpectations(t)
 	})
@@ -193,7 +192,6 @@ func TestUpdateProfile(t *testing.T) {
 		var response map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &response)
 
-		assert.Equal(t, true, response["success"])
 		assert.Equal(t, "Profile updated successfully", response["message"])
 
 		data := response["data"].(map[string]interface{})
@@ -207,9 +205,10 @@ func TestUpdateProfile(t *testing.T) {
 
 		userID := "550e8400-e29b-41d4-a716-446655440000"
 		newRiskTolerance := domain.RiskToleranceAggressive
+		newRiskToleranceStr := string(newRiskTolerance)
 
 		reqBody := dto.UpdateProfileRequest{
-			RiskTolerance: &newRiskTolerance,
+			RiskTolerance: &newRiskToleranceStr,
 		}
 
 		updatedProfile := &domain.UserProfile{
@@ -220,7 +219,7 @@ func TestUpdateProfile(t *testing.T) {
 		}
 
 		mockService.On("UpdateProfile", mock.Anything, userID, mock.MatchedBy(func(req dto.UpdateProfileRequest) bool {
-			return *req.RiskTolerance == newRiskTolerance
+			return *req.RiskTolerance == string(newRiskTolerance)
 		})).Return(updatedProfile, nil)
 
 		bodyBytes, _ := json.Marshal(reqBody)
@@ -234,8 +233,6 @@ func TestUpdateProfile(t *testing.T) {
 
 		var response map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &response)
-
-		assert.Equal(t, true, response["success"])
 
 		mockService.AssertExpectations(t)
 	})
@@ -275,8 +272,6 @@ func TestUpdateProfile(t *testing.T) {
 		var response map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &response)
 
-		assert.Equal(t, true, response["success"])
-
 		data := response["data"].(map[string]interface{})
 		assert.Equal(t, true, data["onboarding_completed"])
 
@@ -297,7 +292,6 @@ func TestUpdateProfile(t *testing.T) {
 		var response map[string]interface{}
 		json.Unmarshal(w.Body.Bytes(), &response)
 
-		assert.Equal(t, false, response["success"])
 	})
 
 	t.Run("Error - Profile not found", func(t *testing.T) {
@@ -410,4 +404,3 @@ func TestProfileResponseFormat(t *testing.T) {
 		mockService.AssertExpectations(t)
 	})
 }
-

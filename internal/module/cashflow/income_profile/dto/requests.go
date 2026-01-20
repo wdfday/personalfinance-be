@@ -4,6 +4,7 @@ import "time"
 
 // CreateIncomeProfileRequest represents request to create a new income profile
 type CreateIncomeProfileRequest struct {
+	CategoryID  string     `json:"category_id" binding:"required,uuid"`
 	Source      string     `json:"source" binding:"required,max=100"`
 	Amount      float64    `json:"amount" binding:"required,gte=0"`
 	Currency    string     `json:"currency,omitempty" binding:"omitempty,len=3"`
@@ -25,6 +26,7 @@ type CreateIncomeProfileRequest struct {
 // UpdateIncomeProfileRequest represents request to update an income profile
 // NOTE: This creates a NEW version and archives the old one
 type UpdateIncomeProfileRequest struct {
+	CategoryID  *string    `json:"category_id,omitempty" binding:"omitempty,uuid"`
 	Source      *string    `json:"source,omitempty" binding:"omitempty,max=100"`
 	Amount      *float64   `json:"amount,omitempty" binding:"omitempty,gte=0"`
 	Currency    *string    `json:"currency,omitempty" binding:"omitempty,len=3"`

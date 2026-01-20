@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"personalfinancedss/internal/middleware"
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Handler handles budget-related HTTP requests
 type Handler struct {
 	service service.Service
 	logger  *zap.Logger
@@ -38,6 +40,8 @@ func (h *Handler) RegisterRoutes(router *gin.Engine, authMiddleware *middleware.
 		budgets.GET("/active", h.GetActiveBudgets)
 		budgets.GET("/summary", h.GetBudgetSummary)
 		budgets.GET("/:id", h.GetBudgetByID)
+		budgets.GET("/:id/progress", h.GetBudgetProgress)
+		budgets.GET("/:id/analytics", h.GetBudgetAnalytics)
 		budgets.PUT("/:id", h.UpdateBudget)
 		budgets.DELETE("/:id", h.DeleteBudget)
 		budgets.POST("/:id/recalculate", h.RecalculateBudget)
@@ -101,11 +105,13 @@ func (h *Handler) CreateBudget(c *gin.Context) {
 
 // GetUserBudgets godoc
 // @Summary Get all user budgets
-// @Description Get all budgets for the authenticated user
+// @Description Get all budgets for the authenticated user with optional pagination
 // @Tags budgets
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {array} dto.BudgetResponse
+// @Param page query int false "Page number (default: 1)"
+// @Param page_size query int false "Page size (default: 10, max: 100)"
+// @Success 200 {object} dto.PaginatedBudgetResponse
 // @Failure 401 {object} shared.ErrorResponse
 // @Failure 500 {object} shared.ErrorResponse
 // @Router /api/v1/budgets [get]
@@ -116,13 +122,29 @@ func (h *Handler) GetUserBudgets(c *gin.Context) {
 		return
 	}
 
-	budgets, err := h.service.GetUserBudgets(c.Request.Context(), user.ID)
+	// Parse pagination parameters
+	page := 1
+	pageSize := 10
+
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
+			pageSize = ps
+		}
+	}
+
+	result, err := h.service.GetUserBudgetsPaginated(c.Request.Context(), user.ID, page, pageSize)
 	if err != nil {
 		shared.HandleError(c, err)
 		return
 	}
 
-	shared.RespondWithSuccess(c, http.StatusOK, "Budgets retrieved successfully", dto.ToBudgetResponseList(budgets))
+	shared.RespondWithSuccess(c, http.StatusOK, "Budgets retrieved successfully", dto.ToPaginatedBudgetResponse(result))
 }
 
 // GetActiveBudgets godoc
@@ -153,7 +175,7 @@ func (h *Handler) GetActiveBudgets(c *gin.Context) {
 
 // GetBudgetByID godoc
 // @Summary Get budget by ID
-// @Description Get a specific budget by its ID
+// @Description Get a specific budget by its ID (only accessible by owner)
 // @Tags budgets
 // @Produce json
 // @Security BearerAuth
@@ -164,7 +186,7 @@ func (h *Handler) GetActiveBudgets(c *gin.Context) {
 // @Failure 404 {object} shared.ErrorResponse
 // @Router /api/v1/budgets/{id} [get]
 func (h *Handler) GetBudgetByID(c *gin.Context) {
-	_, exists := middleware.GetCurrentUser(c)
+	user, exists := middleware.GetCurrentUser(c)
 	if !exists {
 		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
 		return
@@ -177,8 +199,13 @@ func (h *Handler) GetBudgetByID(c *gin.Context) {
 		return
 	}
 
-	budget, err := h.service.GetBudgetByID(c.Request.Context(), id)
+	// Use ownership-verified method
+	budget, err := h.service.GetBudgetByIDForUser(c.Request.Context(), id, user.ID)
 	if err != nil {
+		if domain.IsBudgetNotFound(err) {
+			shared.RespondWithError(c, http.StatusNotFound, "budget not found")
+			return
+		}
 		shared.HandleError(c, err)
 		return
 	}
@@ -188,7 +215,7 @@ func (h *Handler) GetBudgetByID(c *gin.Context) {
 
 // UpdateBudget godoc
 // @Summary Update budget
-// @Description Update an existing budget
+// @Description Update an existing budget (only accessible by owner)
 // @Tags budgets
 // @Accept json
 // @Produce json
@@ -202,7 +229,7 @@ func (h *Handler) GetBudgetByID(c *gin.Context) {
 // @Failure 500 {object} shared.ErrorResponse
 // @Router /api/v1/budgets/{id} [put]
 func (h *Handler) UpdateBudget(c *gin.Context) {
-	_, exists := middleware.GetCurrentUser(c)
+	user, exists := middleware.GetCurrentUser(c)
 	if !exists {
 		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
 		return
@@ -221,8 +248,13 @@ func (h *Handler) UpdateBudget(c *gin.Context) {
 		return
 	}
 
-	budget, err := h.service.GetBudgetByID(c.Request.Context(), id)
+	// Fetch budget with ownership verification
+	budget, err := h.service.GetBudgetByIDForUser(c.Request.Context(), id, user.ID)
 	if err != nil {
+		if domain.IsBudgetNotFound(err) {
+			shared.RespondWithError(c, http.StatusNotFound, "budget not found")
+			return
+		}
 		shared.HandleError(c, err)
 		return
 	}
@@ -230,7 +262,8 @@ func (h *Handler) UpdateBudget(c *gin.Context) {
 	// Apply update request to budget
 	req.ApplyTo(budget)
 
-	if err := h.service.UpdateBudget(c.Request.Context(), budget); err != nil {
+	// Update with ownership verification
+	if err := h.service.UpdateBudgetForUser(c.Request.Context(), budget, user.ID); err != nil {
 		shared.HandleError(c, err)
 		return
 	}
@@ -240,17 +273,18 @@ func (h *Handler) UpdateBudget(c *gin.Context) {
 
 // DeleteBudget godoc
 // @Summary Delete budget
-// @Description Delete a budget
+// @Description Delete a budget (only accessible by owner)
 // @Tags budgets
 // @Security BearerAuth
 // @Param id path string true "Budget ID"
 // @Success 204
 // @Failure 400 {object} shared.ErrorResponse
 // @Failure 401 {object} shared.ErrorResponse
+// @Failure 404 {object} shared.ErrorResponse
 // @Failure 500 {object} shared.ErrorResponse
 // @Router /api/v1/budgets/{id} [delete]
 func (h *Handler) DeleteBudget(c *gin.Context) {
-	_, exists := middleware.GetCurrentUser(c)
+	user, exists := middleware.GetCurrentUser(c)
 	if !exists {
 		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
 		return
@@ -263,7 +297,12 @@ func (h *Handler) DeleteBudget(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.DeleteBudget(c.Request.Context(), id); err != nil {
+	// Delete with ownership verification
+	if err := h.service.DeleteBudgetForUser(c.Request.Context(), id, user.ID); err != nil {
+		if domain.IsBudgetNotFound(err) {
+			shared.RespondWithError(c, http.StatusNotFound, "budget not found")
+			return
+		}
 		shared.HandleError(c, err)
 		return
 	}
@@ -273,7 +312,7 @@ func (h *Handler) DeleteBudget(c *gin.Context) {
 
 // RecalculateBudget godoc
 // @Summary Recalculate budget spending
-// @Description Recalculate spent amount for a budget
+// @Description Recalculate spent amount for a budget (only accessible by owner)
 // @Tags budgets
 // @Security BearerAuth
 // @Param id path string true "Budget ID"
@@ -284,7 +323,7 @@ func (h *Handler) DeleteBudget(c *gin.Context) {
 // @Failure 500 {object} shared.ErrorResponse
 // @Router /api/v1/budgets/{id}/recalculate [post]
 func (h *Handler) RecalculateBudget(c *gin.Context) {
-	_, exists := middleware.GetCurrentUser(c)
+	user, exists := middleware.GetCurrentUser(c)
 	if !exists {
 		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
 		return
@@ -297,18 +336,102 @@ func (h *Handler) RecalculateBudget(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.RecalculateBudgetSpending(c.Request.Context(), id); err != nil {
+	// Recalculate with ownership verification
+	if err := h.service.RecalculateBudgetSpendingForUser(c.Request.Context(), id, user.ID); err != nil {
+		if domain.IsBudgetNotFound(err) {
+			shared.RespondWithError(c, http.StatusNotFound, "budget not found")
+			return
+		}
 		shared.HandleError(c, err)
 		return
 	}
 
-	budget, err := h.service.GetBudgetByID(c.Request.Context(), id)
+	// Fetch updated budget with ownership verification
+	budget, err := h.service.GetBudgetByIDForUser(c.Request.Context(), id, user.ID)
 	if err != nil {
 		shared.HandleError(c, err)
 		return
 	}
 
 	shared.RespondWithSuccess(c, http.StatusOK, "Budget recalculated successfully", dto.ToBudgetResponse(budget))
+}
+
+// GetBudgetProgress godoc
+// @Summary Get budget progress
+// @Description Get detailed progress for a budget (only accessible by owner)
+// @Tags budgets
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Budget ID"
+// @Success 200 {object} dto.BudgetProgressResponse
+// @Failure 400 {object} shared.ErrorResponse
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 404 {object} shared.ErrorResponse
+// @Router /api/v1/budgets/{id}/progress [get]
+func (h *Handler) GetBudgetProgress(c *gin.Context) {
+	user, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, "invalid budget ID")
+		return
+	}
+
+	progress, err := h.service.GetBudgetProgress(c.Request.Context(), id, user.ID)
+	if err != nil {
+		if domain.IsBudgetNotFound(err) {
+			shared.RespondWithError(c, http.StatusNotFound, "budget not found")
+			return
+		}
+		shared.HandleError(c, err)
+		return
+	}
+
+	shared.RespondWithSuccess(c, http.StatusOK, "Budget progress retrieved successfully", dto.ToBudgetProgressResponse(progress))
+}
+
+// GetBudgetAnalytics godoc
+// @Summary Get budget analytics
+// @Description Get analytics for a budget (only accessible by owner)
+// @Tags budgets
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Budget ID"
+// @Success 200 {object} dto.BudgetAnalyticsResponse
+// @Failure 400 {object} shared.ErrorResponse
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 404 {object} shared.ErrorResponse
+// @Router /api/v1/budgets/{id}/analytics [get]
+func (h *Handler) GetBudgetAnalytics(c *gin.Context) {
+	user, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, "invalid budget ID")
+		return
+	}
+
+	analytics, err := h.service.GetBudgetAnalytics(c.Request.Context(), id, user.ID)
+	if err != nil {
+		if domain.IsBudgetNotFound(err) {
+			shared.RespondWithError(c, http.StatusNotFound, "budget not found")
+			return
+		}
+		shared.HandleError(c, err)
+		return
+	}
+
+	shared.RespondWithSuccess(c, http.StatusOK, "Budget analytics retrieved successfully", dto.ToBudgetAnalyticsResponse(analytics))
 }
 
 // RecalculateAllBudgets godoc

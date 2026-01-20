@@ -201,8 +201,16 @@ func collectTransactionUpdates(existing *domain.Transaction, req dto.UpdateTrans
 		updates["classification"] = classification
 	}
 
-	// Update links
+	// Update links - WRITE-ONCE CONSTRAINT
+	// If existing transaction has links, reject any changes
+	// If existing has no links, allow adding new links
 	if req.Links != nil {
+		if existing.Links != nil && len(*existing.Links) > 0 {
+			// Existing transaction has links - reject any changes
+			return nil, shared.ErrBadRequest.WithDetails("reason", "links cannot be modified after creation (write-once)")
+		}
+
+		// No existing links - allow adding new links
 		links := make([]domain.TransactionLink, 0, len(*req.Links))
 		for _, linkDTO := range *req.Links {
 			links = append(links, domain.TransactionLink{

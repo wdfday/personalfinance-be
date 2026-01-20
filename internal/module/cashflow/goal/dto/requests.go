@@ -11,21 +11,24 @@ import (
 type CreateGoalRequest struct {
 	Name        string              `json:"name" binding:"required"`
 	Description *string             `json:"description"`
-	Type        domain.GoalType     `json:"type" binding:"required"`
+	Behavior    domain.GoalBehavior `json:"behavior" binding:"required"`
+	Category    domain.GoalCategory `json:"category" binding:"required"`
 	Priority    domain.GoalPriority `json:"priority" binding:"required"`
+	Status      *domain.GoalStatus  `json:"status,omitempty"`
 
-	TargetAmount float64 `json:"targetAmount" binding:"required,gt=0"`
-	Currency     string  `json:"currency" binding:"required,len=3"`
+	TargetAmount  float64  `json:"targetAmount" binding:"required,gt=0"`
+	CurrentAmount *float64 `json:"currentAmount,omitempty"`
+	Currency      string   `json:"currency" binding:"required,len=3"`
 
 	StartDate  time.Time  `json:"startDate" binding:"required"`
-	TargetDate *time.Time `json:"targetDate"`
+	TargetDate *time.Time `json:"targetDate"` // Required for 'willing' behavior
 
-	ContributionFrequency   *domain.ContributionFrequency `json:"contributionFrequency"`
+	ContributionFrequency   *domain.ContributionFrequency `json:"contributionFrequency"` // Required for 'recurring' behavior
 	AutoContribute          bool                          `json:"autoContribute"`
 	AutoContributeAmount    *float64                      `json:"autoContributeAmount"`
 	AutoContributeAccountID *uuid.UUID                    `json:"autoContributeAccountId"`
 
-	LinkedAccountID *uuid.UUID `json:"linkedAccountId"`
+	AccountID uuid.UUID `json:"accountId" binding:"required"` // Required, must be cash/bank/savings account
 
 	EnableReminders   bool    `json:"enableReminders"`
 	ReminderFrequency *string `json:"reminderFrequency"`
@@ -38,7 +41,7 @@ type CreateGoalRequest struct {
 type UpdateGoalRequest struct {
 	Name        *string              `json:"name"`
 	Description *string              `json:"description"`
-	Type        *domain.GoalType     `json:"type"`
+	Category    *domain.GoalCategory `json:"category"`
 	Priority    *domain.GoalPriority `json:"priority"`
 
 	TargetAmount *float64 `json:"targetAmount" binding:"omitempty,gt=0"`
@@ -52,7 +55,7 @@ type UpdateGoalRequest struct {
 	AutoContributeAmount    *float64                      `json:"autoContributeAmount"`
 	AutoContributeAccountID *uuid.UUID                    `json:"autoContributeAccountId"`
 
-	LinkedAccountID *uuid.UUID `json:"linkedAccountId"`
+	AccountID *uuid.UUID `json:"accountId"`
 
 	EnableReminders   *bool   `json:"enableReminders"`
 	ReminderFrequency *string `json:"reminderFrequency"`
@@ -63,11 +66,18 @@ type UpdateGoalRequest struct {
 	Tags  *string `json:"tags"`
 }
 
-// AddContributionRequest represents a request to add a contribution to a goal
+// AddContributionRequest represents a request to add a contribution to a goal (deposit)
 type AddContributionRequest struct {
-	Amount      float64    `json:"amount" binding:"required,gt=0"`
-	Description *string    `json:"description"`
-	Date        *time.Time `json:"date"`
+	Amount float64 `json:"amount" binding:"required,gt=0"`
+	Note   *string `json:"note"`
+	Source *string `json:"source"` // manual, auto, import (default: manual)
+}
+
+// WithdrawContributionRequest represents a request to withdraw from a goal's contributions
+type WithdrawContributionRequest struct {
+	Amount                  float64    `json:"amount" binding:"required,gt=0"`
+	Note                    *string    `json:"note"`
+	ReversingContributionID *uuid.UUID `json:"reversingContributionId"` // Optional: reference to the original contribution
 }
 
 // ApplyTo applies the update request fields to the goal domain object
@@ -78,8 +88,8 @@ func (req *UpdateGoalRequest) ApplyTo(goal *domain.Goal) {
 	if req.Description != nil {
 		goal.Description = req.Description
 	}
-	if req.Type != nil {
-		goal.Type = *req.Type
+	if req.Category != nil {
+		goal.Category = *req.Category
 	}
 	if req.Priority != nil {
 		goal.Priority = *req.Priority
@@ -108,8 +118,8 @@ func (req *UpdateGoalRequest) ApplyTo(goal *domain.Goal) {
 	if req.AutoContributeAccountID != nil {
 		goal.AutoContributeAccountID = req.AutoContributeAccountID
 	}
-	if req.LinkedAccountID != nil {
-		goal.LinkedAccountID = req.LinkedAccountID
+	if req.AccountID != nil {
+		goal.AccountID = *req.AccountID
 	}
 	if req.EnableReminders != nil {
 		goal.EnableReminders = *req.EnableReminders

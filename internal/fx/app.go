@@ -7,12 +7,11 @@ import (
 	"personalfinancedss/internal/database"
 	"personalfinancedss/internal/middleware"
 
-	// Old analytic handlers - commented out
-	// projectionHandler "personalfinancedss/internal/module/analytic/cashflow_projection/handler"
-	// recommendationHandler "personalfinancedss/internal/module/analytic/recommendation/handler"
-	allocationHandler "personalfinancedss/internal/module/analytics/budget_allocation_goal_programming/handler"
-	// eventHandler "personalfinancedss/internal/module/calendar/event/handler"
-	// periodHandler "personalfinancedss/internal/module/calendar/period/handler"
+	allocationHandler "personalfinancedss/internal/module/analytics/budget_allocation/handler"
+	ahpHandler "personalfinancedss/internal/module/analytics/goal_prioritization/handler"
+
+	eventHandler "personalfinancedss/internal/module/calendar/event/handler"
+	monthHandler "personalfinancedss/internal/module/calendar/month/handler"
 	accountHandler "personalfinancedss/internal/module/cashflow/account/handler"
 	budgetHandler "personalfinancedss/internal/module/cashflow/budget/handler"
 	budgetProfileHandler "personalfinancedss/internal/module/cashflow/budget_profile/handler"
@@ -24,6 +23,7 @@ import (
 	chatbotHandler "personalfinancedss/internal/module/chatbot/handler"
 	authHandler "personalfinancedss/internal/module/identify/auth/handler"
 	authService "personalfinancedss/internal/module/identify/auth/service"
+	brokerHandler "personalfinancedss/internal/module/identify/broker/handler"
 	profileHandler "personalfinancedss/internal/module/identify/profile/handler"
 	userHandler "personalfinancedss/internal/module/identify/user/handler"
 	userService "personalfinancedss/internal/module/identify/user/service"
@@ -73,9 +73,12 @@ func RegisterRoutes(
 	notificationH *notificationHandler.Handler,
 	wsHandler *notificationHandler.WebSocketHandler,
 	preferenceH *notificationHandler.PreferenceHandler,
-	// eventH *eventHandler.Handler,
+	eventH *eventHandler.Handler,
+	monthH *monthHandler.Handler,
 	allocationH *allocationHandler.Handler,
+	ahpH *ahpHandler.Handler,
 	chatbotH *chatbotHandler.Handler,
+	brokerH *brokerHandler.BrokerConnectionHandler,
 	authMiddleware *middleware.Middleware,
 	emailVerificationMiddleware *middleware.EmailVerificationMiddleware,
 	logger *zap.Logger,
@@ -140,8 +143,20 @@ func RegisterRoutes(
 	logger.Info("Registering budget allocation routes...")
 	allocationH.RegisterRoutes(router)
 
+	logger.Info("Registering goal prioritization (AHP) routes...")
+	ahpH.RegisterRoutes(router)
+
 	logger.Info("Registering chatbot routes...")
 	chatbotH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering calendar event routes...")
+	eventH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering month routes...")
+	monthH.RegisterRoutes(router, authMiddleware)
+
+	logger.Info("Registering broker routes...")
+	brokerH.RegisterRoutes(router, authMiddleware)
 
 	logger.Info("✅ All routes registered successfully")
 }

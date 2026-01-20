@@ -9,6 +9,7 @@ type BudgetConstraintResponse struct {
 	CategoryID string `json:"category_id"`
 
 	// Period tracking
+	Period    string     `json:"period"`
 	StartDate *time.Time `json:"start_date"`
 	EndDate   *time.Time `json:"end_date,omitempty"`
 	Duration  int        `json:"duration_days,omitempty"` // in days

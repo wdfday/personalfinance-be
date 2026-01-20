@@ -180,8 +180,8 @@ func FuzzPasswordLength(f *testing.F) {
 			}
 		}
 
-		// Length >= 8 with all requirements should be strong
-		if length >= 8 && !isStrong {
+		// Length >= 8 and <= 128 with all requirements should be strong
+		if length >= 8 && length <= 128 && !isStrong {
 			t.Errorf("Password with length %d should be strong: %q, errors=%v",
 				length, password, errors)
 		}
@@ -225,38 +225,52 @@ func FuzzPasswordCharacterSets(f *testing.F) {
 		isStrong := IsPasswordStrong(password)
 		errors := PasswordValidationErrors(password)
 
-		// Should be strong only if all character types are present AND length >= 8
-		shouldBeStrong := hasUpper && hasLower && hasDigit && hasSpecial && len(password) >= 8
+		// Should be strong if at least 3 character types are present AND length >= 8
+		categories := 0
+		if hasUpper {
+			categories++
+		}
+		if hasLower {
+			categories++
+		}
+		if hasDigit {
+			categories++
+		}
+		if hasSpecial {
+			categories++
+		}
+		shouldBeStrong := categories >= 3 && len(password) >= 8 && len(password) <= 128
 
 		if shouldBeStrong != isStrong {
 			t.Errorf("Character set validation mismatch: password=%q, expected=%v, got=%v, errors=%v",
 				password, shouldBeStrong, isStrong, errors)
 		}
 
-		// Check specific error messages
-		if !hasUpper {
-			hasUpperError := false
-			for _, err := range errors {
-				if strings.Contains(strings.ToLower(err), "uppercase") {
-					hasUpperError = true
+		// Check specific error messages only if password is not strong
+		if !shouldBeStrong {
+			if !hasUpper {
+				hasUpperError := false
+				for _, err := range errors {
+					if strings.Contains(strings.ToLower(err), "uppercase") {
+						hasUpperError = true
+					}
+				}
+				if !hasUpperError {
+					t.Errorf("Missing uppercase error for password: %q", password)
 				}
 			}
-			if !hasUpperError {
-				t.Errorf("Missing uppercase error for password: %q", password)
-			}
-		}
 
-		if !hasLower {
-			hasLowerError := false
-			for _, err := range errors {
-				if strings.Contains(strings.ToLower(err), "lowercase") {
-					hasLowerError = true
+			if !hasLower {
+				hasLowerError := false
+				for _, err := range errors {
+					if strings.Contains(strings.ToLower(err), "lowercase") {
+						hasLowerError = true
+					}
 				}
-			}
-			if !hasLowerError {
-				t.Errorf("Missing lowercase error for password: %q", password)
+				if !hasLowerError {
+					t.Errorf("Missing lowercase error for password: %q", password)
+				}
 			}
 		}
 	})
 }
-

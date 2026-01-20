@@ -1,13 +1,14 @@
 -- Migration: Broker Connections Table
 -- Description: Create broker_connections table and migrate data from accounts.broker_integration JSONB
 -- Date: 2025-01-29
+-- Note: Using uuidv7() for time-ordered UUIDs (requires PostgreSQL 18+)
 
 -- =====================================================
 -- STEP 1: Create broker_connections table
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS broker_connections (
-    id UUID DEFAULT uuid_generate_v4(),
+    id UUID DEFAULT uuidv7(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
     -- Broker information
@@ -140,7 +141,7 @@ BEGIN
             created_at,
             updated_at
         ) VALUES (
-            uuid_generate_v4(),
+            uuidv7(),
             account_record.user_id,
             broker_type_val,
             COALESCE(broker_data->>'broker_name', INITCAP(broker_type_val)),

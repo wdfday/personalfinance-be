@@ -52,8 +52,18 @@ func (s *budgetService) GetBudgetByID(ctx context.Context, budgetID uuid.UUID) (
 	return s.reader.GetBudgetByID(ctx, budgetID)
 }
 
+// GetBudgetByIDForUser retrieves a budget by ID with ownership verification
+func (s *budgetService) GetBudgetByIDForUser(ctx context.Context, budgetID, userID uuid.UUID) (*domain.Budget, error) {
+	return s.reader.GetBudgetByIDForUser(ctx, budgetID, userID)
+}
+
 func (s *budgetService) GetUserBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error) {
 	return s.reader.GetUserBudgets(ctx, userID)
+}
+
+// GetUserBudgetsPaginated retrieves budgets for a user with pagination
+func (s *budgetService) GetUserBudgetsPaginated(ctx context.Context, userID uuid.UUID, page, pageSize int) (*repository.PaginatedResult, error) {
+	return s.reader.GetUserBudgetsPaginated(ctx, userID, page, pageSize)
 }
 
 func (s *budgetService) GetActiveBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error) {
@@ -80,17 +90,24 @@ func (s *budgetService) GetBudgetVsActual(ctx context.Context, userID uuid.UUID,
 	return s.reader.GetBudgetVsActual(ctx, userID, period, startDate, endDate)
 }
 
-func (s *budgetService) GetBudgetProgress(ctx context.Context, budgetID uuid.UUID) (*BudgetProgress, error) {
-	return s.reader.GetBudgetProgress(ctx, budgetID)
+// GetBudgetProgress retrieves detailed budget progress with ownership verification
+func (s *budgetService) GetBudgetProgress(ctx context.Context, budgetID, userID uuid.UUID) (*BudgetProgress, error) {
+	return s.reader.GetBudgetProgressForUser(ctx, budgetID, userID)
 }
 
-func (s *budgetService) GetBudgetAnalytics(ctx context.Context, budgetID uuid.UUID) (*BudgetAnalytics, error) {
-	return s.reader.GetBudgetAnalytics(ctx, budgetID)
+// GetBudgetAnalytics retrieves budget analytics with ownership verification
+func (s *budgetService) GetBudgetAnalytics(ctx context.Context, budgetID, userID uuid.UUID) (*BudgetAnalytics, error) {
+	return s.reader.GetBudgetAnalyticsForUser(ctx, budgetID, userID)
 }
 
 // Update operations
 func (s *budgetService) UpdateBudget(ctx context.Context, budget *domain.Budget) error {
 	return s.updater.UpdateBudget(ctx, budget)
+}
+
+// UpdateBudgetForUser updates a budget with ownership verification
+func (s *budgetService) UpdateBudgetForUser(ctx context.Context, budget *domain.Budget, userID uuid.UUID) error {
+	return s.updater.UpdateBudgetForUser(ctx, budget, userID)
 }
 
 func (s *budgetService) CheckBudgetAlerts(ctx context.Context, budgetID uuid.UUID) ([]domain.AlertThreshold, error) {
@@ -106,9 +123,19 @@ func (s *budgetService) DeleteBudget(ctx context.Context, budgetID uuid.UUID) er
 	return s.deleter.DeleteBudget(ctx, budgetID)
 }
 
+// DeleteBudgetForUser deletes a budget with ownership verification
+func (s *budgetService) DeleteBudgetForUser(ctx context.Context, budgetID, userID uuid.UUID) error {
+	return s.deleter.DeleteBudgetForUser(ctx, budgetID, userID)
+}
+
 // Calculation operations
 func (s *budgetService) RecalculateBudgetSpending(ctx context.Context, budgetID uuid.UUID) error {
 	return s.calculator.RecalculateBudgetSpending(ctx, budgetID)
+}
+
+// RecalculateBudgetSpendingForUser recalculates budget spending with ownership verification
+func (s *budgetService) RecalculateBudgetSpendingForUser(ctx context.Context, budgetID, userID uuid.UUID) error {
+	return s.calculator.RecalculateBudgetSpendingForUser(ctx, budgetID, userID)
 }
 
 func (s *budgetService) RecalculateAllBudgets(ctx context.Context, userID uuid.UUID) error {
