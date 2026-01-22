@@ -35,10 +35,18 @@ func (s *monthService) AssignCategory(ctx context.Context, req dto.AssignCategor
 	state := month.CurrentState()
 
 	// 4. Get or create category state
-	catState, exists := state.CategoryStates[req.CategoryID]
-	if !exists {
-		catState = domain.NewCategoryState(req.CategoryID, 0, 0, 0)
-		state.CategoryStates[req.CategoryID] = catState
+	var catState *domain.CategoryState
+	for i := range state.CategoryStates {
+		if state.CategoryStates[i].CategoryID == req.CategoryID {
+			catState = &state.CategoryStates[i]
+			break
+		}
+	}
+	if catState == nil {
+		// Create new category state
+		newCat := domain.NewCategoryState(req.CategoryID, 0, 0, 0)
+		state.CategoryStates = append(state.CategoryStates, *newCat)
+		catState = &state.CategoryStates[len(state.CategoryStates)-1]
 	}
 
 	// 5. Update category assigned amount
@@ -89,15 +97,30 @@ func (s *monthService) MoveMoney(ctx context.Context, req dto.MoveMoneyRequest, 
 	month.EnsureState()
 	state := month.CurrentState()
 
-	fromCat, exists := state.CategoryStates[req.FromCategoryID]
-	if !exists {
+	// Find source category
+	var fromCat *domain.CategoryState
+	for i := range state.CategoryStates {
+		if state.CategoryStates[i].CategoryID == req.FromCategoryID {
+			fromCat = &state.CategoryStates[i]
+			break
+		}
+	}
+	if fromCat == nil {
 		return fmt.Errorf("source category not found in month")
 	}
 
-	toCat, exists := state.CategoryStates[req.ToCategoryID]
-	if !exists {
-		toCat = domain.NewCategoryState(req.ToCategoryID, 0, 0, 0)
-		state.CategoryStates[req.ToCategoryID] = toCat
+	// Find or create target category
+	var toCat *domain.CategoryState
+	for i := range state.CategoryStates {
+		if state.CategoryStates[i].CategoryID == req.ToCategoryID {
+			toCat = &state.CategoryStates[i]
+			break
+		}
+	}
+	if toCat == nil {
+		newCat := domain.NewCategoryState(req.ToCategoryID, 0, 0, 0)
+		state.CategoryStates = append(state.CategoryStates, *newCat)
+		toCat = &state.CategoryStates[len(state.CategoryStates)-1]
 	}
 
 	fromCat.AddAssignment(-req.Amount)

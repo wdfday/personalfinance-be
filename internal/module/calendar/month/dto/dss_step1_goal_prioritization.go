@@ -7,23 +7,14 @@ import (
 )
 
 // ==================== Step 1: Goal Prioritization ====================
+// Goals are READ FROM REDIS CACHE (set during Initialize)
 
 // PreviewGoalPrioritizationRequest requests AHP goal prioritization
+// Goals are read from cached DSS state (initialized via POST /dss/initialize)
 type PreviewGoalPrioritizationRequest struct {
-	MonthID         uuid.UUID                  `json:"month_id" binding:"required"`
-	Goals           []goalDto.GoalForRating    `json:"goals" binding:"required,min=1"`
-	CriteriaRatings map[string]int             `json:"criteria_ratings,omitempty"` // Custom weights from Step 0 (1-10 scale)
-	UseAutoScoring  bool                       `json:"use_auto_scoring"`
-	ManualScores    map[string]ManualGoalScore `json:"manual_scores,omitempty"`
-}
-
-// ManualGoalScore allows user to override auto-scores
-type ManualGoalScore struct {
-	GoalID     uuid.UUID `json:"goal_id" binding:"required"`
-	Urgency    float64   `json:"urgency" binding:"required,gte=0,lte=10"`
-	Importance float64   `json:"importance" binding:"required,gte=0,lte=10"`
-	ROI        float64   `json:"roi" binding:"required,gte=0,lte=10"`
-	Effort     float64   `json:"effort" binding:"required,gte=0,lte=10"`
+	MonthID         uuid.UUID      `json:"month_id" binding:"required"`
+	CriteriaRatings map[string]int `json:"criteria_ratings,omitempty"` // Custom weights from Step 0 (1-10 scale)
+	// No goals needed - read from Redis cache
 }
 
 // PreviewGoalPrioritizationResponse uses AHP output from analytics

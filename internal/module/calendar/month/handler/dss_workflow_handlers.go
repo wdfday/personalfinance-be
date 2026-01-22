@@ -1,17 +1,31 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/calendar/month/dto"
+	"personalfinancedss/internal/module/calendar/month/service"
 	"personalfinancedss/internal/shared"
 
 	"github.com/gin-gonic/gin"
 )
 
+// handleDSSError handles DSS-specific errors with proper HTTP status codes
+func handleDSSError(c *gin.Context, err error) {
+	if errors.Is(err, service.ErrDSSNotInitialized) {
+		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	shared.HandleError(c, err)
+}
+
 // RegisterDSSWorkflowRoutes registers the new sequential 5-step DSS workflow routes
 func (h *Handler) RegisterDSSWorkflowRoutes(months *gin.RouterGroup, auth *middleware.Middleware) {
+	// Initialize DSS (MUST be called first)
+	months.POST("/:month/dss/initialize", h.initializeDSS)
+
 	// Step 0: Auto-Scoring Preview (optional)
 	months.POST("/:month/auto-scoring/preview", h.previewAutoScoring)
 
@@ -22,6 +36,9 @@ func (h *Handler) RegisterDSSWorkflowRoutes(months *gin.RouterGroup, auth *middl
 	// Step 2: Debt Strategy
 	months.POST("/:month/debt-strategy/preview", h.previewDebtStrategy)
 	months.POST("/:month/debt-strategy/apply", h.applyDebtStrategy)
+	// Alias routes (đúng theo swagger /dss/...) để FE không bị 404
+	months.POST("/:month/dss/debt-strategy/preview", h.previewDebtStrategy)
+	months.POST("/:month/dss/debt-strategy/apply", h.applyDebtStrategy)
 
 	// Step 3: Goal-Debt Trade-off
 	months.POST("/:month/goal-debt-tradeoff/preview", h.previewGoalDebtTradeoff)
@@ -37,6 +54,50 @@ func (h *Handler) RegisterDSSWorkflowRoutes(months *gin.RouterGroup, auth *middl
 
 	// DSS Finalization (Approach 2: Apply All at Once)
 	months.POST("/:month/dss/finalize", h.finalizeDSS)
+}
+
+// ==================== Initialize DSS Workflow ====================
+
+// initializeDSS godoc
+// @Summary Initialize DSS workflow
+// @Description Create a new DSS session with input snapshot cached in Redis (3h TTL)
+// @Tags month-dss
+// @Accept json
+// @Produce json
+// @Param month path string true "Month (YYYY-MM)"
+// @Param request body dto.InitializeDSSRequest true "Initialize request with input snapshot"
+// @Success 201 {object} dto.InitializeDSSResponse
+// @Router /api/v1/months/{month}/dss/initialize [post]
+func (h *Handler) initializeDSS(c *gin.Context) {
+	monthStr := c.Param("month")
+	currentUser, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	monthView, err := h.service.GetMonth(c.Request.Context(), currentUser.ID, monthStr)
+	if err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	var req dto.InitializeDSSRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	req.MonthID = monthView.MonthID
+
+	result, err := h.service.InitializeDSS(c.Request.Context(), req, &currentUser.ID)
+	if err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	// 201 Created vì đây là session DSS mới trong Redis
+	shared.RespondWithSuccess(c, http.StatusCreated, "DSS workflow initialized", result)
 }
 
 // ==================== Step 0: Auto-Scoring Preview ====================
@@ -75,7 +136,7 @@ func (h *Handler) previewAutoScoring(c *gin.Context) {
 
 	result, err := h.service.PreviewAutoScoring(c.Request.Context(), req, &currentUser.ID)
 	if err != nil {
-		shared.HandleError(c, err)
+		handleDSSError(c, err)
 		return
 	}
 
@@ -119,7 +180,7 @@ func (h *Handler) previewGoalPrioritization(c *gin.Context) {
 
 	result, err := h.service.PreviewGoalPrioritization(c.Request.Context(), req, &currentUser.ID)
 	if err != nil {
-		shared.HandleError(c, err)
+		handleDSSError(c, err)
 		return
 	}
 
@@ -159,7 +220,7 @@ func (h *Handler) applyGoalPrioritization(c *gin.Context) {
 	req.MonthID = monthView.MonthID
 
 	if err := h.service.ApplyGoalPrioritization(c.Request.Context(), req, &currentUser.ID); err != nil {
-		shared.HandleError(c, err)
+		handleDSSError(c, err)
 		return
 	}
 
@@ -202,7 +263,7 @@ func (h *Handler) previewDebtStrategy(c *gin.Context) {
 
 	result, err := h.service.PreviewDebtStrategy(c.Request.Context(), req, &currentUser.ID)
 	if err != nil {
-		shared.HandleError(c, err)
+		handleDSSError(c, err)
 		return
 	}
 
@@ -242,7 +303,7 @@ func (h *Handler) applyDebtStrategy(c *gin.Context) {
 	req.MonthID = monthView.MonthID
 
 	if err := h.service.ApplyDebtStrategy(c.Request.Context(), req, &currentUser.ID); err != nil {
-		shared.HandleError(c, err)
+		handleDSSError(c, err)
 		return
 	}
 
@@ -285,7 +346,7 @@ func (h *Handler) previewGoalDebtTradeoff(c *gin.Context) {
 
 	result, err := h.service.PreviewGoalDebtTradeoff(c.Request.Context(), req, &currentUser.ID)
 	if err != nil {
-		shared.HandleError(c, err)
+		handleDSSError(c, err)
 		return
 	}
 
@@ -325,7 +386,7 @@ func (h *Handler) applyGoalDebtTradeoff(c *gin.Context) {
 	req.MonthID = monthView.MonthID
 
 	if err := h.service.ApplyGoalDebtTradeoff(c.Request.Context(), req, &currentUser.ID); err != nil {
-		shared.HandleError(c, err)
+		handleDSSError(c, err)
 		return
 	}
 
@@ -368,7 +429,7 @@ func (h *Handler) previewBudgetAllocation(c *gin.Context) {
 
 	result, err := h.service.PreviewBudgetAllocation(c.Request.Context(), req, &currentUser.ID)
 	if err != nil {
-		shared.HandleError(c, err)
+		handleDSSError(c, err)
 		return
 	}
 
@@ -408,7 +469,7 @@ func (h *Handler) applyBudgetAllocation(c *gin.Context) {
 	req.MonthID = monthView.MonthID
 
 	if err := h.service.ApplyBudgetAllocation(c.Request.Context(), req, &currentUser.ID); err != nil {
-		shared.HandleError(c, err)
+		handleDSSError(c, err)
 		return
 	}
 

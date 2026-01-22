@@ -44,10 +44,6 @@ func (s *monthService) RecalculatePlanning(ctx context.Context, req dto.Recalcul
 		ActualIncome:   currentState.ActualIncome,   // Carry over actual income
 		CategoryStates: currentState.CategoryStates, // Carry over category states
 		Input:          inputSnapshot,
-		// Legacy fields for compatibility
-		Constraints: currentState.Constraints,
-		Goals:       currentState.Goals,
-		Debts:       currentState.Debts,
 	}
 
 	// 4. Append new state to States array

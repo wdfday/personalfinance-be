@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"time"
 
+	"personalfinancedss/internal/module/calendar/month/dto"
+
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
 const (
-	// DSS cache TTL: 1 hour
-	dssCacheTTL = 1 * time.Hour
-
-	// Redis key prefixes
-	dssKeyPrefix = "dss:workflow"
+	// DSS cache TTL: 3 hours (user session typically shorter)
+	dssCacheTTL = 3 * time.Hour
 )
 
 // DSSCache handles caching of DSS preview results in Redis
@@ -33,135 +32,140 @@ func NewDSSCache(client *redis.Client, logger *zap.Logger) *DSSCache {
 	}
 }
 
-// buildKey constructs Redis key for DSS workflow data
-// Format: dss:workflow:{monthID}:{userID}:{step}
-func (c *DSSCache) buildKey(monthID, userID uuid.UUID, step string) string {
-	return fmt.Sprintf("%s:%s:%s:%s", dssKeyPrefix, monthID.String(), userID.String(), step)
+// DSSCachedState holds the complete DSS workflow state in Redis (single key approach)
+type DSSCachedState struct {
+	MonthID   uuid.UUID `json:"month_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// ===== Input Snapshot - captured when DSS workflow is initialized =====
+	MonthlyIncome    float64                   `json:"monthly_income,omitempty"`
+	InputGoals       []dto.InitGoalInput       `json:"input_goals,omitempty"`
+	InputDebts       []dto.InitDebtInput       `json:"input_debts,omitempty"`
+	InputConstraints []dto.InitConstraintInput `json:"input_constraints,omitempty"`
+
+	// ===== Step 0: Auto-scoring results =====
+	AutoScoring interface{} `json:"auto_scoring,omitempty"`
+
+	// ===== Step 1: Goal prioritization =====
+	GoalPrioritizationPreview interface{} `json:"goal_prioritization_preview,omitempty"`
+	AcceptedGoalRanking       []uuid.UUID `json:"accepted_goal_ranking,omitempty"`
+
+	// ===== Step 2: Debt strategy =====
+	DebtStrategyPreview  interface{} `json:"debt_strategy_preview,omitempty"`
+	AcceptedDebtStrategy string      `json:"accepted_debt_strategy,omitempty"`
+
+	// ===== Step 3: Goal-Debt tradeoff =====
+	TradeoffPreview           interface{} `json:"tradeoff_preview,omitempty"`
+	AcceptedGoalAllocationPct float64     `json:"accepted_goal_allocation_pct,omitempty"`
+	AcceptedDebtAllocationPct float64     `json:"accepted_debt_allocation_pct,omitempty"`
+
+	// ===== Step 4: Budget allocation =====
+	BudgetAllocationPreview interface{}           `json:"budget_allocation_preview,omitempty"`
+	AcceptedScenario        string                `json:"accepted_scenario,omitempty"`
+	AcceptedAllocations     map[uuid.UUID]float64 `json:"accepted_allocations,omitempty"`
 }
 
-// SetPreview caches a DSS preview result
-func (c *DSSCache) SetPreview(ctx context.Context, monthID, userID uuid.UUID, step string, data interface{}) error {
+// buildStateKey constructs Redis key for complete DSS state
+// Format: dss:state:{monthID}:{userID}
+func (c *DSSCache) buildStateKey(monthID, userID uuid.UUID) string {
+	return fmt.Sprintf("dss:state:%s:%s", monthID.String(), userID.String())
+}
+
+// GetState retrieves the complete DSS workflow state from Redis
+func (c *DSSCache) GetState(ctx context.Context, monthID, userID uuid.UUID) (*DSSCachedState, error) {
 	if c.client == nil {
-		c.logger.Debug("Redis unavailable, skipping cache")
+		return nil, fmt.Errorf("redis unavailable")
+	}
+
+	key := c.buildStateKey(monthID, userID)
+
+	bytes, err := c.client.Get(ctx, key).Bytes()
+	if err == redis.Nil {
+		// State doesn't exist yet - return nil without error
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get DSS state: %w", err)
+	}
+
+	var state DSSCachedState
+	if err := json.Unmarshal(bytes, &state); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal DSS state: %w", err)
+	}
+
+	c.logger.Debug("Retrieved DSS state from cache",
+		zap.String("key", key),
+		zap.Time("updated_at", state.UpdatedAt))
+
+	return &state, nil
+}
+
+// ErrDSSNotInitialized is returned when DSS workflow is accessed before initialization
+var ErrDSSNotInitialized = fmt.Errorf("DSS not initialized - call POST /dss/initialize first")
+
+// GetOrInitState gets existing state or returns error if not initialized
+// Use this for Preview steps - they REQUIRE Initialize to be called first
+func (c *DSSCache) GetOrInitState(ctx context.Context, monthID, userID uuid.UUID) (*DSSCachedState, error) {
+	state, err := c.GetState(ctx, monthID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if state == nil {
+		return nil, ErrDSSNotInitialized
+	}
+
+	return state, nil
+}
+
+// SaveState saves the complete DSS workflow state to Redis
+func (c *DSSCache) SaveState(ctx context.Context, state *DSSCachedState) error {
+	if c.client == nil {
+		c.logger.Debug("Redis unavailable, skipping save")
 		return nil
 	}
 
-	key := c.buildKey(monthID, userID, step)
+	state.UpdatedAt = time.Now()
+	key := c.buildStateKey(state.MonthID, state.UserID)
 
-	bytes, err := json.Marshal(data)
+	bytes, err := json.Marshal(state)
 	if err != nil {
-		return fmt.Errorf("failed to marshal preview data: %w", err)
+		return fmt.Errorf("failed to marshal DSS state: %w", err)
 	}
 
 	if err := c.client.Set(ctx, key, bytes, dssCacheTTL).Err(); err != nil {
-		c.logger.Error("Failed to cache preview",
+		c.logger.Error("Failed to save DSS state",
 			zap.String("key", key),
 			zap.Error(err))
 		return err
 	}
 
-	c.logger.Debug("Cached DSS preview",
+	c.logger.Debug("Saved DSS state to cache",
 		zap.String("key", key),
-		zap.String("step", step),
 		zap.Duration("ttl", dssCacheTTL))
 
 	return nil
 }
 
-// GetPreview retrieves a cached DSS preview result
-func (c *DSSCache) GetPreview(ctx context.Context, monthID, userID uuid.UUID, step string, dest interface{}) error {
-	if c.client == nil {
-		return fmt.Errorf("redis unavailable")
-	}
-
-	key := c.buildKey(monthID, userID, step)
-
-	bytes, err := c.client.Get(ctx, key).Bytes()
-	if err == redis.Nil {
-		return fmt.Errorf("preview not found")
-	}
-	if err != nil {
-		return fmt.Errorf("failed to get preview: %w", err)
-	}
-
-	if err := json.Unmarshal(bytes, dest); err != nil {
-		return fmt.Errorf("failed to unmarshal preview: %w", err)
-	}
-
-	return nil
-}
-
-// GetAllPreviews retrieves all cached previews for a month (for FinalizeDSS)
-func (c *DSSCache) GetAllPreviews(ctx context.Context, monthID, userID uuid.UUID) (map[string]interface{}, error) {
-	if c.client == nil {
-		return nil, fmt.Errorf("redis unavailable")
-	}
-
-	results := make(map[string]interface{})
-	steps := []string{"auto_scoring", "goal_prioritization", "debt_strategy", "tradeoff"}
-
-	for _, step := range steps {
-		key := c.buildKey(monthID, userID, step)
-		bytes, err := c.client.Get(ctx, key).Bytes()
-		if err == redis.Nil {
-			// Step was skipped or not run
-			continue
-		}
-		if err != nil {
-			c.logger.Warn("Failed to get preview",
-				zap.String("step", step),
-				zap.Error(err))
-			continue
-		}
-
-		var data interface{}
-		if err := json.Unmarshal(bytes, &data); err != nil {
-			c.logger.Warn("Failed to unmarshal preview",
-				zap.String("step", step),
-				zap.Error(err))
-			continue
-		}
-
-		results[step] = data
-	}
-
-	return results, nil
-}
-
-// ClearPreviews deletes all cached previews for a month
-func (c *DSSCache) ClearPreviews(ctx context.Context, monthID, userID uuid.UUID) error {
+// ClearState deletes the complete DSS workflow state from Redis
+func (c *DSSCache) ClearState(ctx context.Context, monthID, userID uuid.UUID) error {
 	if c.client == nil {
 		return nil
 	}
 
-	steps := []string{"auto_scoring", "goal_prioritization", "debt_strategy", "tradeoff"}
-	keys := make([]string, 0, len(steps))
+	key := c.buildStateKey(monthID, userID)
 
-	for _, step := range steps {
-		keys = append(keys, c.buildKey(monthID, userID, step))
-	}
-
-	if err := c.client.Del(ctx, keys...).Err(); err != nil {
-		c.logger.Error("Failed to clear previews",
-			zap.Strings("keys", keys),
+	if err := c.client.Del(ctx, key).Err(); err != nil {
+		c.logger.Error("Failed to clear DSS state",
+			zap.String("key", key),
 			zap.Error(err))
 		return err
 	}
 
-	c.logger.Info("Cleared DSS previews",
+	c.logger.Info("Cleared DSS state from cache",
 		zap.String("month_id", monthID.String()),
 		zap.String("user_id", userID.String()))
 
 	return nil
-}
-
-// HasPreview checks if a preview exists in cache
-func (c *DSSCache) HasPreview(ctx context.Context, monthID, userID uuid.UUID, step string) bool {
-	if c.client == nil {
-		return false
-	}
-
-	key := c.buildKey(monthID, userID, step)
-	exists, err := c.client.Exists(ctx, key).Result()
-	return err == nil && exists > 0
 }

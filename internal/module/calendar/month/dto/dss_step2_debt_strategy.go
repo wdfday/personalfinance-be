@@ -8,14 +8,14 @@ import (
 )
 
 // ==================== Step 2: Debt Strategy ====================
-// All types imported from analytics debt_strategy module - NO DUPLICATION
+// Debts are READ FROM REDIS CACHE (set during Initialize)
 
 // PreviewDebtStrategyRequest requests debt strategy preview
+// Debts are read from cached DSS state (initialized via POST /dss/initialize)
 type PreviewDebtStrategyRequest struct {
-	MonthID           uuid.UUID         `json:"month_id" binding:"required"`
-	Debts             []domain.DebtInfo `json:"debts" binding:"required,min=1"`
-	TotalDebtBudget   float64           `json:"total_debt_budget" binding:"required,gt=0"`
-	PreferredStrategy string            `json:"preferred_strategy,omitempty"` // "avalanche" | "snowball" | "hybrid"
+	MonthID           uuid.UUID `json:"month_id" binding:"required"`
+	PreferredStrategy string    `json:"preferred_strategy,omitempty"` // "avalanche" | "snowball" | "hybrid"
+	// No debts or budget needed - read from Redis cache
 }
 
 // PreviewDebtStrategyResponse type alias to analytics output

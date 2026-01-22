@@ -7,10 +7,10 @@ import (
 )
 
 // ==================== Step 3: Goal-Debt Trade-off ====================
-// Import types from analytics debt_tradeoff module - NO DUPLICATION
+// Goals and Debts are READ FROM REDIS CACHE (results from Step 1 & 2)
 
 // PreviewGoalDebtTradeoffRequest requests trade-off analysis
-// Wraps user preferences - data from Step 1 & 2 auto-collected from DSSWorkflow
+// Uses data from Step 1 & 2 (auto-collected from cached state)
 type PreviewGoalDebtTradeoffRequest struct {
 	MonthID     uuid.UUID                       `json:"month_id" binding:"required"`
 	Preferences tradeoffDto.TradeoffPreferences `json:"preferences" binding:"required"`

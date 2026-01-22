@@ -9,8 +9,14 @@ import (
 )
 
 // MonthDSSWorkflowHandler defines the interface for the new sequential 5-step DSS workflow
-// Step 0: Auto-Scoring → Step 1: Goal Prioritization → Step 2: Debt Strategy → Step 3: Trade-off → Step 4: Budget
+// Initialize → Step 0: Auto-Scoring → Step 1: Goal Prioritization → Step 2: Debt Strategy → Step 3: Trade-off → Step 4: Budget → Finalize
 type MonthDSSWorkflowHandler interface {
+	// ===== Initialize DSS Workflow =====
+
+	// InitializeDSS creates a new DSS session with input snapshot cached in Redis (3h TTL)
+	// This MUST be called FIRST before any preview/apply steps
+	InitializeDSS(ctx context.Context, req dto.InitializeDSSRequest, userID *uuid.UUID) (*dto.InitializeDSSResponse, error)
+
 	// ===== Step 0: Auto-Scoring Preview (Optional) =====
 
 	// PreviewAutoScoring runs goal auto-scoring and returns scored goals (preview only, not saved)

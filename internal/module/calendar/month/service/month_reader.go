@@ -41,19 +41,20 @@ func (s *monthService) GetMonth(ctx context.Context, userID uuid.UUID, monthStr 
 	}
 
 	var totalBudgeted, totalActivity float64
-	for categoryID, catState := range state.CategoryStates {
+	for i := range state.CategoryStates {
+		catState := &state.CategoryStates[i]
 		totalBudgeted += catState.Assigned
 		totalActivity += catState.Activity
 
 		var catName string
-		if cat, err := s.categoryService.GetCategory(ctx, "", categoryID.String()); err == nil && cat != nil {
+		if cat, err := s.categoryService.GetCategory(ctx, "", catState.CategoryID.String()); err == nil && cat != nil {
 			catName = cat.Name
 		} else {
 			catName = "Unknown"
 		}
 
 		line := dto.CategoryLineResponse{
-			CategoryID: categoryID,
+			CategoryID: catState.CategoryID,
 			Name:       catName,
 			Rollover:   catState.Rollover,
 			Assigned:   catState.Assigned,

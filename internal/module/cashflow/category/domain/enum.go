@@ -31,6 +31,16 @@ type DefaultCategoryDef struct {
 // DefaultExpenseCategories returns a list of system-provided default expense categories (3-level hierarchy)
 func DefaultExpenseCategories() []DefaultCategoryDef {
 	return []DefaultCategoryDef{
+		// 0. Buffer & Misc (Level 0) - dùng làm khoản đệm / chi phí linh hoạt tổng hợp
+		{
+			Name: "Buffer & Misc", Description: "General buffer and miscellaneous expenses", Icon: "savings", Color: "#9E9E9E", Type: CategoryTypeExpense,
+			SubCategories: []DefaultCategoryDef{
+				{
+					Name: "Budget Buffer", Description: "Flexible buffer for unexpected or overflow expenses", Icon: "account_balance_wallet", Color: "#757575", Type: CategoryTypeExpense,
+				},
+			},
+		},
+
 		// 1. Home & Utilities (Level 0)
 		{
 			Name: "Home & Utilities", Description: "Housing and utility costs", Icon: "home", Color: "#4FC3F7", Type: CategoryTypeExpense,

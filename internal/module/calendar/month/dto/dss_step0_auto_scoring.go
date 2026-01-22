@@ -8,13 +8,13 @@ import (
 
 // ==================== Step 0: Auto-Scoring Preview ====================
 // This is a preview-only step - no results are saved to DSSWorkflow
-// All types imported from analytics module - NO DUPLICATION
+// Goals and Income are READ FROM REDIS CACHE (set during Initialize)
 
 // PreviewAutoScoringRequest requests auto-scoring for goals
+// Goals and income are read from cached DSS state (initialized via POST /dss/initialize)
 type PreviewAutoScoringRequest struct {
-	MonthID       uuid.UUID               `json:"month_id"`
-	MonthlyIncome float64                 `json:"monthly_income" binding:"required,gt=0"`
-	Goals         []goalDto.GoalForRating `json:"goals" binding:"required,min=1"`
+	MonthID uuid.UUID `json:"month_id" binding:"required"`
+	// No goals or income needed - read from Redis cache
 }
 
 // PreviewAutoScoringResponse type alias to analytics response
