@@ -59,13 +59,13 @@ func (m *IncomeForecastMapper) DetectIncomeMode(profiles []*incomeProfileDomain.
 			continue
 		}
 
-		// Fixed: Salary with base salary component
-		if p.BaseSalary > 0 && p.IsRecurring && p.Frequency == "monthly" {
+		// Fixed: Recurring monthly income (typically salary)
+		if p.IsRecurring && p.Frequency == "monthly" && p.Amount > 0 {
 			hasFixedIncome = true
 		}
 
-		// Variable: Commission, freelance, or one-time
-		if p.Commission > 0 || p.Source == "Freelance" || !p.IsRecurring {
+		// Variable: Non-recurring, freelance, or commission-like sources
+		if !p.IsRecurring || contains(p.Source, []string{"Freelance", "Contractor", "Gig", "Commission"}) {
 			hasVariableIncome = true
 		}
 
@@ -106,7 +106,7 @@ func (m *IncomeForecastMapper) ConvertToIncomeSources(profiles []*incomeProfileD
 			IsRecurring: p.IsRecurring,
 			Frequency:   p.Frequency,
 			SourceType:  sourceType,
-			IsConfirmed: p.IsVerified,
+			IsConfirmed: true, // Default to confirmed since IsVerified field was removed
 		}
 
 		sources = append(sources, source)
@@ -117,18 +117,12 @@ func (m *IncomeForecastMapper) ConvertToIncomeSources(profiles []*incomeProfileD
 
 // DetermineSourceType maps income profile to forecast source type
 func (m *IncomeForecastMapper) DetermineSourceType(profile *incomeProfileDomain.IncomeProfile) string {
-	// Check explicit components
-	if profile.BaseSalary > 0 && profile.Commission == 0 {
-		return "salary"
-	}
-	if profile.Commission > 0 {
-		return "commission"
-	}
-
-	// Check source keywords
+	// Check source keywords first
 	switch {
 	case contains(profile.Source, []string{"Freelance", "Contractor", "Gig", "Project"}):
 		return "freelance"
+	case contains(profile.Source, []string{"Commission", "Bonus"}):
+		return "commission"
 	case contains(profile.Source, []string{"Salary", "Wage"}):
 		return "salary"
 	case !profile.IsRecurring:
@@ -149,11 +143,14 @@ func (m *IncomeForecastMapper) BuildFreelancerConfig(
 ) *cashflowForecastDomain.FreelancerConfig {
 
 	// Calculate mandatory expenses (BHXH/BHYT for Vietnam)
-	// Typically ~10.5% of base salary for self-employed
+	// Typically ~10.5% of income for self-employed
 	var mandatoryExpenses float64
 	for _, p := range profiles {
-		if p.BaseSalary > 0 {
-			mandatoryExpenses += p.BaseSalary * 0.105 // 10.5% social insurance
+		if p.IsActive() && p.Amount > 0 {
+			// For freelancers/self-employed, calculate on total income
+			if contains(p.Source, []string{"Freelance", "Contractor", "Gig"}) || !p.IsRecurring {
+				mandatoryExpenses += p.Amount * 0.105 // 10.5% social insurance
+			}
 		}
 	}
 

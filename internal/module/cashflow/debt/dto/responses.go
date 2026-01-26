@@ -13,10 +13,11 @@ type DebtResponse struct {
 	ID     uuid.UUID `json:"id"`
 	UserID uuid.UUID `json:"user_id"`
 
-	Name        string            `json:"name"`
-	Description *string           `json:"description,omitempty"`
-	Type        domain.DebtType   `json:"type"`
-	Status      domain.DebtStatus `json:"status"`
+	Name        string              `json:"name"`
+	Description *string             `json:"description,omitempty"`
+	Type        domain.DebtType     `json:"type"`
+	Behavior    domain.DebtBehavior `json:"behavior"` // "revolving", "installment", "interest_only"
+	Status      domain.DebtStatus   `json:"status"`
 
 	PrincipalAmount float64 `json:"principal_amount"`
 	CurrentBalance  float64 `json:"current_balance"`
@@ -85,6 +86,7 @@ func ToDebtResponse(debt *domain.Debt) *DebtResponse {
 		Name:                 debt.Name,
 		Description:          debt.Description,
 		Type:                 debt.Type,
+		Behavior:             debt.Behavior,
 		Status:               debt.Status,
 		PrincipalAmount:      debt.PrincipalAmount,
 		CurrentBalance:       debt.CurrentBalance,

@@ -95,19 +95,19 @@ func (s *transactionService) CreateTransaction(ctx context.Context, userID strin
 		req.CounterpartyType,
 	)
 
-	// Build classification
-	transaction.Classification = buildClassification(
-		req.SystemCategory,
-		req.UserCategoryID,
-		req.IsTransfer,
-		req.IsRefund,
-		req.Tags,
-	)
+	// Set user category ID
+	if req.UserCategoryID != "" {
+		categoryUUID, err := parseUserCategoryID(req.UserCategoryID)
+		if err != nil {
+			return nil, err
+		}
+		transaction.UserCategoryID = categoryUUID
+	}
 
 	// Build links
-	var links []domain.TransactionLink
+	var links domain.TransactionLinks
 	if len(req.Links) > 0 {
-		links = make([]domain.TransactionLink, 0, len(req.Links))
+		links = make(domain.TransactionLinks, 0, len(req.Links))
 		for _, linkDTO := range req.Links {
 			links = append(links, domain.TransactionLink{
 				Type: domain.LinkType(linkDTO.Type),
@@ -118,7 +118,7 @@ func (s *transactionService) CreateTransaction(ctx context.Context, userID strin
 
 		// Validate links before creating transaction
 		if s.linkProcessor != nil {
-			if err := s.linkProcessor.ValidateLinks(ctx, userUUID, links); err != nil {
+			if err := s.linkProcessor.ValidateLinks(ctx, userUUID, []domain.TransactionLink(links)); err != nil {
 				return nil, err
 			}
 		}

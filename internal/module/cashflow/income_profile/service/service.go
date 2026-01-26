@@ -31,16 +31,16 @@ type IncomeProfileUpdater interface {
 	// UpdateIncomeProfile creates a NEW version and archives the old one
 	UpdateIncomeProfile(ctx context.Context, userID string, profileID string, req dto.UpdateIncomeProfileRequest) (*domain.IncomeProfile, error)
 
-	// VerifyIncomeProfile marks income as verified by user
-	VerifyIncomeProfile(ctx context.Context, userID string, profileID string, verified bool) (*domain.IncomeProfile, error)
-
 	// UpdateDSSMetadata updates DSS analysis metadata
 	UpdateDSSMetadata(ctx context.Context, userID string, profileID string, req dto.UpdateDSSMetadataRequest) (*domain.IncomeProfile, error)
 
 	// ArchiveIncomeProfile manually archives an income profile
 	ArchiveIncomeProfile(ctx context.Context, userID string, profileID string) error
 
-	// CheckAndArchiveEnded checks and archives ended income profiles
+	// EndIncomeProfile marks an income profile as ended
+	EndIncomeProfile(ctx context.Context, userID string, profileID string) (*domain.IncomeProfile, error)
+
+	// CheckAndArchiveEnded checks and marks ended income profiles (does not archive)
 	CheckAndArchiveEnded(ctx context.Context, userID string) (int, error)
 }
 

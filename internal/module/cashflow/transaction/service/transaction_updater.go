@@ -37,6 +37,21 @@ func (s *transactionService) UpdateTransaction(ctx context.Context, userID strin
 		return nil, err
 	}
 
+	// Check if links are being added (for processing after update)
+	var newLinks domain.TransactionLinks
+	linksAdded := false
+	if linksValue, ok := updates["links"]; ok {
+		if links, ok := linksValue.(*domain.TransactionLinks); ok && links != nil {
+			newLinks = *links
+			linksAdded = true
+		}
+	}
+
+	if linksAdded {
+		// Note: We can't use logger here as transactionService doesn't have one
+		// Logging will be done in ProcessLinks
+	}
+
 	// Apply updates if any
 	if len(updates) > 0 {
 		if err := s.repo.UpdateColumns(ctx, transactionUUID, updates); err != nil {
@@ -51,6 +66,17 @@ func (s *transactionService) UpdateTransaction(ctx context.Context, userID strin
 	updated, err := s.repo.GetByUserID(ctx, transactionUUID, userUUID)
 	if err != nil {
 		return nil, shared.ErrInternal.WithError(err)
+	}
+
+	// Process links after transaction is updated (if links were added)
+	if linksAdded && s.linkProcessor != nil && len(newLinks) > 0 {
+		// Note: Logging will be done in ProcessLinks
+		if err := s.linkProcessor.ProcessLinks(ctx, userUUID, updated.Amount, updated.Direction, newLinks); err != nil {
+			// Log the error but don't fail the transaction update
+			// The link processing is a side effect
+			// TODO: Consider rollback strategy
+			// Note: Error logging is done in ProcessLinks
+		}
 	}
 
 	return updated, nil
@@ -165,40 +191,18 @@ func collectTransactionUpdates(existing *domain.Transaction, req dto.UpdateTrans
 		updates["counterparty"] = counterparty
 	}
 
-	// Update classification
-	if req.SystemCategory != nil || req.UserCategoryID != nil ||
-		req.IsTransfer != nil || req.IsRefund != nil || req.Tags != nil {
-
-		systemCategory := ""
-		userCategoryID := ""
-		isTransfer := false
-		isRefund := false
-		var tags []string
-
-		if req.SystemCategory != nil {
-			systemCategory = *req.SystemCategory
+	// Update user category ID
+	if req.UserCategoryID != nil {
+		if *req.UserCategoryID == "" {
+			// Clear category
+			updates["user_category_id"] = nil
+		} else {
+			categoryUUID, err := parseUUID(*req.UserCategoryID, "userCategoryId")
+			if err != nil {
+				return nil, err
+			}
+			updates["user_category_id"] = categoryUUID
 		}
-		if req.UserCategoryID != nil {
-			userCategoryID = *req.UserCategoryID
-		}
-		if req.IsTransfer != nil {
-			isTransfer = *req.IsTransfer
-		}
-		if req.IsRefund != nil {
-			isRefund = *req.IsRefund
-		}
-		if req.Tags != nil {
-			tags = *req.Tags
-		}
-
-		classification := buildClassification(
-			systemCategory,
-			userCategoryID,
-			isTransfer,
-			isRefund,
-			tags,
-		)
-		updates["classification"] = classification
 	}
 
 	// Update links - WRITE-ONCE CONSTRAINT
@@ -211,7 +215,7 @@ func collectTransactionUpdates(existing *domain.Transaction, req dto.UpdateTrans
 		}
 
 		// No existing links - allow adding new links
-		links := make([]domain.TransactionLink, 0, len(*req.Links))
+		links := make(domain.TransactionLinks, 0, len(*req.Links))
 		for _, linkDTO := range *req.Links {
 			links = append(links, domain.TransactionLink{
 				Type: domain.LinkType(linkDTO.Type),

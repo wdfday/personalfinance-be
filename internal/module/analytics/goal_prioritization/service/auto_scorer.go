@@ -17,18 +17,23 @@ func NewAutoScorer() *AutoScorer {
 // CalculateUrgency calculates urgency score based on deadline proximity
 // Returns a score between 0.0 (not urgent) and 1.0 (very urgent)
 //
-// Formula: urgency = 1 - min(1, days_remaining / 1825)
+// Improved formula using exponential decay for better differentiation:
+//   - Uses exponential function to emphasize short-term urgency
+//   - Better distinguishes between 1-6 month deadlines
+//   - Normalized by 1095 days (3 years) for practical goal distribution
 //
-// # Normalized by 5 years (1825 days) to better distribute scores for long-term goals
+// Formula: urgency = exp(-days_remaining / decay_factor)
+//
+//	where decay_factor = 365 (1 year) for exponential decay
 //
 // Examples:
-//   - 1 month (30 days):   1 - 30/1825   = 0.984 (very urgent)
-//   - 6 months (180 days): 1 - 180/1825  = 0.901 (very urgent)
-//   - 1 year (365 days):   1 - 365/1825  = 0.800 (urgent)
-//   - 2 years (730 days):  1 - 730/1825  = 0.600 (moderately urgent)
-//   - 3 years (1095 days): 1 - 1095/1825 = 0.400 (moderate)
-//   - 5 years (1825 days): 1 - 1825/1825 = 0.0   (not urgent)
-//   - Overdue:             1.0            (maximum urgency)
+//   - 7 days:    exp(-7/365)   = 0.981 (extremely urgent)
+//   - 30 days:   exp(-30/365)  = 0.921 (very urgent)
+//   - 90 days:   exp(-90/365)  = 0.784 (urgent)
+//   - 180 days:  exp(-180/365) = 0.614 (moderately urgent)
+//   - 365 days:  exp(-365/365) = 0.368 (moderate)
+//   - 730 days:  exp(-730/365) = 0.135 (low urgency)
+//   - Overdue:   1.0 (maximum urgency)
 func (as *AutoScorer) CalculateUrgency(goal *GoalLike) float64 {
 	// No deadline = low urgency
 	if goal.TargetDate == nil {
@@ -43,9 +48,18 @@ func (as *AutoScorer) CalculateUrgency(goal *GoalLike) float64 {
 		return 1.0
 	}
 
-	// Calculate urgency: more days = less urgent
-	// Normalize by 1825 days (5 years) for better long-term goal distribution
-	urgency := 1.0 - math.Min(1.0, daysRemaining/1825.0)
+	// Use exponential decay for better differentiation, especially in short-term
+	// Decay factor of 365 days (1 year) provides good distribution
+	decayFactor := 365.0
+	urgency := math.Exp(-daysRemaining / decayFactor)
+
+	// Normalize to ensure very long-term goals (3+ years) get low urgency
+	// Apply additional scaling for goals beyond 3 years
+	if daysRemaining > 1095 { // 3 years
+		// Further reduce urgency for very long-term goals
+		additionalScale := 1.0 - math.Min(1.0, (daysRemaining-1095)/1095.0)
+		urgency *= math.Max(0.05, additionalScale) // Minimum 5% for very long-term
+	}
 
 	return urgency
 }
@@ -53,13 +67,23 @@ func (as *AutoScorer) CalculateUrgency(goal *GoalLike) float64 {
 // CalculateFeasibility calculates how feasible it is to achieve the goal
 // Returns a score between 0.0 (not feasible) and 1.0 (very feasible)
 //
-// Formula: feasibility = min(1, monthly_income / required_monthly_contribution)
+// Improved formula considers:
+//  1. Ratio of required monthly contribution to income
+//  2. Progress bonus: goals near completion get higher feasibility
+//  3. Remaining amount relative to income (smaller = more feasible)
+//
+// Formula:
+//
+//	base_feasibility = min(1, monthly_income / required_monthly)
+//	progress_bonus = (current_amount / target_amount) * 0.2 (max 20% bonus)
+//	size_factor = 1 - min(0.3, remaining_amount / (monthly_income * 12)) (max 30% penalty)
+//	feasibility = base_feasibility * (1 + progress_bonus - size_factor)
 //
 // Examples:
-//   - Income 50M, need 20M/month: min(1, 50/20) = 1.0   (very feasible)
-//   - Income 50M, need 50M/month: min(1, 50/50) = 1.0   (just feasible)
-//   - Income 50M, need 80M/month: min(1, 50/80) = 0.625 (challenging)
-//   - No deadline:                0.5 (neutral)
+//   - Income 50M, need 20M/month, 80% complete: ~1.0 (very feasible)
+//   - Income 50M, need 50M/month: ~1.0 (just feasible)
+//   - Income 50M, need 80M/month: ~0.625 (challenging)
+//   - Income 50M, need 100M/month, large amount: ~0.4 (difficult)
 func (as *AutoScorer) CalculateFeasibility(goal *GoalLike, monthlyIncome float64) float64 {
 	// Invalid income
 	if monthlyIncome <= 0 {
@@ -71,8 +95,16 @@ func (as *AutoScorer) CalculateFeasibility(goal *GoalLike, monthlyIncome float64
 		return 1.0
 	}
 
-	// No deadline = can't calculate
+	// No deadline = can't calculate precisely
 	if goal.TargetDate == nil {
+		// Estimate based on remaining amount vs income
+		if goal.TargetAmount > 0 {
+			progressRatio := goal.CurrentAmount / goal.TargetAmount
+			// If already 50%+ complete, assume feasible
+			if progressRatio >= 0.5 {
+				return 0.7
+			}
+		}
 		return 0.5 // Neutral
 	}
 
@@ -94,14 +126,51 @@ func (as *AutoScorer) CalculateFeasibility(goal *GoalLike, monthlyIncome float64
 
 	requiredMonthly := remainingAmount / monthsRemaining
 
-	// Calculate feasibility ratio
-	feasibility := math.Min(1.0, monthlyIncome/requiredMonthly)
+	// Base feasibility: ratio of income to required contribution
+	baseFeasibility := math.Min(1.0, monthlyIncome/requiredMonthly)
+
+	// Progress bonus: goals near completion are more feasible
+	// Bonus up to 20% for goals that are 80%+ complete
+	progressRatio := 0.0
+	if goal.TargetAmount > 0 {
+		progressRatio = goal.CurrentAmount / goal.TargetAmount
+	}
+	progressBonus := 0.0
+	if progressRatio >= 0.8 {
+		progressBonus = 0.2 // 20% bonus for 80%+ complete
+	} else if progressRatio >= 0.5 {
+		progressBonus = 0.1 * (progressRatio - 0.5) / 0.3 // Linear from 0% to 10% for 50-80%
+	}
+
+	// Size factor: very large remaining amounts relative to income reduce feasibility
+	// Penalty up to 30% for goals requiring >1 year of income
+	annualIncome := monthlyIncome * 12
+	sizePenalty := 0.0
+	if annualIncome > 0 {
+		yearsOfIncome := remainingAmount / annualIncome
+		if yearsOfIncome > 1.0 {
+			// Penalty increases for goals requiring more than 1 year of income
+			sizePenalty = math.Min(0.3, 0.3*(yearsOfIncome-1.0)/2.0) // Max 30% penalty at 3+ years
+		}
+	}
+
+	// Combine factors
+	feasibility := baseFeasibility * (1.0 + progressBonus - sizePenalty)
+
+	// Ensure result is in valid range [0, 1]
+	feasibility = math.Max(0.0, math.Min(1.0, feasibility))
 
 	return feasibility
 }
 
-// CalculateImportance calculates importance based on goal type
+// CalculateImportance calculates importance based on goal type, progress, and scale
 // Returns a score between 0.0 (low importance) and 1.0 (critical importance)
+//
+// Improved formula considers:
+//  1. Base importance from category (financial planning best practices)
+//  2. User-set priority adjustment
+//  3. Progress factor: goals near completion are more important to finish
+//  4. Scale factor: larger goals relative to income are more important
 //
 // Mapping based on financial planning best practices:
 //   - Emergency Fund:  1.00 (foundation of financial security)
@@ -127,7 +196,7 @@ func (as *AutoScorer) CalculateImportance(goal *GoalLike) float64 {
 
 	importance, exists := importanceMap[goal.Category]
 	if !exists {
-		return 0.50 // Default
+		importance = 0.50 // Default
 	}
 
 	// Adjust by user-set priority if available
@@ -145,12 +214,37 @@ func (as *AutoScorer) CalculateImportance(goal *GoalLike) float64 {
 
 	adjusted := importance * adjustment
 
-	// Cap at 1.0
-	if adjusted > 1.0 {
-		adjusted = 1.0
+	// Progress factor: goals near completion (80%+) get importance boost
+	// This encourages finishing goals that are almost done
+	progressFactor := 0.0
+	if goal.TargetAmount > 0 {
+		progressRatio := goal.CurrentAmount / goal.TargetAmount
+		if progressRatio >= 0.8 {
+			// Boost importance by up to 10% for goals 80%+ complete
+			progressFactor = 0.1 * math.Min(1.0, (progressRatio-0.8)/0.2)
+		}
 	}
 
-	return adjusted
+	// Scale factor: larger goals (relative to typical income) are more important
+	// This is a subtle adjustment - goals requiring significant resources matter more
+	// Note: We don't have monthlyIncome here, so we use a relative scale based on target amount
+	// Goals > 100M get slight boost, goals > 500M get moderate boost
+	scaleFactor := 0.0
+	if goal.TargetAmount >= 500_000_000 { // 500M+
+		scaleFactor = 0.05 // 5% boost for very large goals
+	} else if goal.TargetAmount >= 100_000_000 { // 100M+
+		scaleFactor = 0.02 // 2% boost for large goals
+	}
+
+	// Combine all factors
+	finalImportance := adjusted * (1.0 + progressFactor + scaleFactor)
+
+	// Cap at 1.0
+	if finalImportance > 1.0 {
+		finalImportance = 1.0
+	}
+
+	return finalImportance
 }
 
 // CalculateImpact calculates financial impact based on target amount
@@ -178,12 +272,13 @@ func (as *AutoScorer) CalculateImpact(goal *GoalLike, monthlyIncome float64) flo
 
 // CalculateAllCriteria calculates all criteria scores for a goal
 // Returns a map of criterion name to score (0.0 - 1.0)
+// NOTE: Impact is temporarily disabled
 func (as *AutoScorer) CalculateAllCriteria(goal *GoalLike, monthlyIncome float64) map[string]float64 {
 	return map[string]float64{
 		"urgency":     as.CalculateUrgency(goal),
 		"feasibility": as.CalculateFeasibility(goal, monthlyIncome),
 		"importance":  as.CalculateImportance(goal),
-		"impact":      as.CalculateImpact(goal, monthlyIncome),
+		// "impact":      as.CalculateImpact(goal, monthlyIncome), // Temporarily disabled
 	}
 }
 
@@ -196,12 +291,13 @@ type ScoreWithReason struct {
 
 // CalculateAllCriteriaWithReasons calculates all criteria scores with explanations
 // This is used for the "auto-score with user review" flow
+// NOTE: Impact is temporarily disabled
 func (as *AutoScorer) CalculateAllCriteriaWithReasons(goal *GoalLike, monthlyIncome float64) map[string]ScoreWithReason {
 	return map[string]ScoreWithReason{
 		"urgency":     as.CalculateUrgencyWithReason(goal),
 		"feasibility": as.CalculateFeasibilityWithReason(goal, monthlyIncome),
 		"importance":  as.CalculateImportanceWithReason(goal),
-		"impact":      as.CalculateImpactWithReason(goal, monthlyIncome),
+		// "impact":      as.CalculateImpactWithReason(goal, monthlyIncome), // Temporarily disabled
 	}
 }
 
@@ -240,7 +336,17 @@ func (as *AutoScorer) CalculateFeasibilityWithReason(goal *GoalLike, monthlyInco
 	} else if goal.IsCompleted() {
 		reason = "Mục tiêu đã hoàn thành"
 	} else if goal.TargetDate == nil {
-		reason = "Không có deadline - không thể đánh giá"
+		// Estimate based on progress
+		if goal.TargetAmount > 0 {
+			progressRatio := goal.CurrentAmount / goal.TargetAmount
+			if progressRatio >= 0.5 {
+				reason = fmt.Sprintf("Đã hoàn thành %.0f%% - khả thi", progressRatio*100)
+			} else {
+				reason = "Không có deadline - không thể đánh giá chính xác"
+			}
+		} else {
+			reason = "Không có deadline - không thể đánh giá"
+		}
 	} else {
 		days := goal.DaysRemaining()
 		if days <= 0 {
@@ -250,14 +356,25 @@ func (as *AutoScorer) CalculateFeasibilityWithReason(goal *GoalLike, monthlyInco
 			requiredMonthly := goal.RemainingAmount / months
 			percentOfIncome := (requiredMonthly / monthlyIncome) * 100
 
+			// Add progress info if significant
+			progressInfo := ""
+			if goal.TargetAmount > 0 {
+				progressRatio := goal.CurrentAmount / goal.TargetAmount
+				if progressRatio >= 0.8 {
+					progressInfo = fmt.Sprintf(", đã hoàn thành %.0f%%", progressRatio*100)
+				} else if progressRatio >= 0.5 {
+					progressInfo = fmt.Sprintf(", đã hoàn thành %.0f%%", progressRatio*100)
+				}
+			}
+
 			if percentOfIncome <= 20 {
-				reason = formatMoney(requiredMonthly) + "/tháng (" + formatPercent(percentOfIncome) + " thu nhập) - rất khả thi"
+				reason = formatMoney(requiredMonthly) + "/tháng (" + formatPercent(percentOfIncome) + " thu nhập)" + progressInfo + " - rất khả thi"
 			} else if percentOfIncome <= 50 {
-				reason = formatMoney(requiredMonthly) + "/tháng (" + formatPercent(percentOfIncome) + " thu nhập) - khả thi"
+				reason = formatMoney(requiredMonthly) + "/tháng (" + formatPercent(percentOfIncome) + " thu nhập)" + progressInfo + " - khả thi"
 			} else if percentOfIncome <= 80 {
-				reason = formatMoney(requiredMonthly) + "/tháng (" + formatPercent(percentOfIncome) + " thu nhập) - thử thách"
+				reason = formatMoney(requiredMonthly) + "/tháng (" + formatPercent(percentOfIncome) + " thu nhập)" + progressInfo + " - thử thách"
 			} else {
-				reason = formatMoney(requiredMonthly) + "/tháng (" + formatPercent(percentOfIncome) + " thu nhập) - khó đạt được"
+				reason = formatMoney(requiredMonthly) + "/tháng (" + formatPercent(percentOfIncome) + " thu nhập)" + progressInfo + " - khó đạt được"
 			}
 		}
 	}
@@ -297,6 +414,21 @@ func (as *AutoScorer) CalculateImportanceWithReason(goal *GoalLike) ScoreWithRea
 		reason += " (ưu tiên: trung bình)"
 	case GoalPriorityLow:
 		reason += " (ưu tiên: thấp)"
+	}
+
+	// Add progress info if significant
+	if goal.TargetAmount > 0 {
+		progressRatio := goal.CurrentAmount / goal.TargetAmount
+		if progressRatio >= 0.8 {
+			reason += fmt.Sprintf(" (đã hoàn thành %.0f%% - gần xong)", progressRatio*100)
+		} else if progressRatio >= 0.5 {
+			reason += fmt.Sprintf(" (đã hoàn thành %.0f%%)", progressRatio*100)
+		}
+	}
+
+	// Add scale info for large goals
+	if goal.TargetAmount >= 500_000_000 {
+		reason += " (mục tiêu quy mô lớn)"
 	}
 
 	return ScoreWithReason{Score: score, Reason: reason}

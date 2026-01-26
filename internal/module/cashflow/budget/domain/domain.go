@@ -26,9 +26,9 @@ type Budget struct {
 	StartDate time.Time    `gorm:"type:date;not null;column:start_date" json:"start_date"`
 	EndDate   *time.Time   `gorm:"type:date;column:end_date" json:"end_date,omitempty"` // null for recurring budgets
 
-	// Scope - either category or account based
-	CategoryID *uuid.UUID `gorm:"type:uuid;index;column:category_id" json:"category_id,omitempty"` // null means all categories
-	AccountID  *uuid.UUID `gorm:"type:uuid;index;column:account_id" json:"account_id,omitempty"`   // null means all accounts
+	// Scope - category based
+	CategoryID   *uuid.UUID `gorm:"type:uuid;index;column:category_id" json:"category_id,omitempty"`     // null means all categories
+	ConstraintID *uuid.UUID `gorm:"type:uuid;index;column:constraint_id" json:"constraint_id,omitempty"` // FK to budget_constraint (if created from DSS)
 
 	// Tracking
 	SpentAmount      float64      `gorm:"type:decimal(15,2);default:0;column:spent_amount" json:"spent_amount"`
@@ -38,10 +38,10 @@ type Budget struct {
 	LastCalculatedAt *time.Time   `gorm:"column:last_calculated_at" json:"last_calculated_at,omitempty"`
 
 	// Alert Settings
-	EnableAlerts     bool             `gorm:"default:true;column:enable_alerts" json:"enable_alerts"`
-	AlertThresholds  []AlertThreshold `gorm:"type:jsonb;column:alert_thresholds" json:"alert_thresholds"` // e.g., ["50", "75", "90", "100"]
-	AlertedAt        *string          `gorm:"type:jsonb;column:alerted_at" json:"alerted_at,omitempty"`   // JSON map of threshold -> timestamp
-	NotificationSent bool             `gorm:"default:false;column:notification_sent" json:"notification_sent"`
+	EnableAlerts     bool                `gorm:"default:true;column:enable_alerts" json:"enable_alerts"`
+	AlertThresholds  AlertThresholdsJSON `gorm:"type:jsonb;column:alert_thresholds" json:"alert_thresholds"` // e.g. ["50","75","90","100"]
+	AlertedAt        *string             `gorm:"type:jsonb;column:alerted_at" json:"alerted_at,omitempty"`   // JSON map of threshold -> timestamp
+	NotificationSent bool                `gorm:"default:false;column:notification_sent" json:"notification_sent"`
 
 	// Rollover Settings (for recurring budgets)
 	AllowRollover    bool    `gorm:"default:false;column:allow_rollover" json:"allow_rollover"`

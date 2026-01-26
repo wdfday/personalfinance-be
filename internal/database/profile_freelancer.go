@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"time"
 
 	constraintdomain "personalfinancedss/internal/module/cashflow/budget_profile/domain"
@@ -24,75 +25,129 @@ func (s *Seeder) seedFreelancerProfile(tx *gorm.DB, userID uuid.UUID) error {
 	categoryMap := s.getCategoryMap(tx, userID)
 
 	// 1. Budget Constraints (INPUT for DSS)
+	homeCatID, err := s.getCategoryID(categoryMap, "Home & Utilities", "freelancer constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	foodCatID, err := s.getCategoryID(categoryMap, "Food & Dining", "freelancer constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	transportCatID, err := s.getCategoryID(categoryMap, "Transportation", "freelancer constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	shoppingCatID, err := s.getCategoryID(categoryMap, "Shopping", "freelancer constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	healthCatID, err := s.getCategoryID(categoryMap, "Health & Wellness", "freelancer constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	entertainmentCatID, err := s.getCategoryID(categoryMap, "Entertainment & Travel", "freelancer constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	financialCatID, err := s.getCategoryID(categoryMap, "Financial & Obligations", "freelancer constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+
 	constraints := []*constraintdomain.BudgetConstraint{
 		// Tiền nhà - FIXED
 		{
-			UserID: userID, CategoryID: categoryMap["Home & Utilities"],
+			UserID: userID, CategoryID: homeCatID,
 			MinimumAmount: 6000000, MaximumAmount: 6000000, IsFlexible: false,
 			Priority: 1, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Thuê studio + điện nước",
 		},
 		// Ăn uống - FLEXIBLE (tự nấu nhiều khi ít việc)
 		{
-			UserID: userID, CategoryID: categoryMap["Food & Dining"],
-			MinimumAmount: 3000000, MaximumAmount: 8000000, IsFlexible: true,
+			UserID: userID, CategoryID: foodCatID,
+			MinimumAmount: 6000000, MaximumAmount: 14000000, IsFlexible: true,
 			Priority: 2, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Ăn uống linh hoạt theo thu nhập",
 		},
-		// Công việc - FLEXIBLE (thiết bị, software)
+		// Đi lại - FLEXIBLE
 		{
-			UserID: userID, CategoryID: categoryMap["Shopping"],
-			MinimumAmount: 1000000, MaximumAmount: 5000000, IsFlexible: true,
+			UserID: userID, CategoryID: transportCatID,
+			MinimumAmount: 2000000, MaximumAmount: 4000000, IsFlexible: true,
 			Priority: 3, Status: constraintdomain.ConstraintStatusActive,
-			StartDate: now, Period: "monthly", Description: "Software, thiết bị làm việc",
+			StartDate: now, Period: "monthly", Description: "Grab, taxi khi gặp khách hàng",
+		},
+		// Công việc - FLEXIBLE (thiết bị, software, marketing)
+		{
+			UserID: userID, CategoryID: shoppingCatID,
+			MinimumAmount: 2000000, MaximumAmount: 8000000, IsFlexible: true,
+			Priority: 3, Status: constraintdomain.ConstraintStatusActive,
+			StartDate: now, Period: "monthly", Description: "Software, thiết bị làm việc, portfolio hosting",
+		},
+		// Y tế - FLEXIBLE
+		{
+			UserID: userID, CategoryID: healthCatID,
+			MinimumAmount: 1000000, MaximumAmount: 3000000, IsFlexible: true,
+			Priority: 4, Status: constraintdomain.ConstraintStatusActive,
+			StartDate: now, Period: "monthly", Description: "Bảo hiểm y tế tự nguyện, khám định kỳ",
+		},
+		// Giải trí & Networking - FLEXIBLE (quan trọng cho freelancer)
+		{
+			UserID: userID, CategoryID: entertainmentCatID,
+			MinimumAmount: 2000000, MaximumAmount: 6000000, IsFlexible: true,
+			Priority: 5, Status: constraintdomain.ConstraintStatusActive,
+			StartDate: now, Period: "monthly", Description: "Cafe networking, co-working space, giải trí",
 		},
 		// BHXH/Thuế - Reserve
 		{
-			UserID: userID, CategoryID: categoryMap["Financial & Obligations"],
-			MinimumAmount: 2000000, MaximumAmount: 5000000, IsFlexible: true,
+			UserID: userID, CategoryID: financialCatID,
+			MinimumAmount: 3000000, MaximumAmount: 8000000, IsFlexible: true,
 			Priority: 2, Status: constraintdomain.ConstraintStatusActive,
-			StartDate: now, Period: "monthly", Description: "BHXH tự nguyện + dự trữ thuế",
+			StartDate: now, Period: "monthly", Description: "BHXH tự nguyện + dự trữ thuế TNCN",
 		},
 	}
 
 	for _, c := range constraints {
-		if c.CategoryID != uuid.Nil {
-			if err := tx.Create(c).Error; err != nil {
-				return err
-			}
-			s.logger.Info("✅ Created constraint", zap.Float64("min", c.MinimumAmount))
+		if err := tx.Create(c).Error; err != nil {
+			return fmt.Errorf("failed to create constraint: %w", err)
 		}
+		s.logger.Info("✅ Created constraint", zap.Float64("min", c.MinimumAmount))
 	}
 
 	// 2. Income Profiles - Variable income, multiple sources
+	activeIncomeCatID, err := s.getCategoryID(categoryMap, "Active Income", "freelancer income")
+	if err != nil {
+		return fmt.Errorf("failed to get category for income: %w", err)
+	}
+	otherIncomeCatID, err := s.getCategoryID(categoryMap, "Other Income", "freelancer income")
+	if err != nil {
+		return fmt.Errorf("failed to get category for income: %w", err)
+	}
+
 	incomes := []*incomedomain.IncomeProfile{
 		{
-			UserID: userID, CategoryID: categoryMap["Active Income"],
+			UserID: userID, CategoryID: activeIncomeCatID,
 			Source: "Freelance Web Development",
 			Amount: 45000000, Currency: "VND", Frequency: "monthly",
 			StartDate:   now.AddDate(-3, 0, 0),
-			Commission:  45000000,
-			IsRecurring: false, IsVerified: true,
+			IsRecurring: false,
 			Status:      incomedomain.IncomeStatusActive,
 			Description: "Dự án web - biến động 25-70M/tháng",
 		},
 		{
-			UserID: userID, CategoryID: categoryMap["Active Income"],
+			UserID: userID, CategoryID: activeIncomeCatID,
 			Source: "Freelance UI/UX Design",
 			Amount: 18000000, Currency: "VND", Frequency: "monthly",
 			StartDate:   now.AddDate(-2, 0, 0),
-			Commission:  18000000,
-			IsRecurring: false, IsVerified: true,
+			IsRecurring: false,
 			Status:      incomedomain.IncomeStatusActive,
 			Description: "Thiết kế giao diện, branding",
 		},
 		{
-			UserID: userID, CategoryID: categoryMap["Other Income"],
+			UserID: userID, CategoryID: otherIncomeCatID,
 			Source: "Passive - Template Sales",
 			Amount: 5000000, Currency: "VND", Frequency: "monthly",
 			StartDate:   now.AddDate(-1, 0, 0),
-			OtherIncome: 5000000,
-			IsRecurring: true, IsVerified: false,
+			IsRecurring: true,
 			Status:      incomedomain.IncomeStatusActive,
 			Description: "Bán template trên ThemeForest",
 		},
@@ -100,13 +155,16 @@ func (s *Seeder) seedFreelancerProfile(tx *gorm.DB, userID uuid.UUID) error {
 
 	for _, income := range incomes {
 		if err := tx.Create(income).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create income: %w", err)
 		}
 		s.logger.Info("✅ Created income", zap.String("source", income.Source))
 	}
 
 	// 3. Goals - Focus on stability
-	accountID := s.getAccountID(tx, userID)
+	accountID, err := s.getAccountID(tx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get account for goals: %w", err)
+	}
 	goals := []*goaldomain.Goal{
 		{
 			UserID: userID, AccountID: accountID,
@@ -146,7 +204,7 @@ func (s *Seeder) seedFreelancerProfile(tx *gorm.DB, userID uuid.UUID) error {
 	for _, goal := range goals {
 		goal.UpdateCalculatedFields()
 		if err := tx.Create(goal).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create goal: %w", err)
 		}
 		s.logger.Info("✅ Created goal", zap.String("name", goal.Name))
 	}
@@ -167,7 +225,7 @@ func (s *Seeder) seedFreelancerProfile(tx *gorm.DB, userID uuid.UUID) error {
 	for _, debt := range debts {
 		debt.UpdateCalculatedFields()
 		if err := tx.Create(debt).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create debt: %w", err)
 		}
 		s.logger.Info("✅ Created debt", zap.String("name", debt.Name))
 	}

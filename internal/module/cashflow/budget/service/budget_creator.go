@@ -5,39 +5,61 @@ import (
 	"errors"
 	"fmt"
 	"personalfinancedss/internal/module/cashflow/budget/domain"
+	"personalfinancedss/internal/module/cashflow/budget/dto"
 	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
-// BudgetCreator handles budget creation operations
-type BudgetCreator struct {
-	service *budgetService
-}
+// CreateBudget creates a new budget from request
+func (s *budgetService) CreateBudget(ctx context.Context, userID uuid.UUID, req dto.CreateBudgetRequest) (*domain.Budget, error) {
+	// Handle optional period - default to one-time if not provided
+	period := req.Period
+	if period == nil || *period == "" {
+		oneTime := domain.BudgetPeriodOneTime
+		period = &oneTime
+	}
 
-// NewBudgetCreator creates a new budget creator
-func NewBudgetCreator(service *budgetService) *BudgetCreator {
-	return &BudgetCreator{service: service}
-}
+	// Create domain object from request
+	budget := &domain.Budget{
+		UserID:               userID,
+		Name:                 req.Name,
+		Description:          req.Description,
+		Amount:               req.Amount,
+		Currency:             req.Currency,
+		Period:               *period,
+		StartDate:            req.StartDate,
+		EndDate:              req.EndDate,
+		CategoryID:           req.CategoryID,
+		ConstraintID:         req.ConstraintID,
+		EnableAlerts:         req.EnableAlerts,
+		AlertThresholds:      domain.AlertThresholdsJSON(req.AlertThresholds),
+		AllowRollover:        req.AllowRollover,
+		CarryOverPercent:     req.CarryOverPercent,
+		AutoAdjust:           req.AutoAdjust,
+		AutoAdjustPercentage: req.AutoAdjustPercentage,
+		AutoAdjustBasedOn:    req.AutoAdjustBasedOn,
+	}
 
-// CreateBudget creates a new budget
-func (c *BudgetCreator) CreateBudget(ctx context.Context, budget *domain.Budget) error {
-	// Auto-calculate end_date if not provided (for non-custom periods)
-	if budget.EndDate == nil && budget.Period != domain.BudgetPeriodCustom {
-		if err := c.autoCalculateEndDate(budget); err != nil {
-			return fmt.Errorf("failed to auto-calculate end date: %w", err)
+	// Auto-calculate end_date if not provided
+	if budget.EndDate == nil && budget.Period != domain.BudgetPeriodCustom && budget.Period != domain.BudgetPeriodOneTime {
+		if err := s.autoCalculateEndDate(budget); err != nil {
+			fmt.Printf("ERROR: failed to auto-calculate end date: %v\n", err)
+			return nil, fmt.Errorf("failed to auto-calculate end date: %w", err)
 		}
 	}
 
 	// Validate budget
-	if err := c.validateBudget(budget); err != nil {
-		return err
+	if err := s.validateBudget(budget); err != nil {
+		fmt.Printf("ERROR: validate budget: %v\n", err)
+		return nil, err
 	}
 
-	// Check for conflicts with existing budgets
-	if err := c.checkConflicts(ctx, budget); err != nil {
-		return err
+	// Check for conflicts
+	if err := s.checkConflicts(ctx, budget); err != nil {
+		fmt.Printf("ERROR: check conflicts: %v\n", err)
+		return nil, err
 	}
 
 	// Set initial calculated fields
@@ -46,7 +68,7 @@ func (c *BudgetCreator) CreateBudget(ctx context.Context, budget *domain.Budget)
 
 	// Set default alert thresholds if not provided
 	if len(budget.AlertThresholds) == 0 && budget.EnableAlerts {
-		budget.AlertThresholds = []domain.AlertThreshold{
+		budget.AlertThresholds = domain.AlertThresholdsJSON{
 			domain.AlertAt75,
 			domain.AlertAt90,
 			domain.AlertAt100,
@@ -54,22 +76,70 @@ func (c *BudgetCreator) CreateBudget(ctx context.Context, budget *domain.Budget)
 	}
 
 	// Validate alert thresholds ordering
-	if err := c.validateAlertThresholds(budget.AlertThresholds); err != nil {
-		return err
+	if err := s.validateAlertThresholds([]domain.AlertThreshold(budget.AlertThresholds)); err != nil {
+		fmt.Printf("ERROR: validate alert thresholds: %v\n", err)
+		return nil, err
 	}
 
-	c.service.logger.Info("Creating budget",
-		zap.String("user_id", budget.UserID.String()),
+	s.logger.Info("Creating budget",
+		zap.String("user_id", userID.String()),
 		zap.String("name", budget.Name),
 		zap.Float64("amount", budget.Amount),
 		zap.String("period", string(budget.Period)),
 	)
 
-	return c.service.repo.Create(ctx, budget)
+	if err := s.repo.Create(ctx, budget); err != nil {
+		fmt.Printf("ERROR: failed to create budget: %v\n", err)
+		return nil, err
+	}
+
+	return budget, nil
+}
+
+// CreateBudgetFromDomain creates a budget from an existing domain object (DSS, rollover, etc.)
+func (s *budgetService) CreateBudgetFromDomain(ctx context.Context, budget *domain.Budget) error {
+	if budget.EndDate == nil && budget.Period != domain.BudgetPeriodCustom && budget.Period != domain.BudgetPeriodOneTime {
+		if err := s.autoCalculateEndDate(budget); err != nil {
+			fmt.Printf("ERROR: failed to auto-calculate end date: %v\n", err)
+			return fmt.Errorf("failed to auto-calculate end date: %w", err)
+		}
+	}
+	if err := s.validateBudget(budget); err != nil {
+		fmt.Printf("ERROR: validate budget: %v\n", err)
+		return err
+	}
+	if err := s.checkConflicts(ctx, budget); err != nil {
+		fmt.Printf("ERROR: check conflicts: %v\n", err)
+		return err
+	}
+	budget.SpentAmount = 0
+	budget.UpdateCalculatedFields()
+	if len(budget.AlertThresholds) == 0 && budget.EnableAlerts {
+		budget.AlertThresholds = domain.AlertThresholdsJSON{
+			domain.AlertAt75,
+			domain.AlertAt90,
+			domain.AlertAt100,
+		}
+	}
+	if err := s.validateAlertThresholds([]domain.AlertThreshold(budget.AlertThresholds)); err != nil {
+		fmt.Printf("ERROR: validate alert thresholds: %v\n", err)
+		return err
+	}
+	s.logger.Info("Creating budget from domain",
+		zap.String("user_id", budget.UserID.String()),
+		zap.String("name", budget.Name),
+		zap.Float64("amount", budget.Amount),
+		zap.String("period", string(budget.Period)),
+	)
+	if err := s.repo.Create(ctx, budget); err != nil {
+		fmt.Printf("ERROR: failed to create budget from domain: %v\n", err)
+		return err
+	}
+	return nil
 }
 
 // validateBudget validates budget data
-func (c *BudgetCreator) validateBudget(budget *domain.Budget) error {
+func (s *budgetService) validateBudget(budget *domain.Budget) error {
 	if budget.UserID == uuid.Nil {
 		return errors.New("user ID is required")
 	}
@@ -82,6 +152,10 @@ func (c *BudgetCreator) validateBudget(budget *domain.Budget) error {
 		return errors.New("budget name is required")
 	}
 
+	// Period is required, but can be one-time
+	if budget.Period == "" {
+		budget.Period = domain.BudgetPeriodOneTime
+	}
 	if !budget.Period.IsValid() {
 		return errors.New("invalid budget period")
 	}
@@ -94,14 +168,11 @@ func (c *BudgetCreator) validateBudget(budget *domain.Budget) error {
 		return errors.New("end date must be after start date")
 	}
 
-	// Validate that either category or account is specified (or both can be nil for general budget)
-	// No validation needed - both can be nil for general budget
-
 	return nil
 }
 
 // autoCalculateEndDate automatically calculates end_date based on period
-func (c *BudgetCreator) autoCalculateEndDate(budget *domain.Budget) error {
+func (s *budgetService) autoCalculateEndDate(budget *domain.Budget) error {
 	if budget.StartDate.IsZero() {
 		return errors.New("cannot calculate end date without start date")
 	}
@@ -109,24 +180,23 @@ func (c *BudgetCreator) autoCalculateEndDate(budget *domain.Budget) error {
 	var endDate time.Time
 	switch budget.Period {
 	case domain.BudgetPeriodDaily:
-		endDate = budget.StartDate.AddDate(0, 0, 1).Add(-time.Second) // End of same day
+		endDate = budget.StartDate.AddDate(0, 0, 1).Add(-time.Second)
 	case domain.BudgetPeriodWeekly:
-		endDate = budget.StartDate.AddDate(0, 0, 7).Add(-time.Second) // End of 7th day
+		endDate = budget.StartDate.AddDate(0, 0, 7).Add(-time.Second)
 	case domain.BudgetPeriodMonthly:
-		endDate = budget.StartDate.AddDate(0, 1, 0).Add(-time.Second) // End of month
+		endDate = budget.StartDate.AddDate(0, 1, 0).Add(-time.Second)
 	case domain.BudgetPeriodQuarterly:
-		endDate = budget.StartDate.AddDate(0, 3, 0).Add(-time.Second) // End of quarter
+		endDate = budget.StartDate.AddDate(0, 3, 0).Add(-time.Second)
 	case domain.BudgetPeriodYearly:
-		endDate = budget.StartDate.AddDate(1, 0, 0).Add(-time.Second) // End of year
+		endDate = budget.StartDate.AddDate(1, 0, 0).Add(-time.Second)
 	case domain.BudgetPeriodCustom:
-		// For custom periods, end_date must be provided manually
 		return nil
 	default:
 		return fmt.Errorf("unknown budget period: %s", budget.Period)
 	}
 
 	budget.EndDate = &endDate
-	c.service.logger.Debug("Auto-calculated end date",
+	s.logger.Debug("Auto-calculated end date",
 		zap.String("period", string(budget.Period)),
 		zap.Time("start_date", budget.StartDate),
 		zap.Time("end_date", endDate),
@@ -136,16 +206,16 @@ func (c *BudgetCreator) autoCalculateEndDate(budget *domain.Budget) error {
 }
 
 // checkConflicts checks if there is a conflicting budget with same period and category
-func (c *BudgetCreator) checkConflicts(ctx context.Context, budget *domain.Budget) error {
+func (s *budgetService) checkConflicts(ctx context.Context, budget *domain.Budget) error {
 	// Only check conflicts if both category and period are specified
 	if budget.CategoryID == nil {
 		return nil // General budgets don't conflict
 	}
 
 	// Get existing budgets for the same category
-	existingBudgets, err := c.service.repo.FindByUserIDAndCategory(ctx, budget.UserID, *budget.CategoryID)
+	existingBudgets, err := s.repo.FindByUserIDAndCategory(ctx, budget.UserID, *budget.CategoryID)
 	if err != nil {
-		c.service.logger.Warn("Failed to check budget conflicts", zap.Error(err))
+		fmt.Printf("ERROR: Failed to check budget conflicts: %v\n", err)
 		return nil // Don't fail creation if we can't check
 	}
 
@@ -174,12 +244,11 @@ func (c *BudgetCreator) checkConflicts(ctx context.Context, budget *domain.Budge
 }
 
 // validateAlertThresholds validates that alert thresholds are in ascending order
-func (c *BudgetCreator) validateAlertThresholds(thresholds []domain.AlertThreshold) error {
+func (s *budgetService) validateAlertThresholds(thresholds []domain.AlertThreshold) error {
 	if len(thresholds) <= 1 {
-		return nil // No need to validate if only 0 or 1 threshold
+		return nil
 	}
 
-	// Convert thresholds to float64 and check ordering
 	var prev float64 = 0
 	for i, threshold := range thresholds {
 		current := threshold.ToFloat64()

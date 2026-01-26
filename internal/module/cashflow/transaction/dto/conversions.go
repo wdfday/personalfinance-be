@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 
 	"personalfinancedss/internal/module/cashflow/transaction/domain"
+
+	"github.com/google/uuid"
 )
 
 // ToTransactionResponse converts domain.Transaction to TransactionResponse
@@ -48,15 +50,9 @@ func ToTransactionResponse(t *domain.Transaction) *TransactionResponse {
 		}
 	}
 
-	// Convert classification
-	if t.Classification != nil {
-		resp.Classification = &ClassificationResponse{
-			SystemCategory: t.Classification.SystemCategory,
-			UserCategoryID: t.Classification.UserCategoryID,
-			IsTransfer:     t.Classification.IsTransfer,
-			IsRefund:       t.Classification.IsRefund,
-			Tags:           t.Classification.Tags,
-		}
+	// Set user category ID directly
+	if t.UserCategoryID != nil {
+		resp.UserCategoryID = t.UserCategoryID.String()
 	}
 
 	// Convert links
@@ -151,20 +147,18 @@ func FromCreateRequest(req CreateTransactionRequest) (*domain.Transaction, error
 		}
 	}
 
-	// Build classification if any field is provided
-	if req.SystemCategory != "" || req.UserCategoryID != "" || req.IsTransfer || req.IsRefund || len(req.Tags) > 0 {
-		t.Classification = &domain.Classification{
-			SystemCategory: req.SystemCategory,
-			UserCategoryID: req.UserCategoryID,
-			IsTransfer:     req.IsTransfer,
-			IsRefund:       req.IsRefund,
-			Tags:           req.Tags,
+	// Set user category ID if provided
+	if req.UserCategoryID != "" {
+		// Parse UUID - validation will be done in service layer
+		if categoryUUID, err := uuid.Parse(req.UserCategoryID); err == nil {
+			t.UserCategoryID = &categoryUUID
 		}
+		// If invalid UUID, skip (validation will catch it in service layer)
 	}
 
 	// Build links if provided
 	if len(req.Links) > 0 {
-		links := make([]domain.TransactionLink, 0, len(req.Links))
+		links := make(domain.TransactionLinks, 0, len(req.Links))
 		for _, linkDTO := range req.Links {
 			links = append(links, domain.TransactionLink{
 				Type: domain.LinkType(linkDTO.Type),
@@ -258,31 +252,23 @@ func ApplyUpdateRequest(req UpdateTransactionRequest) map[string]interface{} {
 		updates["counterparty"] = counterparty
 	}
 
-	// Classification (build if any field is updated)
-	if req.SystemCategory != nil || req.UserCategoryID != nil ||
-		req.IsTransfer != nil || req.IsRefund != nil || req.Tags != nil {
-		classification := &domain.Classification{}
-		if req.SystemCategory != nil {
-			classification.SystemCategory = *req.SystemCategory
+	// User category ID (update if provided)
+	if req.UserCategoryID != nil {
+		if *req.UserCategoryID == "" {
+			// Clear category
+			updates["user_category_id"] = nil
+		} else {
+			// Parse UUID - validation will be done in service layer
+			if categoryUUID, err := uuid.Parse(*req.UserCategoryID); err == nil {
+				updates["user_category_id"] = categoryUUID
+			}
+			// If invalid UUID, skip (validation will catch it in service layer)
 		}
-		if req.UserCategoryID != nil {
-			classification.UserCategoryID = *req.UserCategoryID
-		}
-		if req.IsTransfer != nil {
-			classification.IsTransfer = *req.IsTransfer
-		}
-		if req.IsRefund != nil {
-			classification.IsRefund = *req.IsRefund
-		}
-		if req.Tags != nil {
-			classification.Tags = *req.Tags
-		}
-		updates["classification"] = classification
 	}
 
 	// Links
 	if req.Links != nil {
-		links := make([]domain.TransactionLink, 0, len(*req.Links))
+		links := make(domain.TransactionLinks, 0, len(*req.Links))
 		for _, linkDTO := range *req.Links {
 			links = append(links, domain.TransactionLink{
 				Type: domain.LinkType(linkDTO.Type),

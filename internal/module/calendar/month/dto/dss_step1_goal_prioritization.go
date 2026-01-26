@@ -12,8 +12,9 @@ import (
 // PreviewGoalPrioritizationRequest requests AHP goal prioritization
 // Goals are read from cached DSS state (initialized via POST /dss/initialize)
 type PreviewGoalPrioritizationRequest struct {
-	MonthID         uuid.UUID      `json:"month_id" binding:"required"`
-	CriteriaRatings map[string]int `json:"criteria_ratings,omitempty"` // Custom weights from Step 0 (1-10 scale)
+	MonthID         uuid.UUID          `json:"month_id" binding:"required"`
+	CriteriaRatings map[string]int     `json:"criteria_ratings,omitempty"` // Custom ratings from Step 0 (1-10 scale)
+	CriteriaWeights map[string]float64 `json:"criteria_weights,omitempty"` // Direct weights from Step 0 (0-1 scale, sum to 1.0)
 	// No goals needed - read from Redis cache
 }
 

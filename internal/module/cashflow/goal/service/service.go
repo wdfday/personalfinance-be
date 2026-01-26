@@ -48,7 +48,7 @@ type GoalDeleter interface {
 
 // GoalContributor defines the interface for goal contributions
 type GoalContributor interface {
-	AddContribution(ctx context.Context, goalID uuid.UUID, amount float64, note *string, source string) (*domain.Goal, error)
+	AddContribution(ctx context.Context, goalID uuid.UUID, amount float64, accountID *uuid.UUID, note *string, source string) (*domain.Goal, error)
 	WithdrawContribution(ctx context.Context, goalID uuid.UUID, amount float64, note *string, reversingID *uuid.UUID) (*domain.Goal, error)
 	GetContributions(ctx context.Context, goalID uuid.UUID) ([]domain.GoalContribution, error)
 	GetGoalNetContributions(ctx context.Context, goalID uuid.UUID) (float64, error)

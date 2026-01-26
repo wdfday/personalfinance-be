@@ -82,59 +82,6 @@ func (s *incomeProfileService) UpdateIncomeProfile(ctx context.Context, userID s
 	return newVersion, nil
 }
 
-// VerifyIncomeProfile marks income as verified by user
-func (s *incomeProfileService) VerifyIncomeProfile(ctx context.Context, userID string, profileID string, verified bool) (*domain.IncomeProfile, error) {
-	// Parse IDs
-	profileUUID, err := parseProfileID(profileID)
-	if err != nil {
-		return nil, shared.ErrBadRequest.
-			WithDetails("field", "profile_id").
-			WithDetails("reason", "invalid UUID format")
-	}
-
-	// Get existing income profile
-	ip, err := s.repo.GetByID(ctx, profileUUID)
-	if err != nil {
-		if err == shared.ErrNotFound {
-			return nil, shared.ErrNotFound.
-				WithDetails("resource", "income_profile").
-				WithDetails("id", profileID)
-		}
-		return nil, shared.ErrInternal.WithError(err)
-	}
-
-	// Verify it belongs to the user
-	userUUID, _ := parseUserID(userID)
-	if ip.UserID != userUUID {
-		return nil, shared.ErrForbidden.
-			WithDetails("reason", "income profile does not belong to user")
-	}
-
-	// Update verification status
-	if verified {
-		ip.MarkAsVerified()
-	} else {
-		ip.MarkAsUnverified()
-	}
-
-	// Update in repository
-	if err := s.repo.Update(ctx, ip); err != nil {
-		s.logger.Error("failed to update verification status",
-			zap.String("user_id", userID),
-			zap.String("profile_id", profileID),
-			zap.Bool("verified", verified),
-			zap.Error(err))
-		return nil, shared.ErrInternal.WithError(err)
-	}
-
-	s.logger.Info("income profile verification updated",
-		zap.String("user_id", userID),
-		zap.String("profile_id", profileID),
-		zap.Bool("verified", verified))
-
-	return ip, nil
-}
-
 // UpdateDSSMetadata updates DSS analysis metadata
 func (s *incomeProfileService) UpdateDSSMetadata(ctx context.Context, userID string, profileID string, req dto.UpdateDSSMetadataRequest) (*domain.IncomeProfile, error) {
 	// Parse IDs
@@ -237,6 +184,59 @@ func (s *incomeProfileService) ArchiveIncomeProfile(ctx context.Context, userID 
 	return nil
 }
 
+// EndIncomeProfile marks an income profile as ended
+func (s *incomeProfileService) EndIncomeProfile(ctx context.Context, userID string, profileID string) (*domain.IncomeProfile, error) {
+	// Parse and validate IDs
+	profileUUID, err := parseProfileID(profileID)
+	if err != nil {
+		return nil, shared.ErrBadRequest.
+			WithDetails("field", "profile_id").
+			WithDetails("reason", "invalid UUID format")
+	}
+
+	// Get existing income profile to verify ownership
+	ip, err := s.repo.GetByID(ctx, profileUUID)
+	if err != nil {
+		if err == shared.ErrNotFound {
+			return nil, shared.ErrNotFound.
+				WithDetails("resource", "income_profile").
+				WithDetails("id", profileID)
+		}
+		return nil, shared.ErrInternal.WithError(err)
+	}
+
+	// Verify it belongs to the user
+	userUUID, _ := parseUserID(userID)
+	if ip.UserID != userUUID {
+		return nil, shared.ErrForbidden.
+			WithDetails("reason", "income profile does not belong to user")
+	}
+
+	// Check if already ended or archived
+	if ip.Status == domain.IncomeStatusEnded || ip.Status == domain.IncomeStatusArchived {
+		return nil, shared.ErrBadRequest.
+			WithDetails("reason", "income profile is already ended or archived")
+	}
+
+	// Mark as ended
+	ip.MarkAsEnded()
+
+	// Update in repository
+	if err := s.repo.Update(ctx, ip); err != nil {
+		s.logger.Error("failed to end income profile",
+			zap.String("user_id", userID),
+			zap.String("profile_id", profileID),
+			zap.Error(err))
+		return nil, shared.ErrInternal.WithError(err)
+	}
+
+	s.logger.Info("income profile marked as ended",
+		zap.String("user_id", userID),
+		zap.String("profile_id", profileID))
+
+	return ip, nil
+}
+
 // CheckAndArchiveEnded checks and archives ended income profiles automatically
 func (s *incomeProfileService) CheckAndArchiveEnded(ctx context.Context, userID string) (int, error) {
 	// Parse and validate user ID
@@ -253,27 +253,27 @@ func (s *incomeProfileService) CheckAndArchiveEnded(ctx context.Context, userID 
 		return 0, shared.ErrInternal.WithError(err)
 	}
 
-	archivedCount := 0
+	endedCount := 0
 
-	// Check each profile and archive if ended
+	// Check each profile and mark as ended if end_date has passed
 	for _, ip := range profiles {
-		if ip.CheckAndArchiveIfEnded() {
+		if ip.CheckAndMarkAsEnded() {
 			if err := s.repo.Update(ctx, ip); err != nil {
-				s.logger.Error("failed to auto-archive ended income profile",
+				s.logger.Error("failed to mark ended income profile",
 					zap.String("user_id", userID),
 					zap.String("profile_id", ip.ID.String()),
 					zap.Error(err))
 				continue // Continue with other profiles
 			}
-			archivedCount++
+			endedCount++
 		}
 	}
 
-	if archivedCount > 0 {
-		s.logger.Info("auto-archived ended income profiles",
+	if endedCount > 0 {
+		s.logger.Info("marked ended income profiles",
 			zap.String("user_id", userID),
-			zap.Int("count", archivedCount))
+			zap.Int("count", endedCount))
 	}
 
-	return archivedCount, nil
+	return endedCount, nil
 }

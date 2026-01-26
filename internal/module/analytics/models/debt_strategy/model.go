@@ -36,9 +36,12 @@ func (m *DebtStrategyModel) Validate(ctx context.Context, input interface{}) err
 	if !ok {
 		return errors.New("input must be *dto.DebtStrategyInput type")
 	}
+
+	// If no debts, return early (no validation needed)
 	if len(di.Debts) == 0 {
-		return errors.New("at least one debt required")
+		return nil
 	}
+
 	if di.TotalDebtBudget <= 0 {
 		return errors.New("total debt budget must be positive")
 	}
@@ -65,6 +68,22 @@ func (m *DebtStrategyModel) Validate(ctx context.Context, input interface{}) err
 
 func (m *DebtStrategyModel) Execute(ctx context.Context, input interface{}) (interface{}, error) {
 	di := input.(*dto.DebtStrategyInput)
+
+	// If no debts, return empty result
+	if len(di.Debts) == 0 {
+		return &dto.DebtStrategyOutput{
+			RecommendedStrategy: domain.StrategyAvalanche,
+			MonthsToDebtFree:    0,
+			TotalInterest:       0,
+			StrategyComparison:  make([]domain.StrategyComparison, 0),
+			PaymentPlans:        make([]domain.PaymentPlan, 0),
+			Milestones:          make([]domain.Milestone, 0),
+			MonthlySchedule:     make([]domain.MonthlyAggregate, 0),
+			Reasoning:           "No debts to pay off. All extra income can be allocated to savings and goals.",
+			KeyFacts:            []string{"No active debts", "Full budget available for savings"},
+		}, nil
+	}
+
 	extraPayment := di.CalculateExtraPayment()
 	hybridWeights := di.GetHybridWeights()
 
@@ -84,14 +103,26 @@ func (m *DebtStrategyModel) Execute(ctx context.Context, input interface{}) (int
 		result := m.simulator.SimulateStrategy(strategy, di.Debts, extraPayment, &hybridWeights)
 		strategyResults[strategy] = result
 
+		// Generate payment plans for this strategy
+		paymentPlans := m.generatePaymentPlans(result, di.Debts)
+
+		// Calculate monthly allocation: sum of MonthlyPayment from all payment plans
+		// This ensures consistency: monthly allocation = sum of individual debt allocations
+		monthlyAllocation := 0.0
+		for _, plan := range paymentPlans {
+			monthlyAllocation += plan.MonthlyPayment
+		}
+
 		comparisons = append(comparisons, domain.StrategyComparison{
-			Strategy:         strategy,
-			TotalInterest:    result.TotalInterest,
-			Months:           result.Months,
-			FirstDebtCleared: result.FirstCleared,
-			Description:      m.getStrategyDescription(strategy),
-			Pros:             m.getStrategyPros(strategy),
-			Cons:             m.getStrategyCons(strategy),
+			Strategy:          strategy,
+			TotalInterest:     result.TotalInterest,
+			Months:            result.Months,
+			FirstDebtCleared:  result.FirstCleared,
+			Description:       m.getStrategyDescription(strategy),
+			Pros:              m.getStrategyPros(strategy),
+			Cons:              m.getStrategyCons(strategy),
+			PaymentPlans:      paymentPlans,
+			MonthlyAllocation: monthlyAllocation,
 		})
 	}
 
@@ -106,7 +137,7 @@ func (m *DebtStrategyModel) Execute(ctx context.Context, input interface{}) (int
 	selectedResult := strategyResults[recommended]
 
 	// Step 3: Generate payment plans
-	paymentPlans := m.generatePaymentPlans(selectedResult)
+	paymentPlans := m.generatePaymentPlans(selectedResult, di.Debts)
 
 	// Step 4: Generate milestones
 	milestones := m.analyzer.GenerateMilestones(selectedResult)
@@ -116,6 +147,14 @@ func (m *DebtStrategyModel) Execute(ctx context.Context, input interface{}) (int
 
 	// Step 6: Psychological scoring
 	psychScore := m.analyzer.CalculatePsychologicalScore(selectedResult, di.Debts)
+
+	// Step 7: Add warning if extra payment is zero or very small
+	if extraPayment <= 0.01 {
+		keyFacts = append(keyFacts, "⚠️ No extra payment available (budget = minimum payments). All strategies will produce identical results.")
+		if reasoning != "" {
+			reasoning += " Note: With no extra payment, all strategies behave identically since they only differ in how extra money is allocated."
+		}
+	}
 
 	// Build output
 	output := &dto.DebtStrategyOutput{
@@ -256,23 +295,58 @@ func (m *DebtStrategyModel) selectBestStrategy(
 		keyFacts
 }
 
-func (m *DebtStrategyModel) generatePaymentPlans(result *domain.SimulationResult) []domain.PaymentPlan {
+func (m *DebtStrategyModel) generatePaymentPlans(result *domain.SimulationResult, originalDebts []domain.DebtInfo) []domain.PaymentPlan {
 	plans := make([]domain.PaymentPlan, 0, len(result.DebtTimelines))
+
+	// Create a map to quickly find original debt info
+	debtMap := make(map[string]domain.DebtInfo)
+	for _, debt := range originalDebts {
+		debtMap[debt.ID] = debt
+	}
 
 	for _, timeline := range result.DebtTimelines {
 		totalPayment := 0.0
-		for _, snapshot := range timeline.Snapshots {
-			totalPayment += snapshot.Payment
+		totalMinPayment := 0.0
+		monthsWithPayment := 0
+
+		// Find original debt to get minimum payment
+		originalDebt, exists := debtMap[timeline.DebtID]
+		minPayment := 0.0
+		if exists {
+			minPayment = originalDebt.MinimumPayment
 		}
-		avgMonthly := 0.0
+
+		// Get FIRST MONTH payment for MonthlyPayment (actual allocation for current month)
+		firstMonthPayment := 0.0
 		if len(timeline.Snapshots) > 0 {
-			avgMonthly = totalPayment / float64(len(timeline.Snapshots))
+			firstMonthPayment = timeline.Snapshots[0].Payment
+		}
+
+		for _, snapshot := range timeline.Snapshots {
+			if snapshot.Payment > 0 {
+				totalPayment += snapshot.Payment
+				totalMinPayment += minPayment
+				monthsWithPayment++
+			}
+		}
+
+		// Calculate extra payment for first month (first month payment - minimum payment)
+		firstMonthExtra := firstMonthPayment - minPayment
+		if firstMonthExtra < 0 {
+			firstMonthExtra = 0
+		}
+
+		// Calculate total extra payment (total payment - total minimum payments)
+		totalExtraPayment := totalPayment - totalMinPayment
+		if totalExtraPayment < 0 {
+			totalExtraPayment = 0
 		}
 
 		plan := domain.PaymentPlan{
 			DebtID:         timeline.DebtID,
 			DebtName:       timeline.DebtName,
-			MonthlyPayment: avgMonthly,
+			MonthlyPayment: firstMonthPayment, // Use first month payment (actual allocation for current month)
+			ExtraPayment:   firstMonthExtra,   // Extra payment for first month
 			PayoffMonth:    timeline.PayoffMonth,
 			TotalInterest:  timeline.TotalInterest,
 			Timeline:       timeline.Snapshots,

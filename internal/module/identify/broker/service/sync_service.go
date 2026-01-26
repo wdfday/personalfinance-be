@@ -128,17 +128,7 @@ func (s *SyncService) SyncBrokerConnection(ctx context.Context, connection *doma
 			zap.String("connection_id", connection.ID.String()),
 		)
 
-		// For initial validation (TotalSyncs == 0), only verify API connection
-		// Don't create accounts or sync transactions until connection is saved
-		if connection.TotalSyncs == 0 {
-			s.logger.Info("Initial validation: API connection verified",
-				zap.Int("bank_accounts_found", len(bankAccounts)),
-			)
-			result.Success = len(bankAccounts) > 0
-			break
-		}
-
-		// Sync each bank account (only for established connections)
+		// Sync each bank account
 		for _, bankAcc := range bankAccounts {
 			if !bankAcc.IsActive {
 				s.logger.Debug("Skipping inactive bank account",
@@ -205,12 +195,9 @@ func (s *SyncService) SyncBrokerConnection(ctx context.Context, connection *doma
 	}
 	connection.UpdateSyncStatus(result.Success, syncError)
 
-	// Save connection state only if connection already exists in DB
-	// (skip update for initial validation sync before connection is saved)
-	if connection.TotalSyncs > 0 {
-		if err := s.brokerRepo.Update(ctx, connection); err != nil {
-			s.logger.Error("Failed to update connection after sync", zap.Error(err))
-		}
+	// Update connection state (connection is already saved in DB before sync is called)
+	if err := s.brokerRepo.Update(ctx, connection); err != nil {
+		s.logger.Error("Failed to update connection after sync", zap.Error(err))
 	}
 
 	s.logger.Info("✅ Sync completed",
@@ -256,11 +243,14 @@ func (s *SyncService) syncAccountBalance(ctx context.Context, brokerClient clien
 func (s *SyncService) syncBankTransactions(ctx context.Context, brokerClient client.BrokerClient, accessToken string, connection *domain.BrokerConnection, account *accountDomain.Account) (int, error) {
 	// Determine date range
 	endDate := time.Now()
-	startDate := endDate.AddDate(0, 0, -30) // Default: last 30 days
+	var startDate time.Time
 
 	if connection.LastSyncAt != nil {
 		// Only sync since last sync
 		startDate = *connection.LastSyncAt
+	} else {
+		// First sync: get all transactions (set to a very old date to get everything)
+		startDate = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 
 	s.logger.Debug("Fetching transactions",
@@ -503,11 +493,14 @@ func (s *SyncService) syncAccountTransactions(
 ) (int, error) {
 	// Determine date range
 	endDate := time.Now()
-	startDate := endDate.AddDate(0, 0, -30) // Default: last 30 days
+	var startDate time.Time
 
 	if connection.LastSyncAt != nil {
 		// Only sync since last sync
 		startDate = *connection.LastSyncAt
+	} else {
+		// First sync: get all transactions (set to a very old date to get everything)
+		startDate = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
 
 	s.logger.Debug("Fetching transactions for account",

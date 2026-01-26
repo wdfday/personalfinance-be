@@ -69,7 +69,7 @@ func TestScenarioGenerator_GenerateScenarios(t *testing.T) {
 	}
 
 	// Generate scenarios
-	scenarios, err := generator.GenerateScenarios(model, categoryNames)
+	scenarios, err := generator.GenerateScenarios(model, categoryNames, nil)
 
 	// Assertions
 	if err != nil {
@@ -77,14 +77,13 @@ func TestScenarioGenerator_GenerateScenarios(t *testing.T) {
 	}
 
 	if len(scenarios) != 3 {
-		t.Fatalf("Expected 3 scenarios, got %d", len(scenarios))
+		t.Fatalf("Expected 2 scenarios, got %d", len(scenarios))
 	}
 
 	// Check scenario types
 	expectedTypes := map[domain.ScenarioType]bool{
-		domain.ScenarioConservative: false,
-		domain.ScenarioBalanced:     false,
-		domain.ScenarioAggressive:   false,
+		domain.ScenarioSafe:     false,
+		domain.ScenarioBalanced: false,
 	}
 
 	for _, scenario := range scenarios {
@@ -113,7 +112,7 @@ func TestScenarioGenerator_GenerateScenarios(t *testing.T) {
 	}
 }
 
-func TestScenarioGenerator_ConservativeVsAggressive(t *testing.T) {
+func TestScenarioGenerator_SafeVsBalanced(t *testing.T) {
 	generator := NewScenarioGenerator()
 
 	model := &domain.ConstraintModel{
@@ -157,30 +156,30 @@ func TestScenarioGenerator_ConservativeVsAggressive(t *testing.T) {
 	}
 
 	// Generate scenarios
-	conservative := generator.GenerateConservativeScenario(model, categoryNames)
-	aggressive := generator.GenerateAggressiveScenario(model, categoryNames)
+	safe := generator.GenerateSafeScenario(model, categoryNames)
+	balanced := generator.GenerateBalancedScenario(model, categoryNames)
 
-	// Conservative should allocate less to goals than aggressive
-	var conservativeGoalTotal float64
-	var aggressiveGoalTotal float64
+	// Safe should allocate less to goals than balanced
+	var safeGoalTotal float64
+	var balancedGoalTotal float64
 
-	for _, alloc := range conservative.GoalAllocations {
-		conservativeGoalTotal += alloc.Amount
+	for _, alloc := range safe.GoalAllocations {
+		safeGoalTotal += alloc.Amount
 	}
 
-	for _, alloc := range aggressive.GoalAllocations {
-		aggressiveGoalTotal += alloc.Amount
+	for _, alloc := range balanced.GoalAllocations {
+		balancedGoalTotal += alloc.Amount
 	}
 
-	if conservativeGoalTotal >= aggressiveGoalTotal {
-		t.Errorf("Conservative goal allocation (%f) should be less than aggressive (%f)",
-			conservativeGoalTotal, aggressiveGoalTotal)
+	if safeGoalTotal >= balancedGoalTotal {
+		t.Errorf("Safe goal allocation (%f) should be less than balanced (%f)",
+			safeGoalTotal, balancedGoalTotal)
 	}
 
-	// Aggressive should have higher savings rate
-	if aggressive.Summary.SavingsRate <= conservative.Summary.SavingsRate {
-		t.Errorf("Aggressive savings rate (%f%%) should be higher than conservative (%f%%)",
-			aggressive.Summary.SavingsRate, conservative.Summary.SavingsRate)
+	// Balanced should have higher savings rate
+	if balanced.Summary.SavingsRate <= safe.Summary.SavingsRate {
+		t.Errorf("Balanced savings rate (%f%%) should be higher than safe (%f%%)",
+			balanced.Summary.SavingsRate, safe.Summary.SavingsRate)
 	}
 }
 
@@ -212,7 +211,7 @@ func TestScenarioGenerator_InsufficientIncome(t *testing.T) {
 		categoryID: "Housing",
 	}
 
-	scenarios, err := generator.GenerateScenarios(model, categoryNames)
+	scenarios, err := generator.GenerateScenarios(model, categoryNames, nil)
 
 	if err != nil {
 		t.Fatalf("GenerateScenarios failed: %v", err)
@@ -283,14 +282,14 @@ func TestScenarioGenerator_EmergencyFundPriority(t *testing.T) {
 
 	categoryNames := map[uuid.UUID]string{}
 
-	// Generate conservative scenario (should prioritize emergency fund)
-	conservative := generator.GenerateConservativeScenario(model, categoryNames)
+	// Generate safe scenario (should prioritize emergency fund)
+	safe := generator.GenerateSafeScenario(model, categoryNames)
 
 	// Check if emergency fund got allocation
 	var emergencyAllocation float64
 	var savingsAllocation float64
 
-	for _, alloc := range conservative.GoalAllocations {
+	for _, alloc := range safe.GoalAllocations {
 		if alloc.GoalID == emergencyID {
 			emergencyAllocation = alloc.Amount
 		}
@@ -299,9 +298,9 @@ func TestScenarioGenerator_EmergencyFundPriority(t *testing.T) {
 		}
 	}
 
-	// Emergency fund should get allocation in conservative scenario
+	// Emergency fund should get allocation in safe scenario
 	if emergencyAllocation == 0 {
-		t.Error("Emergency fund should receive allocation in conservative scenario")
+		t.Error("Emergency fund should receive allocation in safe scenario")
 	}
 
 	// With limited budget ($4000 - $3000 mandatory = $1000 surplus),
@@ -353,18 +352,6 @@ func TestScenarioGenerator_WarningGeneration(t *testing.T) {
 
 	if !hasDebtWarning {
 		t.Error("Should have warning about high-interest debt")
-	}
-
-	// Generate aggressive scenario
-	aggressive := generator.GenerateAggressiveScenario(model, categoryNames)
-
-	// Aggressive scenario with low surplus should have warning
-	hasLowSurplusWarning := false
-	for _, warning := range aggressive.Warnings {
-		if warning.Category == "income" || warning.Severity == domain.SeverityWarning {
-			hasLowSurplusWarning = true
-			break
-		}
 	}
 
 	if !hasLowSurplusWarning && aggressive.Summary.Surplus < 100 {
@@ -450,115 +437,6 @@ func TestScenarioGenerator_GenerateScenariosWithComparison(t *testing.T) {
 		t.Logf("Scenario %s:", result.ScenarioType)
 		t.Logf("  Preemptive feasibility: %.2f%%", result.PreemptiveScenario.FeasibilityScore)
 		t.Logf("  Weighted feasibility: %.2f%%", result.WeightedScenario.FeasibilityScore)
-		t.Logf("  Recommended: %s (%s)", result.Comparison.RecommendedSolver, result.Comparison.Reason)
-	}
-}
-
-func TestScenarioGenerator_GenerateScenariosWithTripleComparison(t *testing.T) {
-	generator := NewScenarioGenerator()
-
-	model := &domain.ConstraintModel{
-		TotalIncome:       5000.0, // Limited budget to see differences
-		MandatoryExpenses: make(map[uuid.UUID]domain.CategoryConstraint),
-		FlexibleExpenses:  make(map[uuid.UUID]domain.CategoryConstraint),
-		DebtPayments:      make(map[uuid.UUID]domain.DebtConstraint),
-		GoalTargets:       make(map[uuid.UUID]domain.GoalConstraint),
-	}
-
-	categoryID := uuid.New()
-	model.MandatoryExpenses[categoryID] = domain.CategoryConstraint{
-		CategoryID: categoryID,
-		Minimum:    2000.0,
-	}
-
-	// Add multiple goals to see different solver behaviors
-	goalID1 := uuid.New()
-	goalID2 := uuid.New()
-	goalID3 := uuid.New()
-
-	model.GoalTargets[goalID1] = domain.GoalConstraint{
-		GoalID:                goalID1,
-		GoalName:              "Emergency Fund",
-		GoalType:              "emergency",
-		SuggestedContribution: 1000.0,
-		Priority:              "high",
-		PriorityWeight:        5,
-		RemainingAmount:       10000.0,
-	}
-
-	model.GoalTargets[goalID2] = domain.GoalConstraint{
-		GoalID:                goalID2,
-		GoalName:              "Vacation",
-		GoalType:              "purchase",
-		SuggestedContribution: 1000.0,
-		Priority:              "medium",
-		PriorityWeight:        15,
-		RemainingAmount:       5000.0,
-	}
-
-	model.GoalTargets[goalID3] = domain.GoalConstraint{
-		GoalID:                goalID3,
-		GoalName:              "New Car",
-		GoalType:              "purchase",
-		SuggestedContribution: 1000.0,
-		Priority:              "low",
-		PriorityWeight:        30,
-		RemainingAmount:       20000.0,
-	}
-
-	categoryNames := map[uuid.UUID]string{
-		categoryID: "Housing",
-	}
-
-	results, err := generator.GenerateScenariosWithTripleComparison(model, categoryNames)
-
-	if err != nil {
-		t.Fatalf("GenerateScenariosWithTripleComparison failed: %v", err)
-	}
-
-	if len(results) != 3 {
-		t.Fatalf("Expected 3 triple results, got %d", len(results))
-	}
-
-	expectedTypes := []domain.ScenarioType{
-		domain.ScenarioConservative,
-		domain.ScenarioBalanced,
-		domain.ScenarioAggressive,
-	}
-
-	for i, result := range results {
-		if result.ScenarioType != expectedTypes[i] {
-			t.Errorf("Expected scenario type %s, got %s", expectedTypes[i], result.ScenarioType)
-		}
-
-		// All three scenarios should have allocations
-		if len(result.PreemptiveScenario.GoalAllocations) == 0 {
-			t.Errorf("Preemptive scenario %s has no goal allocations", result.ScenarioType)
-		}
-		if len(result.WeightedScenario.GoalAllocations) == 0 {
-			t.Errorf("Weighted scenario %s has no goal allocations", result.ScenarioType)
-		}
-		if len(result.MinmaxScenario.GoalAllocations) == 0 {
-			t.Errorf("Minmax scenario %s has no goal allocations", result.ScenarioType)
-		}
-
-		// Comparison should have recommendation
-		if result.Comparison.RecommendedSolver == "" {
-			t.Errorf("Scenario %s comparison has no recommended solver", result.ScenarioType)
-		}
-
-		t.Logf("Scenario %s:", result.ScenarioType)
-		t.Logf("  Preemptive: feasibility=%.1f%%, achieved=%d",
-			result.PreemptiveScenario.FeasibilityScore,
-			result.Comparison.PreemptiveAchievedCount)
-		t.Logf("  Weighted: feasibility=%.1f%%, achieved=%d",
-			result.WeightedScenario.FeasibilityScore,
-			result.Comparison.WeightedAchievedCount)
-		t.Logf("  Minmax: feasibility=%.1f%%, achieved=%d, minAch=%.1f%%, balanced=%v",
-			result.MinmaxScenario.FeasibilityScore,
-			result.Comparison.MinmaxAchievedCount,
-			result.Comparison.MinmaxMinAchievement,
-			result.Comparison.MinmaxIsBalanced)
 		t.Logf("  Recommended: %s (%s)", result.Comparison.RecommendedSolver, result.Comparison.Reason)
 	}
 }

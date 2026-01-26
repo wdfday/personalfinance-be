@@ -87,7 +87,7 @@ func (s *budgetConstraintService) UpdateBudgetConstraint(ctx context.Context, us
 	return newVersion, nil
 }
 
-// ArchiveBudgetConstraint manually archives a budget constraint
+// ArchiveBudgetConstraint manually archives a budget constraint (creates new version)
 func (s *budgetConstraintService) ArchiveBudgetConstraint(ctx context.Context, userID string, constraintID string) error {
 	// Parse IDs
 	constraintUUID, err := parseConstraintID(constraintID)
@@ -98,7 +98,7 @@ func (s *budgetConstraintService) ArchiveBudgetConstraint(ctx context.Context, u
 	}
 
 	// Get existing budget constraint to verify ownership
-	bc, err := s.repo.GetByID(ctx, constraintUUID)
+	existing, err := s.repo.GetByID(ctx, constraintUUID)
 	if err != nil {
 		if err == shared.ErrNotFound {
 			return shared.ErrNotFound.
@@ -110,20 +110,21 @@ func (s *budgetConstraintService) ArchiveBudgetConstraint(ctx context.Context, u
 
 	// Verify it belongs to the user
 	userUUID, _ := parseUserID(userID)
-	if bc.UserID != userUUID {
+	if existing.UserID != userUUID {
 		return shared.ErrForbidden.
 			WithDetails("reason", "budget constraint does not belong to user")
 	}
 
 	// Check if already archived
-	if bc.IsArchived() {
+	if existing.IsArchived() {
 		return shared.ErrBadRequest.
 			WithDetails("reason", "budget constraint is already archived")
 	}
 
-	// Archive in repository
-	if err := s.repo.Archive(ctx, constraintUUID, userUUID); err != nil {
-		s.logger.Error("failed to archive budget constraint",
+	// Archive the old version
+	existing.Archive(userUUID)
+	if err := s.repo.Update(ctx, existing); err != nil {
+		s.logger.Error("failed to archive old version",
 			zap.String("user_id", userID),
 			zap.String("constraint_id", constraintID),
 			zap.Error(err))
@@ -153,27 +154,80 @@ func (s *budgetConstraintService) CheckAndArchiveEnded(ctx context.Context, user
 		return 0, shared.ErrInternal.WithError(err)
 	}
 
-	archivedCount := 0
+	endedCount := 0
 
-	// Check each constraint and archive if ended
+	// Check each constraint and mark as ended if end_date has passed
 	for _, bc := range constraints {
-		if bc.CheckAndArchiveIfEnded() {
+		if bc.CheckAndMarkAsEnded() {
 			if err := s.repo.Update(ctx, bc); err != nil {
-				s.logger.Error("failed to auto-archive ended budget constraint",
+				s.logger.Error("failed to mark ended budget constraint",
 					zap.String("user_id", userID),
 					zap.String("constraint_id", bc.ID.String()),
 					zap.Error(err))
 				continue // Continue with other constraints
 			}
-			archivedCount++
+			endedCount++
 		}
 	}
 
-	if archivedCount > 0 {
-		s.logger.Info("auto-archived ended budget constraints",
+	if endedCount > 0 {
+		s.logger.Info("marked ended budget constraints",
 			zap.String("user_id", userID),
-			zap.Int("count", archivedCount))
+			zap.Int("count", endedCount))
 	}
 
-	return archivedCount, nil
+	return endedCount, nil
+}
+
+// EndBudgetConstraint marks a budget constraint as ended
+func (s *budgetConstraintService) EndBudgetConstraint(ctx context.Context, userID string, constraintID string) (*domain.BudgetConstraint, error) {
+	// Parse IDs
+	constraintUUID, err := parseConstraintID(constraintID)
+	if err != nil {
+		return nil, shared.ErrBadRequest.
+			WithDetails("field", "constraint_id").
+			WithDetails("reason", "invalid UUID format")
+	}
+
+	// Get existing budget constraint to verify ownership
+	bc, err := s.repo.GetByID(ctx, constraintUUID)
+	if err != nil {
+		if err == shared.ErrNotFound {
+			return nil, shared.ErrNotFound.
+				WithDetails("resource", "budget_constraint").
+				WithDetails("id", constraintID)
+		}
+		return nil, shared.ErrInternal.WithError(err)
+	}
+
+	// Verify it belongs to the user
+	userUUID, _ := parseUserID(userID)
+	if bc.UserID != userUUID {
+		return nil, shared.ErrForbidden.
+			WithDetails("reason", "budget constraint does not belong to user")
+	}
+
+	// Check if already ended or archived
+	if bc.Status == domain.ConstraintStatusEnded || bc.Status == domain.ConstraintStatusArchived {
+		return nil, shared.ErrBadRequest.
+			WithDetails("reason", "budget constraint is already ended or archived")
+	}
+
+	// Mark as ended
+	bc.MarkAsEnded()
+
+	// Update in repository
+	if err := s.repo.Update(ctx, bc); err != nil {
+		s.logger.Error("failed to end budget constraint",
+			zap.String("user_id", userID),
+			zap.String("constraint_id", constraintID),
+			zap.Error(err))
+		return nil, shared.ErrInternal.WithError(err)
+	}
+
+	s.logger.Info("budget constraint marked as ended",
+		zap.String("user_id", userID),
+		zap.String("constraint_id", constraintID))
+
+	return bc, nil
 }

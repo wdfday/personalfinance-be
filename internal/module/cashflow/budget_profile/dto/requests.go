@@ -51,6 +51,6 @@ type UpdateBudgetConstraintRequest struct {
 type ListBudgetConstraintsQuery struct {
 	CategoryID      *string `form:"category_id" binding:"omitempty,uuid"`
 	IsFlexible      *bool   `form:"is_flexible"`
-	Status          *string `form:"status" binding:"omitempty,oneof=active pending ended archived paused"`
+	Status          *string `form:"status" binding:"omitempty,oneof=active ended archived"`
 	IncludeArchived bool    `form:"include_archived"`
 }

@@ -88,7 +88,7 @@ func TestBudgetUpdater_CheckBudgetAlerts_NoAlerts(t *testing.T) {
 		SpentAmount:     3000000,
 		PercentageSpent: 30.0,
 		EnableAlerts:    true,
-		AlertThresholds: []domain.AlertThreshold{domain.AlertAt75, domain.AlertAt90},
+		AlertThresholds: domain.AlertThresholdsJSON{domain.AlertAt75, domain.AlertAt90},
 	}
 
 	mockRepo.On("FindByID", ctx, budgetID).Return(budget, nil)
@@ -113,7 +113,7 @@ func TestBudgetUpdater_CheckBudgetAlerts_HasAlerts(t *testing.T) {
 		SpentAmount:     8000000,
 		PercentageSpent: 80.0,
 		EnableAlerts:    true,
-		AlertThresholds: []domain.AlertThreshold{domain.AlertAt75, domain.AlertAt90},
+		AlertThresholds: domain.AlertThresholdsJSON{domain.AlertAt75, domain.AlertAt90},
 	}
 
 	mockRepo.On("FindByID", ctx, budgetID).Return(budget, nil)
@@ -139,7 +139,7 @@ func TestBudgetUpdater_CheckBudgetAlerts_AlertsDisabled(t *testing.T) {
 		SpentAmount:     8000000,
 		PercentageSpent: 80.0,
 		EnableAlerts:    false,
-		AlertThresholds: []domain.AlertThreshold{domain.AlertAt75, domain.AlertAt90},
+		AlertThresholds: domain.AlertThresholdsJSON{domain.AlertAt75, domain.AlertAt90},
 	}
 
 	mockRepo.On("FindByID", ctx, budgetID).Return(budget, nil)

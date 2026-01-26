@@ -27,10 +27,8 @@ type ConstraintStatus string
 
 const (
 	ConstraintStatusActive   ConstraintStatus = "active"   // Currently in effect
-	ConstraintStatusPending  ConstraintStatus = "pending"  // Scheduled to start
 	ConstraintStatusEnded    ConstraintStatus = "ended"    // Naturally ended
-	ConstraintStatusArchived ConstraintStatus = "archived" // Manually archived
-	ConstraintStatusPaused   ConstraintStatus = "paused"   // Temporarily suspended
+	ConstraintStatusArchived ConstraintStatus = "archived" // Manually archived (creates new version)
 )
 
 // BudgetConstraint represents minimum required spending per category with versioning
@@ -266,14 +264,21 @@ func (bc *BudgetConstraint) CreateNewVersion() *BudgetConstraint {
 	return newVersion
 }
 
-// CheckAndArchiveIfEnded checks if constraint has ended and auto-archives
-func (bc *BudgetConstraint) CheckAndArchiveIfEnded() bool {
+// MarkAsEnded marks this budget constraint as ended
+func (bc *BudgetConstraint) MarkAsEnded() {
+	bc.Status = ConstraintStatusEnded
+	now := time.Now()
+	if bc.EndDate == nil {
+		bc.EndDate = &now
+	}
+	bc.UpdatedAt = now
+}
+
+// CheckAndMarkAsEnded checks if constraint has ended and marks it as ended (does not archive)
+func (bc *BudgetConstraint) CheckAndMarkAsEnded() bool {
 	if bc.EndDate != nil && time.Now().After(*bc.EndDate) {
 		if bc.Status == ConstraintStatusActive {
-			bc.Status = ConstraintStatusEnded
-			now := time.Now()
-			bc.ArchivedAt = &now
-			bc.UpdatedAt = now
+			bc.MarkAsEnded()
 			return true
 		}
 	}

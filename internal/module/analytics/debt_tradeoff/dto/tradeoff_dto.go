@@ -10,7 +10,7 @@ type TradeoffInput struct {
 	UserID            string                     `json:"user_id" binding:"required"`
 	MonthlyIncome     float64                    `json:"monthly_income" binding:"required,gt=0"`
 	EssentialExpenses float64                    `json:"essential_expenses" binding:"required,gte=0"`
-	Debts             []domain.DebtInfo          `json:"debts" binding:"required,min=1"`
+	Debts             []domain.DebtInfo          `json:"debts" binding:"required"`
 	TotalMinPayments  float64                    `json:"total_min_payments"`
 	Goals             []domain.GoalInfo          `json:"goals"`
 	InvestmentProfile domain.InvestmentProfile   `json:"investment_profile"`

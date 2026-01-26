@@ -181,21 +181,8 @@ func (r *gormRepository) applyFilters(db *gorm.DB, query dto.ListTransactionsQue
 	if query.UserCategoryID != nil {
 		categoryUUID, err := uuid.Parse(*query.UserCategoryID)
 		if err == nil {
-			db = db.Where("classification->>'userCategoryId' = ?", categoryUUID.String())
+			db = db.Where("user_category_id = ?", categoryUUID)
 		}
-	}
-
-	if query.IsTransfer != nil {
-		db = db.Where("classification->>'isTransfer' = ?", fmt.Sprintf("%t", *query.IsTransfer))
-	}
-
-	if query.IsRefund != nil {
-		db = db.Where("classification->>'isRefund' = ?", fmt.Sprintf("%t", *query.IsRefund))
-	}
-
-	if query.Tag != nil && *query.Tag != "" {
-		// Search in tags array within classification JSON
-		db = db.Where("classification->'tags' @> ?", fmt.Sprintf("[\"%s\"]", *query.Tag))
 	}
 
 	// Text search (description, userNote, counterparty name)

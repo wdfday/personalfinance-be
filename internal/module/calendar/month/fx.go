@@ -26,6 +26,7 @@ var Module = fx.Module("calendar-month",
 				``,                                 // repo
 				``,                                 // categoryService
 				``,                                 // incomeProfileRepo
+				``,                                 // budgetService
 				`name:"goalPrioritizationService"`, // goalPrioritization
 				`name:"debtStrategyService"`,       // debtStrategy
 				`name:"debtTradeoffService"`,       // debtTradeoff

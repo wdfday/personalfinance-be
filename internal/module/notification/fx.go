@@ -70,44 +70,14 @@ func ProvideUserNotificationService(repo repository.NotificationRepository) serv
 	return service.NewUserNotificationService(repo)
 }
 
-// ProvideSecurityEventRepository creates a security event repository
-func ProvideSecurityEventRepository(db *gorm.DB) repository.SecurityEventRepository {
-	return repository.NewSecurityEventRepository(db)
-}
-
-// ProvideSecurityLogger creates a security logger
-func ProvideSecurityLogger(repo repository.SecurityEventRepository) service.SecurityLogger {
-	return service.NewSecurityLogger(repo)
-}
-
-// ProvideAlertRuleRepository creates an alert rule repository
-func ProvideAlertRuleRepository(db *gorm.DB) repository.AlertRuleRepository {
-	return repository.NewAlertRuleRepository(db)
-}
-
 // ProvideNotificationPreferenceRepository creates a notification preference repository
 func ProvideNotificationPreferenceRepository(db *gorm.DB) repository.NotificationPreferenceRepository {
 	return repository.NewNotificationPreferenceRepository(db)
 }
 
-// ProvideNotificationAnalyticsRepository creates a notification analytics repository
-func ProvideNotificationAnalyticsRepository(db *gorm.DB) repository.NotificationAnalyticsRepository {
-	return repository.NewNotificationAnalyticsRepository(db)
-}
-
-// ProvideAlertRuleService creates an alert rule service
-func ProvideAlertRuleService(repo repository.AlertRuleRepository, logger *zap.Logger) service.AlertRuleService {
-	return service.NewAlertRuleService(repo, logger)
-}
-
 // ProvideNotificationPreferenceService creates a notification preference service
 func ProvideNotificationPreferenceService(repo repository.NotificationPreferenceRepository, logger *zap.Logger) service.NotificationPreferenceService {
 	return service.NewNotificationPreferenceService(repo, logger)
-}
-
-// ProvideNotificationAnalyticsService creates a notification analytics service
-func ProvideNotificationAnalyticsService(repo repository.NotificationAnalyticsRepository, logger *zap.Logger) service.NotificationAnalyticsService {
-	return service.NewNotificationAnalyticsService(repo, logger)
 }
 
 // ProvideScheduledReportService creates a scheduled report service
@@ -124,33 +94,6 @@ func ProvideScheduledReportService(
 	return nil
 }
 
-// ProvideSchedulerService creates and manages the scheduler service
-func ProvideSchedulerService(
-	lc fx.Lifecycle,
-	reportService service.ScheduledReportService,
-	alertRuleRepo repository.AlertRuleRepository,
-	userRepo interface{},
-	logger *zap.Logger,
-) service.SchedulerService {
-	scheduler := service.NewSchedulerService(reportService, alertRuleRepo, nil, logger)
-
-	// Start scheduler on application startup
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			scheduler.Start()
-			logger.Info("Notification scheduler started")
-			return nil
-		},
-		OnStop: func(ctx context.Context) error {
-			scheduler.Stop()
-			logger.Info("Notification scheduler stopped")
-			return nil
-		},
-	})
-
-	return scheduler
-}
-
 // Module provides notification module dependencies
 var Module = fx.Module("notification",
 	fx.Provide(
@@ -161,20 +104,14 @@ var Module = fx.Module("notification",
 		ProvideWebSocketHub,
 
 		// Repositories
-		ProvideSecurityEventRepository,
 		ProvideNotificationRepository,
-		ProvideAlertRuleRepository,
 		ProvideNotificationPreferenceRepository,
-		ProvideNotificationAnalyticsRepository,
 
 		// Services
 		ProvideEmailService,
 		ProvideNotificationService,
 		ProvideUserNotificationService,
-		ProvideSecurityLogger,
-		ProvideAlertRuleService,
 		ProvideNotificationPreferenceService,
-		ProvideNotificationAnalyticsService,
 		// ProvideScheduledReportService, // TODO: Wire properly with transaction/user repos
 		// ProvideSchedulerService,        // TODO: Enable after ScheduledReportService is wired
 

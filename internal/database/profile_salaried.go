@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"time"
 
 	constraintdomain "personalfinancedss/internal/module/cashflow/budget_profile/domain"
@@ -24,62 +25,85 @@ func (s *Seeder) seedSalariedProfile(tx *gorm.DB, userID uuid.UUID) error {
 	categoryMap := s.getCategoryMap(tx, userID)
 
 	// 1. Budget Constraints (INPUT for DSS)
+	homeCatID, err := s.getCategoryID(categoryMap, "Home & Utilities", "salaried constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	foodCatID, err := s.getCategoryID(categoryMap, "Food & Dining", "salaried constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	transportCatID, err := s.getCategoryID(categoryMap, "Transportation", "salaried constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	healthCatID, err := s.getCategoryID(categoryMap, "Health & Wellness", "salaried constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	entertainmentCatID, err := s.getCategoryID(categoryMap, "Entertainment & Travel", "salaried constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+
 	constraints := []*constraintdomain.BudgetConstraint{
 		// Tiền nhà - FIXED (không thể giảm)
 		{
-			UserID: userID, CategoryID: categoryMap["Home & Utilities"],
-			MinimumAmount: 5000000, MaximumAmount: 5000000, IsFlexible: false,
+			UserID: userID, CategoryID: homeCatID,
+			MinimumAmount: 7000000, MaximumAmount: 7000000, IsFlexible: false,
 			Priority: 1, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Tiền thuê nhà cố định",
 		},
 		// Ăn uống - FLEXIBLE
 		{
-			UserID: userID, CategoryID: categoryMap["Food & Dining"],
-			MinimumAmount: 4000000, MaximumAmount: 6000000, IsFlexible: true,
+			UserID: userID, CategoryID: foodCatID,
+			MinimumAmount: 8000000, MaximumAmount: 15000000, IsFlexible: true,
 			Priority: 2, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Chi phí ăn uống gia đình",
 		},
 		// Đi lại - FLEXIBLE
 		{
-			UserID: userID, CategoryID: categoryMap["Transportation"],
+			UserID: userID, CategoryID: transportCatID,
 			MinimumAmount: 1500000, MaximumAmount: 2500000, IsFlexible: true,
 			Priority: 3, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Xăng xe, Grab",
 		},
 		// Y tế - FLEXIBLE
 		{
-			UserID: userID, CategoryID: categoryMap["Health & Wellness"],
+			UserID: userID, CategoryID: healthCatID,
 			MinimumAmount: 500000, MaximumAmount: 1500000, IsFlexible: true,
 			Priority: 4, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Bảo hiểm, khám bệnh",
 		},
 		// Giải trí - FLEXIBLE (có thể cắt giảm)
 		{
-			UserID: userID, CategoryID: categoryMap["Entertainment & Travel"],
-			MinimumAmount: 500000, MaximumAmount: 2000000, IsFlexible: true,
+			UserID: userID, CategoryID: entertainmentCatID,
+			MinimumAmount: 2000000, MaximumAmount: 4000000, IsFlexible: true,
 			Priority: 5, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Xem phim, cafe, giải trí",
 		},
 	}
 
 	for _, c := range constraints {
-		if c.CategoryID != uuid.Nil {
-			if err := tx.Create(c).Error; err != nil {
-				return err
-			}
-			s.logger.Info("✅ Created constraint", zap.Float64("min", c.MinimumAmount))
+		if err := tx.Create(c).Error; err != nil {
+			return fmt.Errorf("failed to create constraint: %w", err)
 		}
+		s.logger.Info("✅ Created constraint", zap.Float64("min", c.MinimumAmount))
 	}
 
 	// 2. Income Profiles
+	activeIncomeCatID, err := s.getCategoryID(categoryMap, "Active Income", "salaried income")
+	if err != nil {
+		return fmt.Errorf("failed to get category for income: %w", err)
+	}
+
 	incomes := []*incomedomain.IncomeProfile{
 		{
-			UserID: userID, CategoryID: categoryMap["Active Income"],
+			UserID: userID, CategoryID: activeIncomeCatID,
 			Source: "Lương công ty ABC Corp",
-			Amount: 30000000, Currency: "VND", Frequency: "monthly",
-			StartDate:  now.AddDate(-2, 0, 0),
-			BaseSalary: 22000000, Allowance: 5000000, Bonus: 3000000,
-			IsRecurring: true, IsVerified: true,
+			Amount: 60000000, Currency: "VND", Frequency: "monthly",
+			StartDate:   now.AddDate(-2, 0, 0),
+			IsRecurring: true,
 			Status:      incomedomain.IncomeStatusActive,
 			Description: "Lương chính + phụ cấp + KPI",
 		},
@@ -87,13 +111,16 @@ func (s *Seeder) seedSalariedProfile(tx *gorm.DB, userID uuid.UUID) error {
 
 	for _, income := range incomes {
 		if err := tx.Create(income).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create income: %w", err)
 		}
 		s.logger.Info("✅ Created income", zap.String("source", income.Source))
 	}
 
 	// 3. Goals
-	accountID := s.getAccountID(tx, userID)
+	accountID, err := s.getAccountID(tx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get account for goals: %w", err)
+	}
 	goals := []*goaldomain.Goal{
 		{
 			UserID: userID, AccountID: accountID,
@@ -124,7 +151,7 @@ func (s *Seeder) seedSalariedProfile(tx *gorm.DB, userID uuid.UUID) error {
 	for _, goal := range goals {
 		goal.UpdateCalculatedFields()
 		if err := tx.Create(goal).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create goal: %w", err)
 		}
 		s.logger.Info("✅ Created goal", zap.String("name", goal.Name))
 	}
@@ -154,7 +181,7 @@ func (s *Seeder) seedSalariedProfile(tx *gorm.DB, userID uuid.UUID) error {
 	for _, debt := range debts {
 		debt.UpdateCalculatedFields()
 		if err := tx.Create(debt).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create debt: %w", err)
 		}
 		s.logger.Info("✅ Created debt", zap.String("name", debt.Name))
 	}

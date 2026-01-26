@@ -19,9 +19,10 @@ type DebtInfo struct {
 	Name           string  `json:"name"`
 	Type           string  `json:"type"` // "credit_card", "student_loan", "car_loan", "personal", "mortgage"
 	Balance        float64 `json:"balance"`
-	InterestRate   float64 `json:"interest_rate"`    // Annual rate (decimal, e.g., 0.18 = 18%)
-	MinimumPayment float64 `json:"minimum_payment"`  // Monthly minimum
-	IsVariableRate bool    `json:"is_variable_rate"` // For sensitivity analysis
+	InterestRate   float64 `json:"interest_rate"`      // Annual rate (decimal, e.g., 0.18 = 18%)
+	MinimumPayment float64 `json:"minimum_payment"`    // Monthly minimum
+	IsVariableRate bool    `json:"is_variable_rate"`   // For sensitivity analysis
+	Behavior       string  `json:"behavior,omitempty"` // "revolving", "installment", "interest_only" - payment behavior type
 
 	// Psychological factors
 	IsEmbarrassing bool `json:"is_embarrassing"` // Nợ gia đình, bạn bè
@@ -73,14 +74,16 @@ type MonthlySnapshot struct {
 
 // StrategyComparison so sánh giữa các strategies
 type StrategyComparison struct {
-	Strategy         Strategy `json:"strategy"`
-	TotalInterest    float64  `json:"total_interest"`
-	Months           int      `json:"months"`
-	InterestSaved    float64  `json:"interest_saved"`
-	FirstDebtCleared int      `json:"first_debt_cleared"` // Month when first debt is paid off
-	Description      string   `json:"description"`
-	Pros             []string `json:"pros"`
-	Cons             []string `json:"cons"`
+	Strategy          Strategy      `json:"strategy"`
+	TotalInterest     float64       `json:"total_interest"`
+	Months            int           `json:"months"`
+	InterestSaved     float64       `json:"interest_saved"`
+	FirstDebtCleared  int           `json:"first_debt_cleared"` // Month when first debt is paid off
+	Description       string        `json:"description"`
+	Pros              []string      `json:"pros"`
+	Cons              []string      `json:"cons"`
+	PaymentPlans      []PaymentPlan `json:"payment_plans,omitempty"` // Payment plans for this strategy
+	MonthlyAllocation float64       `json:"monthly_allocation"`      // Total monthly payment allocation for this strategy
 }
 
 // MonthlyAggregate aggregated monthly schedule

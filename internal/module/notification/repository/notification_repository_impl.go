@@ -4,7 +4,6 @@ import (
 	"context"
 	"personalfinancedss/internal/module/notification/domain"
 	"personalfinancedss/internal/shared"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -28,22 +27,6 @@ func (r *notificationRepository) Create(ctx context.Context, notification *domai
 		return err
 	}
 	return nil
-}
-
-func (r *notificationRepository) GetByID(ctx context.Context, id string) (*domain.Notification, error) {
-	notificationID, err := uuid.Parse(id)
-	if err != nil {
-		return nil, shared.ErrBadRequest.WithDetails("field", "id").WithDetails("reason", "invalid UUID")
-	}
-
-	var notification domain.Notification
-	if err := r.db.WithContext(ctx).First(&notification, "id = ?", notificationID).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, shared.ErrNotFound
-		}
-		return nil, err
-	}
-	return &notification, nil
 }
 
 func (r *notificationRepository) ListByUserID(ctx context.Context, userID string, limit, offset int) ([]domain.Notification, error) {
@@ -70,75 +53,6 @@ func (r *notificationRepository) ListByUserID(ctx context.Context, userID string
 	return notifications, nil
 }
 
-func (r *notificationRepository) UpdateStatus(ctx context.Context, id string, status string) error {
-	notificationID, err := uuid.Parse(id)
-	if err != nil {
-		return shared.ErrBadRequest.WithDetails("field", "id").WithDetails("reason", "invalid UUID")
-	}
-
-	result := r.db.WithContext(ctx).
-		Model(&domain.Notification{}).
-		Where("id = ?", notificationID).
-		Update("status", status)
-
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return shared.ErrNotFound
-	}
-	return nil
-}
-
-func (r *notificationRepository) MarkAsSent(ctx context.Context, id string) error {
-	notificationID, err := uuid.Parse(id)
-	if err != nil {
-		return shared.ErrBadRequest.WithDetails("field", "id").WithDetails("reason", "invalid UUID")
-	}
-
-	now := time.Now()
-	result := r.db.WithContext(ctx).
-		Model(&domain.Notification{}).
-		Where("id = ?", notificationID).
-		Updates(map[string]interface{}{
-			"status":  "sent",
-			"sent_at": &now,
-		})
-
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return shared.ErrNotFound
-	}
-	return nil
-}
-
-func (r *notificationRepository) MarkAsFailed(ctx context.Context, id string, errorMsg string) error {
-	notificationID, err := uuid.Parse(id)
-	if err != nil {
-		return shared.ErrBadRequest.WithDetails("field", "id").WithDetails("reason", "invalid UUID")
-	}
-
-	now := time.Now()
-	result := r.db.WithContext(ctx).
-		Model(&domain.Notification{}).
-		Where("id = ?", notificationID).
-		Updates(map[string]interface{}{
-			"status":        "failed",
-			"failed_at":     &now,
-			"error_message": &errorMsg,
-		})
-
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return shared.ErrNotFound
-	}
-	return nil
-}
-
 func (r *notificationRepository) CountUnreadByUserID(ctx context.Context, userID string) (int64, error) {
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
@@ -155,15 +69,20 @@ func (r *notificationRepository) CountUnreadByUserID(ctx context.Context, userID
 	return count, nil
 }
 
-func (r *notificationRepository) MarkAsRead(ctx context.Context, id string) error {
+func (r *notificationRepository) MarkAsRead(ctx context.Context, userID, id string) error {
 	notificationID, err := uuid.Parse(id)
 	if err != nil {
 		return shared.ErrBadRequest.WithDetails("field", "id").WithDetails("reason", "invalid UUID")
 	}
 
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return shared.ErrBadRequest.WithDetails("field", "user_id").WithDetails("reason", "invalid UUID")
+	}
+
 	result := r.db.WithContext(ctx).
 		Model(&domain.Notification{}).
-		Where("id = ?", notificationID).
+		Where("id = ? AND user_id = ?", notificationID, userUUID).
 		Update("status", "read")
 
 	if result.Error != nil {

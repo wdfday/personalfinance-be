@@ -35,11 +35,11 @@ type TransactionResponse struct {
 	UserNote    string `json:"userNote,omitempty"`    // User's note
 	Reference   string `json:"reference,omitempty"`   // Bank reference code
 
+	// User-selected category (FK to categories table)
+	UserCategoryID string `json:"userCategoryId,omitempty"`
+
 	// Counterparty information
 	Counterparty *CounterpartyResponse `json:"counterparty,omitempty"`
-
-	// Classification
-	Classification *ClassificationResponse `json:"classification,omitempty"`
 
 	// Links to other entities
 	Links []TransactionLinkResponse `json:"links,omitempty"`
@@ -54,15 +54,6 @@ type CounterpartyResponse struct {
 	AccountNumber string `json:"accountNumber,omitempty"`
 	BankName      string `json:"bankName,omitempty"`
 	Type          string `json:"type,omitempty"` // MERCHANT / PERSON / INTERNAL / UNKNOWN
-}
-
-// ClassificationResponse represents transaction classification in API responses
-type ClassificationResponse struct {
-	SystemCategory string   `json:"systemCategory,omitempty"` // e.g., "SPENDING:GROCERIES"
-	UserCategoryID string   `json:"userCategoryId,omitempty"` // User-selected category
-	IsTransfer     bool     `json:"isTransfer,omitempty"`     // Transfer between user's accounts
-	IsRefund       bool     `json:"isRefund,omitempty"`       // Refund transaction
-	Tags           []string `json:"tags,omitempty"`           // Free-form tags
 }
 
 // TransactionLinkResponse represents a link to another financial entity

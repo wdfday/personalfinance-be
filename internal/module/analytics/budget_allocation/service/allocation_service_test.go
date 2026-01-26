@@ -83,18 +83,13 @@ func TestExecuteAllocationRequest_Validation(t *testing.T) {
 		valid        bool
 	}{
 		{
-			name:         "Conservative scenario",
-			scenarioType: domain.ScenarioConservative,
+			name:         "Safe scenario",
+			scenarioType: domain.ScenarioSafe,
 			valid:        true,
 		},
 		{
 			name:         "Balanced scenario",
 			scenarioType: domain.ScenarioBalanced,
-			valid:        true,
-		},
-		{
-			name:         "Aggressive scenario",
-			scenarioType: domain.ScenarioAggressive,
 			valid:        true,
 		},
 		{
@@ -105,9 +100,8 @@ func TestExecuteAllocationRequest_Validation(t *testing.T) {
 	}
 
 	validTypes := map[domain.ScenarioType]bool{
-		domain.ScenarioConservative: true,
-		domain.ScenarioBalanced:     true,
-		domain.ScenarioAggressive:   true,
+		domain.ScenarioSafe:     true,
+		domain.ScenarioBalanced: true,
 	}
 
 	for _, tt := range tests {

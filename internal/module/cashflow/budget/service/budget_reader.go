@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"personalfinancedss/internal/module/cashflow/budget/domain"
+	"personalfinancedss/internal/module/cashflow/budget/dto"
 	"personalfinancedss/internal/module/cashflow/budget/repository"
 	"time"
 
@@ -10,82 +11,66 @@ import (
 	"go.uber.org/zap"
 )
 
-// BudgetReader handles budget read operations
-type BudgetReader struct {
-	service *budgetService
-}
-
-// NewBudgetReader creates a new budget reader
-func NewBudgetReader(service *budgetService) *BudgetReader {
-	return &BudgetReader{service: service}
-}
-
-// GetBudgetByID retrieves a budget by ID
-func (r *BudgetReader) GetBudgetByID(ctx context.Context, budgetID uuid.UUID) (*domain.Budget, error) {
-	r.service.logger.Debug("Getting budget by ID", zap.String("budget_id", budgetID.String()))
-	return r.service.repo.FindByID(ctx, budgetID)
-}
-
 // GetBudgetByIDForUser retrieves a budget by ID with ownership verification
-func (r *BudgetReader) GetBudgetByIDForUser(ctx context.Context, budgetID, userID uuid.UUID) (*domain.Budget, error) {
-	r.service.logger.Debug("Getting budget by ID for user",
+func (s *budgetService) GetBudgetByIDForUser(ctx context.Context, budgetID, userID uuid.UUID) (*domain.Budget, error) {
+	s.logger.Debug("Getting budget by ID for user",
 		zap.String("budget_id", budgetID.String()),
 		zap.String("user_id", userID.String()),
 	)
-	return r.service.repo.FindByIDAndUserID(ctx, budgetID, userID)
+	return s.repo.FindByIDAndUserID(ctx, budgetID, userID)
+}
+
+// GetUserBudgets retrieves all budgets for a user
+func (s *budgetService) GetUserBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error) {
+	s.logger.Debug("Getting user budgets", zap.String("user_id", userID.String()))
+	return s.repo.FindByUserID(ctx, userID)
 }
 
 // GetUserBudgetsPaginated retrieves budgets for a user with pagination
-func (r *BudgetReader) GetUserBudgetsPaginated(ctx context.Context, userID uuid.UUID, page, pageSize int) (*repository.PaginatedResult, error) {
-	r.service.logger.Debug("Getting user budgets paginated",
+func (s *budgetService) GetUserBudgetsPaginated(ctx context.Context, userID uuid.UUID, page, pageSize int) (*repository.PaginatedResult, error) {
+	s.logger.Debug("Getting user budgets paginated",
 		zap.String("user_id", userID.String()),
 		zap.Int("page", page),
 		zap.Int("page_size", pageSize),
 	)
-	return r.service.repo.FindByUserIDPaginated(ctx, userID, repository.PaginationParams{
+	return s.repo.FindByUserIDPaginated(ctx, userID, repository.PaginationParams{
 		Page:     page,
 		PageSize: pageSize,
 	})
 }
 
-// GetUserBudgets retrieves all budgets for a user
-func (r *BudgetReader) GetUserBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error) {
-	r.service.logger.Debug("Getting user budgets", zap.String("user_id", userID.String()))
-	return r.service.repo.FindByUserID(ctx, userID)
-}
-
 // GetActiveBudgets retrieves all active budgets for a user
-func (r *BudgetReader) GetActiveBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error) {
-	r.service.logger.Debug("Getting active budgets", zap.String("user_id", userID.String()))
-	return r.service.repo.FindActiveByUserID(ctx, userID)
+func (s *budgetService) GetActiveBudgets(ctx context.Context, userID uuid.UUID) ([]domain.Budget, error) {
+	s.logger.Debug("Getting active budgets", zap.String("user_id", userID.String()))
+	return s.repo.FindActiveByUserID(ctx, userID)
 }
 
 // GetBudgetsByCategory retrieves budgets for a specific category
-func (r *BudgetReader) GetBudgetsByCategory(ctx context.Context, userID, categoryID uuid.UUID) ([]domain.Budget, error) {
-	r.service.logger.Debug("Getting budgets by category",
+func (s *budgetService) GetBudgetsByCategory(ctx context.Context, userID, categoryID uuid.UUID) ([]domain.Budget, error) {
+	s.logger.Debug("Getting budgets by category",
 		zap.String("user_id", userID.String()),
 		zap.String("category_id", categoryID.String()),
 	)
-	return r.service.repo.FindByUserIDAndCategory(ctx, userID, categoryID)
+	return s.repo.FindByUserIDAndCategory(ctx, userID, categoryID)
 }
 
-// GetBudgetsByAccount retrieves budgets for a specific account
-func (r *BudgetReader) GetBudgetsByAccount(ctx context.Context, userID, accountID uuid.UUID) ([]domain.Budget, error) {
-	r.service.logger.Debug("Getting budgets by account",
+// GetBudgetsByConstraint retrieves budgets for a specific constraint
+func (s *budgetService) GetBudgetsByConstraint(ctx context.Context, userID, constraintID uuid.UUID) ([]domain.Budget, error) {
+	s.logger.Debug("Getting budgets by constraint",
 		zap.String("user_id", userID.String()),
-		zap.String("account_id", accountID.String()),
+		zap.String("constraint_id", constraintID.String()),
 	)
-	return r.service.repo.FindByUserIDAndAccount(ctx, userID, accountID)
+	return s.repo.FindByConstraintID(ctx, userID, constraintID)
 }
 
 // GetBudgetsByPeriod gets budgets for a specific period
-func (r *BudgetReader) GetBudgetsByPeriod(ctx context.Context, userID uuid.UUID, period domain.BudgetPeriod) ([]domain.Budget, error) {
-	r.service.logger.Debug("Getting budgets by period",
+func (s *budgetService) GetBudgetsByPeriod(ctx context.Context, userID uuid.UUID, period domain.BudgetPeriod) ([]domain.Budget, error) {
+	s.logger.Debug("Getting budgets by period",
 		zap.String("user_id", userID.String()),
 		zap.String("period", string(period)),
 	)
 
-	budgets, err := r.service.repo.FindByUserID(ctx, userID)
+	budgets, err := s.repo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -101,16 +86,16 @@ func (r *BudgetReader) GetBudgetsByPeriod(ctx context.Context, userID uuid.UUID,
 }
 
 // GetBudgetSummary gets a summary of budget performance
-func (r *BudgetReader) GetBudgetSummary(ctx context.Context, userID uuid.UUID, period time.Time) (*BudgetSummary, error) {
-	r.service.logger.Debug("Getting budget summary", zap.String("user_id", userID.String()))
+func (s *budgetService) GetBudgetSummary(ctx context.Context, userID uuid.UUID, period time.Time) (*dto.BudgetSummary, error) {
+	s.logger.Debug("Getting budget summary", zap.String("user_id", userID.String()))
 
-	budgets, err := r.service.repo.FindByUserID(ctx, userID)
+	budgets, err := s.repo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	summary := &BudgetSummary{
-		BudgetsByCategory: make(map[string]*CategoryBudgetSum),
+	summary := &dto.BudgetSummary{
+		BudgetsByCategory: make(map[string]*dto.CategoryBudgetSum),
 	}
 
 	var totalPercentage float64
@@ -135,7 +120,7 @@ func (r *BudgetReader) GetBudgetSummary(ctx context.Context, userID uuid.UUID, p
 		if budget.CategoryID != nil {
 			categoryKey := budget.CategoryID.String()
 			if _, exists := summary.BudgetsByCategory[categoryKey]; !exists {
-				summary.BudgetsByCategory[categoryKey] = &CategoryBudgetSum{
+				summary.BudgetsByCategory[categoryKey] = &dto.CategoryBudgetSum{
 					CategoryID: *budget.CategoryID,
 				}
 			}
@@ -157,18 +142,18 @@ func (r *BudgetReader) GetBudgetSummary(ctx context.Context, userID uuid.UUID, p
 }
 
 // GetBudgetVsActual gets budget vs actual spending comparison
-func (r *BudgetReader) GetBudgetVsActual(ctx context.Context, userID uuid.UUID, period domain.BudgetPeriod, startDate, endDate time.Time) ([]*BudgetVsActual, error) {
-	r.service.logger.Debug("Getting budget vs actual",
+func (s *budgetService) GetBudgetVsActual(ctx context.Context, userID uuid.UUID, period domain.BudgetPeriod, startDate, endDate time.Time) ([]*dto.BudgetVsActual, error) {
+	s.logger.Debug("Getting budget vs actual",
 		zap.String("user_id", userID.String()),
 		zap.String("period", string(period)),
 	)
 
-	budgets, err := r.service.repo.FindByUserID(ctx, userID)
+	budgets, err := s.repo.FindByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	var results []*BudgetVsActual
+	var results []*dto.BudgetVsActual
 
 	for _, budget := range budgets {
 		if budget.Period != period {
@@ -177,7 +162,7 @@ func (r *BudgetReader) GetBudgetVsActual(ctx context.Context, userID uuid.UUID, 
 
 		// Calculate actual spending from transactions
 		var actualSpent float64
-		query := r.service.db.Table("transactions").
+		query := s.db.Table("transactions").
 			Where("user_id = ?", userID).
 			Where("direction = ?", "DEBIT").
 			Where("booking_date BETWEEN ? AND ?", startDate, endDate)
@@ -187,7 +172,7 @@ func (r *BudgetReader) GetBudgetVsActual(ctx context.Context, userID uuid.UUID, 
 		}
 
 		if err := query.Select("COALESCE(SUM(amount), 0) / 100.0").Scan(&actualSpent).Error; err != nil {
-			r.service.logger.Error("Failed to calculate actual spending", zap.Error(err))
+			s.logger.Error("Failed to calculate actual spending", zap.Error(err))
 			continue
 		}
 
@@ -204,7 +189,7 @@ func (r *BudgetReader) GetBudgetVsActual(ctx context.Context, userID uuid.UUID, 
 			status = "over"
 		}
 
-		results = append(results, &BudgetVsActual{
+		results = append(results, &dto.BudgetVsActual{
 			BudgetID:     budget.ID,
 			CategoryID:   budget.CategoryID,
 			BudgetAmount: budget.Amount,
@@ -218,36 +203,38 @@ func (r *BudgetReader) GetBudgetVsActual(ctx context.Context, userID uuid.UUID, 
 	return results, nil
 }
 
-// GetBudgetProgressForUser gets detailed progress for a budget with ownership verification
-func (r *BudgetReader) GetBudgetProgressForUser(ctx context.Context, budgetID, userID uuid.UUID) (*BudgetProgress, error) {
-	r.service.logger.Debug("Getting budget progress for user",
+// GetBudgetProgress gets detailed progress for a budget with ownership verification
+func (s *budgetService) GetBudgetProgress(ctx context.Context, budgetID, userID uuid.UUID) (*dto.BudgetProgress, error) {
+	s.logger.Debug("Getting budget progress for user",
 		zap.String("budget_id", budgetID.String()),
 		zap.String("user_id", userID.String()),
 	)
 
-	budget, err := r.service.repo.FindByIDAndUserID(ctx, budgetID, userID)
+	budget, err := s.repo.FindByIDAndUserID(ctx, budgetID, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.calculateBudgetProgress(ctx, budget)
+	return s.calculateBudgetProgress(ctx, budget)
 }
 
-// GetBudgetProgress gets detailed progress for a budget (deprecated - use GetBudgetProgressForUser)
-func (r *BudgetReader) GetBudgetProgress(ctx context.Context, budgetID uuid.UUID) (*BudgetProgress, error) {
-	r.service.logger.Debug("Getting budget progress", zap.String("budget_id", budgetID.String()))
+// GetBudgetAnalytics gets analytics for a budget with ownership verification
+func (s *budgetService) GetBudgetAnalytics(ctx context.Context, budgetID, userID uuid.UUID) (*dto.BudgetAnalytics, error) {
+	s.logger.Debug("Getting budget analytics for user",
+		zap.String("budget_id", budgetID.String()),
+		zap.String("user_id", userID.String()),
+	)
 
-	budget, err := r.service.repo.FindByID(ctx, budgetID)
+	budget, err := s.repo.FindByIDAndUserID(ctx, budgetID, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.calculateBudgetProgress(ctx, budget)
+	return s.calculateBudgetAnalytics(ctx, budget)
 }
 
 // calculateBudgetProgress calculates progress for a budget
-func (r *BudgetReader) calculateBudgetProgress(ctx context.Context, budget *domain.Budget) (*BudgetProgress, error) {
-
+func (s *budgetService) calculateBudgetProgress(ctx context.Context, budget *domain.Budget) (*dto.BudgetProgress, error) {
 	now := time.Now()
 	daysElapsed := int(now.Sub(budget.StartDate).Hours() / 24)
 	daysRemaining := 0
@@ -277,7 +264,7 @@ func (r *BudgetReader) calculateBudgetProgress(ctx context.Context, budget *doma
 	var transactionCount int64
 	var lastTransactionDate *time.Time
 
-	query := r.service.db.Table("transactions").
+	query := s.db.Table("transactions").
 		Where("user_id = ?", budget.UserID).
 		Where("direction = ?", "DEBIT").
 		Where("booking_date >= ?", budget.StartDate)
@@ -299,7 +286,7 @@ func (r *BudgetReader) calculateBudgetProgress(ctx context.Context, budget *doma
 		}
 	}
 
-	return &BudgetProgress{
+	return &dto.BudgetProgress{
 		BudgetID:         budget.ID,
 		Name:             budget.Name,
 		Period:           budget.Period,
@@ -320,47 +307,20 @@ func (r *BudgetReader) calculateBudgetProgress(ctx context.Context, budget *doma
 	}, nil
 }
 
-// GetBudgetAnalyticsForUser gets analytics for a budget with ownership verification
-func (r *BudgetReader) GetBudgetAnalyticsForUser(ctx context.Context, budgetID, userID uuid.UUID) (*BudgetAnalytics, error) {
-	r.service.logger.Debug("Getting budget analytics for user",
-		zap.String("budget_id", budgetID.String()),
-		zap.String("user_id", userID.String()),
-	)
-
-	budget, err := r.service.repo.FindByIDAndUserID(ctx, budgetID, userID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.calculateBudgetAnalytics(ctx, budget)
-}
-
-// GetBudgetAnalytics gets analytics for a budget (deprecated - use GetBudgetAnalyticsForUser)
-func (r *BudgetReader) GetBudgetAnalytics(ctx context.Context, budgetID uuid.UUID) (*BudgetAnalytics, error) {
-	r.service.logger.Debug("Getting budget analytics", zap.String("budget_id", budgetID.String()))
-
-	budget, err := r.service.repo.FindByID(ctx, budgetID)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.calculateBudgetAnalytics(ctx, budget)
-}
-
 // calculateBudgetAnalytics calculates analytics for a budget
-func (r *BudgetReader) calculateBudgetAnalytics(ctx context.Context, budget *domain.Budget) (*BudgetAnalytics, error) {
+func (s *budgetService) calculateBudgetAnalytics(ctx context.Context, budget *domain.Budget) (*dto.BudgetAnalytics, error) {
 	// Calculate historical average (last 6 months)
 	sixMonthsAgo := time.Now().AddDate(0, -6, 0)
 	var historicalAvg float64
 
 	var monthSelect string
-	if r.service.db.Dialector.Name() != "postgres" {
+	if s.db.Dialector.Name() != "postgres" {
 		monthSelect = "strftime('%Y-%m-01 00:00:00', booking_date) as month"
 	} else {
 		monthSelect = "DATE_TRUNC('month', booking_date) as month"
 	}
 
-	subQuery := r.service.db.Table("transactions").
+	subQuery := s.db.Table("transactions").
 		Select(monthSelect+", SUM(amount) / 100.0 as monthly_sum").
 		Where("user_id = ?", budget.UserID).
 		Where("direction = ?", "DEBIT").
@@ -372,7 +332,7 @@ func (r *BudgetReader) calculateBudgetAnalytics(ctx context.Context, budget *dom
 
 	subQuery = subQuery.Group("month")
 
-	r.service.db.Table("(?) as monthly", subQuery).
+	s.db.Table("(?) as monthly", subQuery).
 		Select("COALESCE(AVG(monthly_sum), 0)").
 		Scan(&historicalAvg)
 
@@ -399,7 +359,7 @@ func (r *BudgetReader) calculateBudgetAnalytics(ctx context.Context, budget *dom
 		optimizationScore = 0.9
 	}
 
-	return &BudgetAnalytics{
+	return &dto.BudgetAnalytics{
 		BudgetID:          budget.ID,
 		HistoricalAverage: historicalAvg,
 		Trend:             trend,

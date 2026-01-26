@@ -22,6 +22,67 @@ type MonthViewResponse struct {
 	Categories   []CategoryLineResponse `json:"categories"`
 	CreatedAt    time.Time              `json:"created_at"`
 	UpdatedAt    time.Time              `json:"updated_at"`
+
+	// DSS Workflow data (optional - only if DSS has been run)
+	DSSWorkflow *DSSWorkflowSummary `json:"dss_workflow,omitempty"`
+
+	// Goal and Debt allocations from DSS (optional - only if DSS has been run)
+	GoalAllocations map[string]float64 `json:"goal_allocations,omitempty"` // goal_id -> allocated amount
+	DebtAllocations map[string]float64 `json:"debt_allocations,omitempty"` // debt_id -> allocated amount
+}
+
+// DSSWorkflowSummary provides a summary of DSS workflow results
+type DSSWorkflowSummary struct {
+	CurrentStep    int       `json:"current_step"`
+	CompletedSteps []int     `json:"completed_steps"`
+	IsComplete     bool      `json:"is_complete"`
+	LastUpdated    time.Time `json:"last_updated"`
+
+	// Goal Prioritization summary
+	GoalPrioritization *GoalPrioritizationSummary `json:"goal_prioritization,omitempty"`
+
+	// Debt Strategy summary
+	DebtStrategy *DebtStrategySummary `json:"debt_strategy,omitempty"`
+
+	// Budget Allocation summary
+	BudgetAllocation *BudgetAllocationSummary `json:"budget_allocation,omitempty"`
+}
+
+// GoalPrioritizationSummary is a simplified view of goal prioritization
+type GoalPrioritizationSummary struct {
+	Method   string               `json:"method"`
+	Rankings []GoalRankingSummary `json:"rankings"`
+}
+
+// GoalRankingSummary is a simplified goal ranking
+type GoalRankingSummary struct {
+	GoalID          string  `json:"goal_id"`
+	GoalName        string  `json:"goal_name"`
+	Rank            int     `json:"rank"`
+	Score           float64 `json:"score"`
+	SuggestedAmount float64 `json:"suggested_amount"`
+}
+
+// DebtStrategySummary is a simplified view of debt strategy
+type DebtStrategySummary struct {
+	Strategy    string               `json:"strategy"`
+	PaymentPlan []DebtPaymentSummary `json:"payment_plan,omitempty"`
+}
+
+// DebtPaymentSummary is a simplified debt payment plan
+type DebtPaymentSummary struct {
+	DebtID       string  `json:"debt_id"`
+	DebtName     string  `json:"debt_name"`
+	MinPayment   float64 `json:"min_payment"`
+	ExtraPayment float64 `json:"extra_payment,omitempty"`
+	TotalPayment float64 `json:"total_payment"`
+}
+
+// BudgetAllocationSummary is a simplified view of budget allocation
+type BudgetAllocationSummary struct {
+	Method              string             `json:"method"`
+	OptimalityScore     float64            `json:"optimality_score"`
+	CategoryAllocations map[string]float64 `json:"category_allocations"` // category_id -> amount
 }
 
 // CategoryLineResponse represents a single category row in the budget grid

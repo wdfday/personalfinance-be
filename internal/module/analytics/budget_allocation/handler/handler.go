@@ -74,7 +74,7 @@ func (h *Handler) ExecuteBudgetAllocation(c *gin.Context) {
 
 // GenerateAllocations godoc
 // @Summary Generate Budget Allocation Scenarios
-// @Description Generate conservative, balanced, and aggressive budget allocation scenarios
+// @Description Generate safe and balanced budget allocation scenarios
 // @Tags analytics
 // @Accept json
 // @Produce json

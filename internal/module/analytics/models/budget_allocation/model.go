@@ -84,21 +84,48 @@ func (m *BudgetAllocationModel) Execute(ctx context.Context, input interface{}) 
 		})
 	}
 
-	// Generate scenarios based on request
+	// Build category names (needed for scenarios and sensitivity analysis)
 	categoryNames := m.buildCategoryNames(bi)
 	scenarioGenerator := NewScenarioGenerator()
 
-	if bi.UseAllScenarios {
-		// Generate all 3 scenarios with comparison
-		generatedScenarios, err := scenarioGenerator.GenerateScenarios(constraintModel, categoryNames)
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate scenarios: %w", err)
-		}
-		scenarios = generatedScenarios
-	} else {
-		// Generate only balanced scenario
+	// Handle case: no goals and no debts - just allocate to expenses and surplus
+	goalsCount := len(constraintModel.GoalTargets)
+	debtsCount := len(constraintModel.DebtPayments)
+	if goalsCount == 0 && debtsCount == 0 {
+		// No optimization needed, just allocate mandatory + flexible expenses
 		balanced := scenarioGenerator.GenerateBalancedScenario(constraintModel, categoryNames)
 		scenarios = append(scenarios, balanced)
+	} else {
+		// Generate scenarios based on request
+		if bi.UseAllScenarios {
+			// Generate 2 scenarios (Safe and Balanced) with optional custom parameters
+			customParams := make(map[string]*domain.ScenarioParameters)
+			if bi.CustomScenarioParams != nil {
+				for _, cp := range bi.CustomScenarioParams {
+					params := &domain.ScenarioParameters{
+						ScenarioType:           domain.ScenarioType(cp.ScenarioType),
+						GoalContributionFactor: cp.GoalContributionFactor,
+						FlexibleSpendingLevel:  cp.FlexibleSpendingLevel,
+						SurplusAllocation: domain.SurplusAllocation{
+							EmergencyFundPercent: cp.EmergencyFundPercent,
+							DebtExtraPercent:     0.0,
+							GoalsPercent:         cp.GoalsPercent,
+							FlexiblePercent:      cp.FlexiblePercent,
+						},
+					}
+					customParams[cp.ScenarioType] = params
+				}
+			}
+			generatedScenarios, err := scenarioGenerator.GenerateScenarios(constraintModel, categoryNames, customParams)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate scenarios: %w", err)
+			}
+			scenarios = generatedScenarios
+		} else {
+			// Generate only balanced scenario
+			balanced := scenarioGenerator.GenerateBalancedScenario(constraintModel, categoryNames)
+			scenarios = append(scenarios, balanced)
+		}
 	}
 
 	// Run sensitivity analysis if requested
@@ -163,10 +190,15 @@ func (m *BudgetAllocationModel) buildConstraintModel(input *dto.BudgetAllocation
 
 	// Map debts
 	for _, debt := range input.Debts {
+		// FixedPayment = MinimumPayment because MinimumPayment in DebtInput is already the adjustedPayment
+		// (base + extra) from dss_workflow_impl.go, which is calculated from DEBT STRATEGY OUTPUT.
+		// The debt strategy output provides weights that determine extra payments for revolving debts.
+		// This adjustedPayment (from debt strategy) is then FORCED as FixedPayment in heuristic solver.
 		model.DebtPayments[debt.DebtID] = domain.DebtConstraint{
 			DebtID:         debt.DebtID,
 			DebtName:       debt.Name,
 			MinimumPayment: debt.MinimumPayment,
+			FixedPayment:   debt.MinimumPayment, // FORCE: This is from debt strategy output (base + extra from strategy weights)
 			CurrentBalance: debt.Balance,
 			InterestRate:   debt.InterestRate,
 			Priority:       m.calculateDebtPriority(debt.InterestRate),

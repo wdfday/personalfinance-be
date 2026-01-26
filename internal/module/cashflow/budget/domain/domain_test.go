@@ -253,7 +253,7 @@ func TestBudget_ShouldAlert(t *testing.T) {
 			name: "should alert - alerts enabled and threshold in list",
 			budget: &Budget{
 				EnableAlerts:    true,
-				AlertThresholds: []AlertThreshold{AlertAt50, AlertAt75, AlertAt90},
+				AlertThresholds: AlertThresholdsJSON{AlertAt50, AlertAt75, AlertAt90},
 			},
 			threshold: AlertAt75,
 			expected:  true,
@@ -262,7 +262,7 @@ func TestBudget_ShouldAlert(t *testing.T) {
 			name: "should not alert - alerts disabled",
 			budget: &Budget{
 				EnableAlerts:    false,
-				AlertThresholds: []AlertThreshold{AlertAt75, AlertAt90, AlertAt100},
+				AlertThresholds: AlertThresholdsJSON{AlertAt75, AlertAt90, AlertAt100},
 			},
 			threshold: AlertAt75,
 			expected:  false,
@@ -271,7 +271,7 @@ func TestBudget_ShouldAlert(t *testing.T) {
 			name: "should not alert - threshold not in list",
 			budget: &Budget{
 				EnableAlerts:    true,
-				AlertThresholds: []AlertThreshold{AlertAt50, AlertAt90},
+				AlertThresholds: AlertThresholdsJSON{AlertAt50, AlertAt90},
 			},
 			threshold: AlertAt75,
 			expected:  false,
@@ -280,7 +280,7 @@ func TestBudget_ShouldAlert(t *testing.T) {
 			name: "should alert - at 50% threshold",
 			budget: &Budget{
 				EnableAlerts:    true,
-				AlertThresholds: []AlertThreshold{AlertAt50, AlertAt75, AlertAt90, AlertAt100},
+				AlertThresholds: AlertThresholdsJSON{AlertAt50, AlertAt75, AlertAt90, AlertAt100},
 			},
 			threshold: AlertAt50,
 			expected:  true,
@@ -289,7 +289,7 @@ func TestBudget_ShouldAlert(t *testing.T) {
 			name: "should alert - at 100% threshold",
 			budget: &Budget{
 				EnableAlerts:    true,
-				AlertThresholds: []AlertThreshold{AlertAt100},
+				AlertThresholds: AlertThresholdsJSON{AlertAt100},
 			},
 			threshold: AlertAt100,
 			expected:  true,
@@ -298,7 +298,7 @@ func TestBudget_ShouldAlert(t *testing.T) {
 			name: "should not alert - empty threshold list",
 			budget: &Budget{
 				EnableAlerts:    true,
-				AlertThresholds: []AlertThreshold{},
+				AlertThresholds: AlertThresholdsJSON{},
 			},
 			threshold: AlertAt75,
 			expected:  false,
@@ -414,7 +414,7 @@ func TestBudget_Structure(t *testing.T) {
 			Status:               BudgetStatusActive,
 			LastCalculatedAt:     &lastCalculated,
 			EnableAlerts:         true,
-			AlertThresholds:      []AlertThreshold{AlertAt50, AlertAt75, AlertAt90},
+			AlertThresholds:      AlertThresholdsJSON{AlertAt50, AlertAt75, AlertAt90},
 			AllowRollover:        true,
 			CarryOverPercent:     &carryOver,
 			AutoAdjust:           true,

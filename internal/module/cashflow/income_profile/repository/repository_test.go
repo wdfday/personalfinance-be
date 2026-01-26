@@ -69,11 +69,8 @@ func createTestIncomeProfile(userID uuid.UUID) *domain.IncomeProfile {
 		Currency:    "VND",
 		Frequency:   "monthly",
 		StartDate:   time.Now(),
-		BaseSalary:  40000000,
-		Bonus:       10000000,
 		Status:      domain.IncomeStatusActive,
 		IsRecurring: true,
-		IsVerified:  false,
 	}
 }
 
@@ -401,7 +398,6 @@ func TestGormRepository_List(t *testing.T) {
 	active := createTestIncomeProfile(userID)
 	active.Status = domain.IncomeStatusActive
 	active.IsRecurring = true
-	active.IsVerified = true
 	err := repo.Create(ctx, active)
 	require.NoError(t, err)
 
@@ -441,13 +437,7 @@ func TestGormRepository_List(t *testing.T) {
 			},
 			expectedCount: 1,
 		},
-		{
-			name: "filter by verified",
-			query: dto.ListIncomeProfilesQuery{
-				IsVerified: boolPtr(true),
-			},
-			expectedCount: 1,
-		},
+		// Filter by verified - REMOVED: IsVerified field has been removed
 		{
 			name: "include archived",
 			query: dto.ListIncomeProfilesQuery{
@@ -479,7 +469,6 @@ func TestGormRepository_Update(t *testing.T) {
 
 	// Update fields
 	ip.Amount = 60000000
-	ip.IsVerified = true
 	ip.Status = domain.IncomeStatusArchived
 
 	err = repo.Update(ctx, ip)
@@ -489,7 +478,6 @@ func TestGormRepository_Update(t *testing.T) {
 	found, err := repo.GetByID(ctx, ip.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, float64(60000000), found.Amount)
-	assert.True(t, found.IsVerified)
 	assert.Equal(t, domain.IncomeStatusArchived, found.Status)
 }
 

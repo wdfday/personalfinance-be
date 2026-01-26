@@ -8,9 +8,8 @@ import (
 type ScenarioType string
 
 const (
-	ScenarioConservative ScenarioType = "conservative"
-	ScenarioBalanced     ScenarioType = "balanced"
-	ScenarioAggressive   ScenarioType = "aggressive"
+	ScenarioSafe     ScenarioType = "safe"
+	ScenarioBalanced ScenarioType = "balanced"
 )
 
 // WarningSeverity represents the severity level of a warning
@@ -60,9 +59,16 @@ type DebtAllocation struct {
 	DebtName        string    `json:"debt_name"`
 	Amount          float64   `json:"amount"`
 	MinimumPayment  float64   `json:"minimum_payment"`
-	ExtraPayment    float64   `json:"extra_payment"` // Amount above minimum
-	InterestRate    float64   `json:"interest_rate"`
+	ExtraPayment    float64   `json:"extra_payment"`              // Amount above minimum
+	InterestRate    float64   `json:"interest_rate"`              // Annual interest rate (percentage)
 	InterestSavings float64   `json:"interest_savings,omitempty"` // Estimated savings from extra payment
+	PayoffMonth     int       `json:"payoff_month,omitempty"`     // Month when debt will be paid off (from debt strategy)
+
+	// Additional interest information
+	MonthlyInterest  float64 `json:"monthly_interest,omitempty"`  // Interest amount for this month
+	InterestPortion  float64 `json:"interest_portion,omitempty"`  // Interest portion in payment
+	PrincipalPortion float64 `json:"principal_portion,omitempty"` // Principal portion in payment
+	RemainingBalance float64 `json:"remaining_balance,omitempty"` // Balance after this payment
 }
 
 // AllocationSummary provides high-level summary of the allocation

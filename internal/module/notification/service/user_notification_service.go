@@ -14,14 +14,11 @@ type UserNotificationService interface {
 	// GetUnreadCount gets the count of unread notifications for a user
 	GetUnreadCount(ctx context.Context, userID string) (int64, error)
 
-	// MarkAsRead marks a notification as read
-	MarkAsRead(ctx context.Context, notificationID string) error
+	// MarkAsRead marks a notification as read (verifies ownership)
+	MarkAsRead(ctx context.Context, userID, notificationID string) error
 
 	// MarkAllAsRead marks all unread notifications as read for a user
 	MarkAllAsRead(ctx context.Context, userID string) error
-
-	// GetNotificationByID retrieves a single notification
-	GetNotificationByID(ctx context.Context, notificationID string) (*domain.Notification, error)
 }
 
 type userNotificationService struct {
@@ -51,14 +48,10 @@ func (s *userNotificationService) GetUnreadCount(ctx context.Context, userID str
 	return s.repo.CountUnreadByUserID(ctx, userID)
 }
 
-func (s *userNotificationService) MarkAsRead(ctx context.Context, notificationID string) error {
-	return s.repo.MarkAsRead(ctx, notificationID)
+func (s *userNotificationService) MarkAsRead(ctx context.Context, userID, notificationID string) error {
+	return s.repo.MarkAsRead(ctx, userID, notificationID)
 }
 
 func (s *userNotificationService) MarkAllAsRead(ctx context.Context, userID string) error {
 	return s.repo.MarkAllAsReadByUserID(ctx, userID)
-}
-
-func (s *userNotificationService) GetNotificationByID(ctx context.Context, notificationID string) (*domain.Notification, error) {
-	return s.repo.GetByID(ctx, notificationID)
 }

@@ -34,6 +34,7 @@ type InitDebtInput struct {
 	CurrentBalance float64 `json:"current_balance" binding:"required,gt=0"`
 	InterestRate   float64 `json:"interest_rate" binding:"gte=0"`
 	MinimumPayment float64 `json:"minimum_payment" binding:"gte=0"`
+	Behavior       string  `json:"behavior,omitempty"` // "revolving", "installment", "interest_only"
 }
 
 // InitConstraintInput is simplified constraint input for DSS

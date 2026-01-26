@@ -4,11 +4,10 @@ docs/*.backup
 
 /deploy/docker-compose.prod.yml
 /deploy/.env
-/.claude/
 /.idea/
 
 
 # Air hot reload
 tmp/
 build-errors.log
-/internal/module/chatbot/
+# /internal/module/chatbot/

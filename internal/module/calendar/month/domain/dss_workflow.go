@@ -6,11 +6,15 @@ import (
 	"github.com/google/uuid"
 )
 
-// DSSWorkflowResults contains results from all 5 sequential DSS steps
-// This is embedded in MonthState.DSSWorkflow for the new sequential workflow
+// DSSWorkflowResults contains results from all DSS steps
+// Current workflow (tradeoff step removed):
+// Step 0 (Auto-Scoring, preview only)
+// Step 1 (Goal Prioritization)
+// Step 2 (Debt Strategy)
+// Step 3 (Budget Allocation)
 type DSSWorkflowResults struct {
 	// Workflow metadata
-	CurrentStep    int       `json:"current_step"`    // 0-4 (0=not started, 1-4=steps completed)
+	CurrentStep    int       `json:"current_step"`    // 0-3 (0=not started, 1-3=steps completed)
 	CompletedSteps []int     `json:"completed_steps"` // Which steps have been applied
 	StartedAt      time.Time `json:"started_at"`
 	LastUpdated    time.Time `json:"last_updated"`
@@ -26,18 +30,17 @@ type DSSWorkflowResults struct {
 	DebtStrategy   *DebtStrategyResult `json:"debt_strategy,omitempty"`
 	AppliedAtStep2 *time.Time          `json:"applied_at_step2,omitempty"`
 
-	// Step 3: Goal-Debt Trade-off (new type)
-	GoalDebtTradeoff *GoalDebtTradeoffResult `json:"goal_debt_tradeoff,omitempty"`
-	AppliedAtStep3   *time.Time              `json:"applied_at_step3,omitempty"`
-
-	// Step 4: Budget Allocation (reuses BudgetAllocationResult from dss.go)
+	// Step 3: Budget Allocation (reuses BudgetAllocationResult from dss.go)
 	BudgetAllocation *BudgetAllocationResult `json:"budget_allocation,omitempty"`
-	AppliedAtStep4   *time.Time              `json:"applied_at_step4,omitempty"`
+	AppliedAtStep3   *time.Time              `json:"applied_at_step3,omitempty"`
 }
 
-// IsComplete returns true if all 4 steps have been applied (steps 1-4)
+// IsComplete returns true if all 3 apply steps have been applied (steps 1-3)
+// Step 0 (Auto-Scoring) is preview-only, so it's optional
 func (w *DSSWorkflowResults) IsComplete() bool {
-	return len(w.CompletedSteps) == 4 && w.CurrentStep == 4
+	return w.GoalPrioritization != nil &&
+		w.DebtStrategy != nil &&
+		w.BudgetAllocation != nil
 }
 
 // CanProceedToStep returns true if the given step can be started
@@ -73,38 +76,16 @@ func (w *DSSWorkflowResults) Reset() {
 	w.AppliedAtStep1 = nil
 	w.DebtStrategy = nil
 	w.AppliedAtStep2 = nil
-	w.GoalDebtTradeoff = nil
-	w.AppliedAtStep3 = nil
 	w.BudgetAllocation = nil
-	w.AppliedAtStep4 = nil
+	w.AppliedAtStep3 = nil
 	w.LastUpdated = time.Now()
 }
 
-// ==================== Step 3: Goal-Debt Trade-off Result (NEW) ====================
+// ==================== Step 1: Goal Prioritization Result ====================
 
-// GoalDebtTradeoffResult stores the trade-off analysis result
-type GoalDebtTradeoffResult struct {
-	GoalAllocationPercent float64            `json:"goal_allocation_percent"`
-	DebtAllocationPercent float64            `json:"debt_allocation_percent"`
-	Analysis              TradeoffAnalysis   `json:"analysis"`
-	SelectedScenario      string             `json:"selected_scenario"` // "conservative" | "balanced" | "aggressive"
-	InterestSavings       float64            `json:"interest_savings"`
-	OpportunityCost       float64            `json:"opportunity_cost"`
-	MonteCarloRuns        int                `json:"monte_carlo_runs,omitempty"`
-	Metadata              map[string]float64 `json:"metadata,omitempty"`
-}
+// ==================== Additional helper types for workflow ====================
 
-// TradeoffAnalysis contains detailed trade-off analysis
-type TradeoffAnalysis struct {
-	GoalPriority   string `json:"goal_priority"` // "high" | "medium" | "low"
-	DebtPriority   string `json:"debt_priority"` // "high" | "medium" | "low"
-	Recommendation string `json:"recommendation"`
-	RiskLevel      string `json:"risk_level"` // "low" | "medium" | "high"
-}
-
-// ==================== Additional helper types for new workflow ====================
-
-// CategoryAllocationItem represents allocation to one category (for Step 4)
+// CategoryAllocationItem represents allocation to one category (for Step 4: Budget Allocation)
 type CategoryAllocationItem struct {
 	CategoryID   uuid.UUID `json:"category_id"`
 	CategoryName string    `json:"category_name"`
@@ -113,7 +94,7 @@ type CategoryAllocationItem struct {
 	Source       string    `json:"source"` // "mandatory" | "flexible" | "goal" | "debt"
 }
 
-// GoalFundingItem represents funding for one goal (for Step 4)
+// GoalFundingItem represents funding for one goal (for Step 4: Budget Allocation)
 type GoalFundingItem struct {
 	GoalID     uuid.UUID `json:"goal_id"`
 	GoalName   string    `json:"goal_name"`
@@ -121,7 +102,7 @@ type GoalFundingItem struct {
 	Percentage float64   `json:"percentage"` // % of monthly target
 }
 
-// DebtPaymentItem represents payment for one debt (for Step 4)
+// DebtPaymentItem represents payment for one debt (for Step 4: Budget Allocation)
 type DebtPaymentItem struct {
 	DebtID    uuid.UUID `json:"debt_id"`
 	DebtName  string    `json:"debt_name"`
@@ -133,9 +114,11 @@ type DebtPaymentItem struct {
 
 // BudgetAllocationResult contains recommendations from budget allocation DSS
 type BudgetAllocationResult struct {
-	Recommendations map[uuid.UUID]float64 `json:"recommendations"`  // CategoryID -> Amount
-	OptimalityScore float64               `json:"optimality_score"` // 0-100
-	Method          string                `json:"method"`           // "linear_programming", "heuristic"
+	Recommendations map[uuid.UUID]float64 `json:"recommendations"`         // CategoryID -> Amount
+	GoalFundings    []GoalFundingItem     `json:"goal_fundings,omitempty"` // Goal allocations from FE
+	DebtPayments    []DebtPaymentItem     `json:"debt_payments,omitempty"` // Debt allocations from FE
+	OptimalityScore float64               `json:"optimality_score"`        // 0-100
+	Method          string                `json:"method"`                  // "linear_programming", "heuristic", "finalize"
 	Constraints     []string              `json:"constraints,omitempty"`
 }
 

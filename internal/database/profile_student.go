@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"time"
 
 	constraintdomain "personalfinancedss/internal/module/cashflow/budget_profile/domain"
@@ -24,38 +25,59 @@ func (s *Seeder) seedStudentProfile(tx *gorm.DB, userID uuid.UUID) error {
 	categoryMap := s.getCategoryMap(tx, userID)
 
 	// 1. Budget Constraints (INPUT for DSS) - Tight budget
+	homeCatID, err := s.getCategoryID(categoryMap, "Home & Utilities", "student constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	foodCatID, err := s.getCategoryID(categoryMap, "Food & Dining", "student constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	educationCatID, err := s.getCategoryID(categoryMap, "Education & Self-Dev", "student constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	transportCatID, err := s.getCategoryID(categoryMap, "Transportation", "student constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+	entertainmentCatID, err := s.getCategoryID(categoryMap, "Entertainment & Travel", "student constraint")
+	if err != nil {
+		return fmt.Errorf("failed to get category for constraints: %w", err)
+	}
+
 	constraints := []*constraintdomain.BudgetConstraint{
 		// Tiền phòng - FIXED (ở ký túc xá hoặc thuê chung)
 		{
-			UserID: userID, CategoryID: categoryMap["Home & Utilities"],
+			UserID: userID, CategoryID: homeCatID,
 			MinimumAmount: 2000000, MaximumAmount: 2000000, IsFlexible: false,
 			Priority: 1, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Tiền phòng KTX/thuê chung",
 		},
 		// Ăn uống - FLEXIBLE (tự nấu/căng tin)
 		{
-			UserID: userID, CategoryID: categoryMap["Food & Dining"],
+			UserID: userID, CategoryID: foodCatID,
 			MinimumAmount: 2500000, MaximumAmount: 3500000, IsFlexible: true,
 			Priority: 2, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Ăn căng tin, nấu ăn",
 		},
 		// Học tập - FLEXIBLE
 		{
-			UserID: userID, CategoryID: categoryMap["Education & Self-Dev"],
+			UserID: userID, CategoryID: educationCatID,
 			MinimumAmount: 500000, MaximumAmount: 1500000, IsFlexible: true,
 			Priority: 2, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Sách vở, tài liệu, photo",
 		},
 		// Đi lại - FLEXIBLE (xe buýt)
 		{
-			UserID: userID, CategoryID: categoryMap["Transportation"],
+			UserID: userID, CategoryID: transportCatID,
 			MinimumAmount: 300000, MaximumAmount: 600000, IsFlexible: true,
 			Priority: 3, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Vé xe buýt, grab khi cần",
 		},
 		// Giải trí - CÓ THỂ CẮT
 		{
-			UserID: userID, CategoryID: categoryMap["Entertainment & Travel"],
+			UserID: userID, CategoryID: entertainmentCatID,
 			MinimumAmount: 0, MaximumAmount: 500000, IsFlexible: true,
 			Priority: 5, Status: constraintdomain.ConstraintStatusActive,
 			StartDate: now, Period: "monthly", Description: "Cafe với bạn, xem phim",
@@ -63,43 +85,47 @@ func (s *Seeder) seedStudentProfile(tx *gorm.DB, userID uuid.UUID) error {
 	}
 
 	for _, c := range constraints {
-		if c.CategoryID != uuid.Nil {
-			if err := tx.Create(c).Error; err != nil {
-				return err
-			}
-			s.logger.Info("✅ Created constraint", zap.Float64("min", c.MinimumAmount))
+		if err := tx.Create(c).Error; err != nil {
+			return fmt.Errorf("failed to create constraint: %w", err)
 		}
+		s.logger.Info("✅ Created constraint", zap.Float64("min", c.MinimumAmount))
 	}
 
 	// 2. Income Profiles - Limited income
+	otherIncomeCatID, err := s.getCategoryID(categoryMap, "Other Income", "student income")
+	if err != nil {
+		return fmt.Errorf("failed to get category for income: %w", err)
+	}
+	activeIncomeCatID, err := s.getCategoryID(categoryMap, "Active Income", "student income")
+	if err != nil {
+		return fmt.Errorf("failed to get category for income: %w", err)
+	}
+
 	incomes := []*incomedomain.IncomeProfile{
 		{
-			UserID: userID, CategoryID: categoryMap["Other Income"],
+			UserID: userID, CategoryID: otherIncomeCatID,
 			Source: "Phụ cấp từ bố mẹ",
 			Amount: 5000000, Currency: "VND", Frequency: "monthly",
 			StartDate:   now.AddDate(-3, 0, 0),
-			OtherIncome: 5000000,
-			IsRecurring: true, IsVerified: true,
+			IsRecurring: true,
 			Status:      incomedomain.IncomeStatusActive,
 			Description: "Tiền sinh hoạt phí từ gia đình",
 		},
 		{
-			UserID: userID, CategoryID: categoryMap["Active Income"],
+			UserID: userID, CategoryID: activeIncomeCatID,
 			Source: "Gia sư môn Toán",
 			Amount: 3500000, Currency: "VND", Frequency: "monthly",
 			StartDate:   now.AddDate(-1, 0, 0),
-			OtherIncome: 3500000,
-			IsRecurring: false, IsVerified: true,
+			IsRecurring: false,
 			Status:      incomedomain.IncomeStatusActive,
 			Description: "Dạy kèm 2 học sinh lớp 10",
 		},
 		{
-			UserID: userID, CategoryID: categoryMap["Other Income"],
+			UserID: userID, CategoryID: otherIncomeCatID,
 			Source: "Học bổng khuyến khích",
 			Amount: 2000000, Currency: "VND", Frequency: "quarterly",
 			StartDate:   now.AddDate(-6, 0, 0),
-			OtherIncome: 2000000,
-			IsRecurring: true, IsVerified: true,
+			IsRecurring: true,
 			Status:      incomedomain.IncomeStatusActive,
 			Description: "Học bổng GPA 3.5+",
 		},
@@ -107,13 +133,16 @@ func (s *Seeder) seedStudentProfile(tx *gorm.DB, userID uuid.UUID) error {
 
 	for _, income := range incomes {
 		if err := tx.Create(income).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create income: %w", err)
 		}
 		s.logger.Info("✅ Created income", zap.String("source", income.Source))
 	}
 
 	// 3. Goals - Small, achievable
-	accountID := s.getAccountID(tx, userID)
+	accountID, err := s.getAccountID(tx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get account for goals: %w", err)
+	}
 	goals := []*goaldomain.Goal{
 		{
 			UserID: userID, AccountID: accountID,
@@ -152,7 +181,7 @@ func (s *Seeder) seedStudentProfile(tx *gorm.DB, userID uuid.UUID) error {
 	for _, goal := range goals {
 		goal.UpdateCalculatedFields()
 		if err := tx.Create(goal).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create goal: %w", err)
 		}
 		s.logger.Info("✅ Created goal", zap.String("name", goal.Name))
 	}
@@ -182,7 +211,7 @@ func (s *Seeder) seedStudentProfile(tx *gorm.DB, userID uuid.UUID) error {
 	for _, debt := range debts {
 		debt.UpdateCalculatedFields()
 		if err := tx.Create(debt).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create debt: %w", err)
 		}
 		s.logger.Info("✅ Created debt", zap.String("name", debt.Name))
 	}

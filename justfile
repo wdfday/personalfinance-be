@@ -170,34 +170,10 @@ docker-restart: docker-down docker-up
 docker-logs:
     @docker-compose logs -f
 
-# Database migrations
-migrate:
-    @echo "Running database migrations..."
-    @go run {{main_file}} migrate
-
-# Database migration reset (drop all + migrate)
-migrate-reset:
-    @echo "⚠️ Resetting database..."
+# Reset database: drop all + migrate (no seed)
+reset:
+    @echo "🔄 Resetting database (drop + migrate)..."
     @go run {{main_file}} migrate reset
-
-# Seed database with test data
-seed:
-    @echo "Seeding database..."
-    @go run {{main_file}} seed
-
-# Seed only categories
-seed-categories:
-    @go run {{main_file}} seed categories
-
-# Clean database: drop all tables + fresh migrations (NO seed)
-db-clean:
-    @echo "🧹 Cleaning database (drop + migrate, NO seed)..."
-    @go run {{main_file}} db clean
-
-# Full database reset: drop + migrate + seed (all in one atomic command)
-db-reset:
-    @echo "🔄 Running complete database reset..."
-    @go run {{main_file}} db reset
 
 # Generate Go code (swagger, etc.)
 generate: swagger

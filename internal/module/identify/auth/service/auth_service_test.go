@@ -188,45 +188,6 @@ func (m *MockTokenBlacklistRepo) BlacklistAllUserTokens(ctx context.Context, use
 	return nil
 }
 
-type MockSecurityLogger struct {
-	mock.Mock
-}
-
-func (m *MockSecurityLogger) LogRegistration(ctx context.Context, userID, email, ipAddress string) {
-	m.Called(ctx, userID, email, ipAddress)
-}
-
-func (m *MockSecurityLogger) LogLoginSuccess(ctx context.Context, userID, email, ipAddress string) {
-	m.Called(ctx, userID, email, ipAddress)
-}
-
-func (m *MockSecurityLogger) LogLoginFailed(ctx context.Context, email, ipAddress, reason string) {
-	m.Called(ctx, email, ipAddress, reason)
-}
-
-func (m *MockSecurityLogger) LogLogout(ctx context.Context, userID, email, ipAddress string) {
-	m.Called(ctx, userID, email, ipAddress)
-}
-
-func (m *MockSecurityLogger) LogAccountLocked(ctx context.Context, userID, email, ipAddress string, lockedUntil time.Time) {
-	m.Called(ctx, userID, email, ipAddress, lockedUntil)
-}
-
-func (m *MockSecurityLogger) LogGoogleOAuthLogin(ctx context.Context, userID, email, ipAddress string, isNewUser bool) {
-	m.Called(ctx, userID, email, ipAddress, isNewUser)
-}
-
-func (m *MockSecurityLogger) LogPasswordResetRequest(ctx context.Context, email, ipAddress string) {
-}
-func (m *MockSecurityLogger) LogPasswordReset(ctx context.Context, userID, email string)          {}
-func (m *MockSecurityLogger) LogPasswordResetCompleted(ctx context.Context, userID, email string) {}
-func (m *MockSecurityLogger) LogEmailVerified(ctx context.Context, userID, email string)          {}
-func (m *MockSecurityLogger) LogTokenRefreshed(ctx context.Context, userID, email string)         {}
-func (m *MockSecurityLogger) LogPasswordChanged(ctx context.Context, userID, email string)        {}
-func (m *MockSecurityLogger) LogEvent(ctx context.Context, event notificationDomain.SecurityEvent) {
-	m.Called(ctx, event)
-}
-
 type MockGoogleOAuthService struct {
 	mock.Mock
 }
@@ -242,14 +203,12 @@ func TestRegister(t *testing.T) {
 		mockUserService := new(MockUserService)
 		mockJWTService := new(MockJWTService)
 		mockPasswordService := new(MockPasswordService)
-		mockSecurityLogger := new(MockSecurityLogger)
 		mockTokenBlacklistRepo := new(MockTokenBlacklistRepo)
 
 		service := &Service{
 			userService:        mockUserService,
 			jwtService:         mockJWTService,
 			passwordService:    mockPasswordService,
-			securityLogger:     mockSecurityLogger,
 			tokenBlacklistRepo: mockTokenBlacklistRepo,
 			config:             &config.Config{},
 			logger:             zap.NewNop(),
@@ -283,7 +242,6 @@ func TestRegister(t *testing.T) {
 			Return("access_token", int64(3600), nil)
 		mockJWTService.On("GenerateRefreshToken", createdUser.ID.String()).
 			Return("refresh_token", int64(604800), nil)
-		mockSecurityLogger.On("LogRegistration", ctx, createdUser.ID.String(), createdUser.Email, "")
 
 		// Execute
 		result, err := service.Register(ctx, req)
@@ -299,7 +257,6 @@ func TestRegister(t *testing.T) {
 		mockUserService.AssertExpectations(t)
 		mockJWTService.AssertExpectations(t)
 		mockPasswordService.AssertExpectations(t)
-		mockSecurityLogger.AssertExpectations(t)
 	})
 
 	t.Run("Error - Email already exists", func(t *testing.T) {
@@ -368,13 +325,11 @@ func TestLogin(t *testing.T) {
 		mockUserService := new(MockUserService)
 		mockJWTService := new(MockJWTService)
 		mockPasswordService := new(MockPasswordService)
-		mockSecurityLogger := new(MockSecurityLogger)
 
 		service := &Service{
 			userService:     mockUserService,
 			jwtService:      mockJWTService,
 			passwordService: mockPasswordService,
-			securityLogger:  mockSecurityLogger,
 			config:          &config.Config{},
 			logger:          zap.NewNop(),
 		}
@@ -406,7 +361,6 @@ func TestLogin(t *testing.T) {
 			Return("access_token", int64(3600), nil)
 		mockJWTService.On("GenerateRefreshToken", user.ID.String()).
 			Return("refresh_token", int64(604800), nil)
-		mockSecurityLogger.On("LogLoginSuccess", ctx, user.ID.String(), user.Email, req.IP)
 
 		result, err := service.Login(ctx, req)
 
@@ -419,18 +373,15 @@ func TestLogin(t *testing.T) {
 		mockUserService.AssertExpectations(t)
 		mockPasswordService.AssertExpectations(t)
 		mockJWTService.AssertExpectations(t)
-		mockSecurityLogger.AssertExpectations(t)
 	})
 
 	t.Run("Error - User not found", func(t *testing.T) {
 		mockUserService := new(MockUserService)
-		mockSecurityLogger := new(MockSecurityLogger)
 
 		service := &Service{
-			userService:    mockUserService,
-			securityLogger: mockSecurityLogger,
-			config:         &config.Config{},
-			logger:         zap.NewNop(),
+			userService: mockUserService,
+			config:      &config.Config{},
+			logger:      zap.NewNop(),
 		}
 
 		req := dto.LoginRequest{
@@ -440,7 +391,6 @@ func TestLogin(t *testing.T) {
 		}
 
 		mockUserService.On("GetByEmail", ctx, req.Email).Return(nil, shared.ErrUserNotFound)
-		mockSecurityLogger.On("LogLoginFailed", ctx, req.Email, req.IP, "user not found")
 
 		result, err := service.Login(ctx, req)
 
@@ -449,18 +399,15 @@ func TestLogin(t *testing.T) {
 		assert.Contains(t, err.Error(), "Unauthorized")
 
 		mockUserService.AssertExpectations(t)
-		mockSecurityLogger.AssertExpectations(t)
 	})
 
 	t.Run("Error - Invalid password", func(t *testing.T) {
 		mockUserService := new(MockUserService)
 		mockPasswordService := new(MockPasswordService)
-		mockSecurityLogger := new(MockSecurityLogger)
 
 		service := &Service{
 			userService:     mockUserService,
 			passwordService: mockPasswordService,
-			securityLogger:  mockSecurityLogger,
 			config:          &config.Config{},
 			logger:          zap.NewNop(),
 		}
@@ -482,7 +429,6 @@ func TestLogin(t *testing.T) {
 		mockUserService.On("GetByEmail", ctx, req.Email).Return(user, nil)
 		mockPasswordService.On("VerifyPassword", user.Password, req.Password).Return(errors.New("invalid password"))
 		mockUserService.On("IncLoginAttempts", ctx, user.ID.String()).Return(nil)
-		mockSecurityLogger.On("LogLoginFailed", ctx, req.Email, req.IP, "invalid password")
 
 		result, err := service.Login(ctx, req)
 
@@ -491,7 +437,6 @@ func TestLogin(t *testing.T) {
 
 		mockUserService.AssertExpectations(t)
 		mockPasswordService.AssertExpectations(t)
-		mockSecurityLogger.AssertExpectations(t)
 	})
 
 	t.Run("Error - Account locked", func(t *testing.T) {
@@ -572,13 +517,11 @@ func TestLogout(t *testing.T) {
 		mockJWTService := new(MockJWTService)
 		mockTokenBlacklistRepo := new(MockTokenBlacklistRepo)
 		mockUserService := new(MockUserService)
-		mockSecurityLogger := new(MockSecurityLogger)
 
 		service := &Service{
 			jwtService:         mockJWTService,
 			tokenBlacklistRepo: mockTokenBlacklistRepo,
 			userService:        mockUserService,
-			securityLogger:     mockSecurityLogger,
 			config:             &config.Config{},
 			logger:             zap.NewNop(),
 		}
@@ -595,7 +538,6 @@ func TestLogout(t *testing.T) {
 		mockJWTService.On("ValidateRefreshToken", refreshToken).Return(userID.String(), nil)
 		mockTokenBlacklistRepo.On("Add", ctx, refreshToken, userID, "logout", mock.AnythingOfType("time.Time")).Return(nil)
 		mockUserService.On("GetByID", ctx, userID.String()).Return(user, nil)
-		mockSecurityLogger.On("LogLogout", ctx, user.ID.String(), user.Email, ipAddress)
 
 		err := service.Logout(ctx, userID.String(), refreshToken, ipAddress)
 
@@ -604,7 +546,6 @@ func TestLogout(t *testing.T) {
 		mockJWTService.AssertExpectations(t)
 		mockTokenBlacklistRepo.AssertExpectations(t)
 		mockUserService.AssertExpectations(t)
-		mockSecurityLogger.AssertExpectations(t)
 	})
 
 	t.Run("Error - Invalid token", func(t *testing.T) {
@@ -833,12 +774,10 @@ func TestLoginAccountLocking(t *testing.T) {
 	t.Run("Account locked after 5th failed attempt", func(t *testing.T) {
 		mockUserService := new(MockUserService)
 		mockPasswordService := new(MockPasswordService)
-		mockSecurityLogger := new(MockSecurityLogger)
 
 		service := &Service{
 			userService:     mockUserService,
 			passwordService: mockPasswordService,
-			securityLogger:  mockSecurityLogger,
 			config:          &config.Config{},
 			logger:          zap.NewNop(),
 		}
@@ -861,7 +800,6 @@ func TestLoginAccountLocking(t *testing.T) {
 		mockPasswordService.On("VerifyPassword", user.Password, req.Password).Return(errors.New("invalid password"))
 		mockUserService.On("IncLoginAttempts", ctx, user.ID.String()).Return(nil)
 		mockUserService.On("SetLockedUntil", ctx, user.ID.String(), mock.AnythingOfType("*time.Time")).Return(nil)
-		mockSecurityLogger.On("LogAccountLocked", ctx, user.ID.String(), user.Email, req.IP, mock.AnythingOfType("time.Time"))
 
 		result, err := service.Login(ctx, req)
 
@@ -871,7 +809,6 @@ func TestLoginAccountLocking(t *testing.T) {
 
 		mockUserService.AssertExpectations(t)
 		mockPasswordService.AssertExpectations(t)
-		mockSecurityLogger.AssertExpectations(t)
 	})
 }
 
@@ -883,13 +820,11 @@ func TestLogoutEdgeCases(t *testing.T) {
 		mockJWTService := new(MockJWTService)
 		mockTokenBlacklistRepo := new(MockTokenBlacklistRepo)
 		mockUserService := new(MockUserService)
-		mockSecurityLogger := new(MockSecurityLogger)
 
 		service := &Service{
 			jwtService:         mockJWTService,
 			tokenBlacklistRepo: mockTokenBlacklistRepo,
 			userService:        mockUserService,
-			securityLogger:     mockSecurityLogger,
 			config:             &config.Config{},
 			logger:             zap.NewNop(),
 		}
@@ -901,7 +836,6 @@ func TestLogoutEdgeCases(t *testing.T) {
 		mockJWTService.On("ValidateRefreshToken", refreshToken).Return(userID.String(), nil)
 		mockTokenBlacklistRepo.On("Add", ctx, refreshToken, userID, "logout", mock.AnythingOfType("time.Time")).Return(nil)
 		mockUserService.On("GetByID", ctx, userID.String()).Return(nil, shared.ErrUserNotFound)
-		mockSecurityLogger.On("LogLogout", ctx, userID.String(), "", ipAddress)
 
 		err := service.Logout(ctx, userID.String(), refreshToken, ipAddress)
 
@@ -909,7 +843,6 @@ func TestLogoutEdgeCases(t *testing.T) {
 
 		mockJWTService.AssertExpectations(t)
 		mockTokenBlacklistRepo.AssertExpectations(t)
-		mockSecurityLogger.AssertExpectations(t)
 	})
 
 	t.Run("Error - Invalid user ID format", func(t *testing.T) {

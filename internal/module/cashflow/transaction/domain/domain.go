@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"time"
 
@@ -54,16 +55,16 @@ type Transaction struct {
 	UserNote    string `gorm:"type:text;column:user_note" json:"userNote,omitempty"`          // User note for this transaction
 	Reference   string `gorm:"type:varchar(255);column:reference" json:"reference,omitempty"` // Reference code from bank / wallet / external system
 
+	// User-selected category (FK to categories table) - stored as separate column for fast querying
+	UserCategoryID *uuid.UUID `gorm:"type:uuid;column:user_category_id;index" json:"userCategoryId,omitempty"`
+
 	// Transaction counterparty (merchant / recipient / sender)
 	// For cash, you can still use:
 	// - Name: "Street food vendor", "Money to mom", etc.
 	Counterparty *Counterparty `gorm:"type:jsonb;column:counterparty" json:"counterparty,omitempty"`
 
-	// Classification for reporting / DSS (Decision Support System)
-	Classification *Classification `gorm:"type:jsonb;column:classification" json:"classification,omitempty"`
-
 	// Links to other domain entities (budget, goal, debt, ...)
-	Links *[]TransactionLink `gorm:"type:jsonb;column:links" json:"links,omitempty"`
+	Links *TransactionLinks `gorm:"type:jsonb;column:links" json:"links,omitempty"`
 
 	// Metadata & raw data from bank / wallet / external systems
 	Meta *TransactionMeta `gorm:"type:jsonb;column:meta" json:"meta,omitempty"`
@@ -89,18 +90,25 @@ type Counterparty struct {
 	Type string `json:"type,omitempty"`
 }
 
-// Classification: classify transaction for reporting & DSS
-type Classification struct {
-	// System-assigned category, e.g.: "SPENDING:GROCERIES", "INCOME:SALARY"
-	SystemCategory string `json:"systemCategory,omitempty"`
+// Value implements driver.Valuer for JSONB
+func (c *Counterparty) Value() (driver.Value, error) {
+	if c == nil {
+		return nil, nil
+	}
+	return json.Marshal(c)
+}
 
-	// User-selected category (FK to categories table)
-	UserCategoryID string `json:"userCategoryId,omitempty"`
-
-	IsTransfer bool `json:"isTransfer,omitempty"` // Transfer between user's own accounts
-	IsRefund   bool `json:"isRefund,omitempty"`   // Refund transaction
-
-	Tags []string `json:"tags,omitempty"` // free-form tags: ["groceries", "daily-food"]
+// Scan implements sql.Scanner for JSONB
+func (c *Counterparty) Scan(value interface{}) error {
+	if value == nil {
+		*c = Counterparty{}
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+	return json.Unmarshal(bytes, c)
 }
 
 // TransactionLink: links a transaction to another financial entity (goal, budget, debt...)
@@ -109,10 +117,55 @@ type TransactionLink struct {
 	ID   string   `json:"id"`   // FK to corresponding entity (goal_id, budget_id, debt_id, ...)
 }
 
+// TransactionLinks is a slice of TransactionLink for GORM JSON handling
+type TransactionLinks []TransactionLink
+
+// Value implements driver.Valuer for JSONB
+func (tl TransactionLinks) Value() (driver.Value, error) {
+	if tl == nil {
+		return nil, nil
+	}
+	return json.Marshal(tl)
+}
+
+// Scan implements sql.Scanner for JSONB
+func (tl *TransactionLinks) Scan(value interface{}) error {
+	if value == nil {
+		*tl = nil
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+	return json.Unmarshal(bytes, tl)
+}
+
 // TransactionMeta: Additional metadata & raw data from banks/wallets/external systems
 type TransactionMeta struct {
 	CheckImageAvailability string          `json:"checkImageAvailability,omitempty"` // e.g.: "UNAVAILABLE" for bank
 	Raw                    json.RawMessage `json:"raw,omitempty"`                    // Original raw JSON from bank / wallet (if available)
+}
+
+// Value implements driver.Valuer for JSONB
+func (tm *TransactionMeta) Value() (driver.Value, error) {
+	if tm == nil {
+		return nil, nil
+	}
+	return json.Marshal(tm)
+}
+
+// Scan implements sql.Scanner for JSONB
+func (tm *TransactionMeta) Scan(value interface{}) error {
+	if value == nil {
+		*tm = TransactionMeta{}
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+	return json.Unmarshal(bytes, tm)
 }
 
 // TransactionDSSMetadata: DSS analytics metadata for pattern detection and insights
@@ -157,6 +210,27 @@ type TransactionDSSMetadata struct {
 
 	// Timestamps
 	LastAnalyzed string `json:"last_analyzed,omitempty"` // ISO 8601
+}
+
+// Value implements driver.Valuer for JSONB
+func (tdm *TransactionDSSMetadata) Value() (driver.Value, error) {
+	if tdm == nil {
+		return nil, nil
+	}
+	return json.Marshal(tdm)
+}
+
+// Scan implements sql.Scanner for JSONB
+func (tdm *TransactionDSSMetadata) Scan(value interface{}) error {
+	if value == nil {
+		*tdm = TransactionDSSMetadata{}
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+	return json.Unmarshal(bytes, tdm)
 }
 
 // TransactionLocation: Geographic location data

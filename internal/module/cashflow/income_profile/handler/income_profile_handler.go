@@ -45,8 +45,8 @@ func (h *Handler) RegisterRoutes(r *gin.Engine, authMiddleware *middleware.Middl
 		incomeProfiles.GET("/recurring", h.getRecurringIncomes)
 
 		// Actions
-		incomeProfiles.POST("/:id/verify", h.verifyIncomeProfile)
 		incomeProfiles.POST("/:id/archive", h.archiveIncomeProfile)
+		incomeProfiles.POST("/:id/end", h.endIncomeProfile)
 		incomeProfiles.POST("/:id/dss-metadata", h.updateDSSMetadata)
 		incomeProfiles.POST("/check-ended", h.checkAndArchiveEnded)
 	}
@@ -100,7 +100,6 @@ func (h *Handler) createIncomeProfile(c *gin.Context) {
 // @Security BearerAuth
 // @Param status query string false "Filter by status (active, pending, ended, archived, paused)"
 // @Param is_recurring query bool false "Filter by recurring status"
-// @Param is_verified query bool false "Filter by verified status"
 // @Param source query string false "Filter by source"
 // @Param include_archived query bool false "Include archived profiles"
 // @Success 200 {object} dto.IncomeProfileListResponse
@@ -345,50 +344,6 @@ func (h *Handler) updateIncomeProfile(c *gin.Context) {
 	shared.RespondWithSuccess(c, http.StatusOK, "Income profile updated (new version created)", response)
 }
 
-// VerifyIncomeProfile godoc
-// @Summary Verify an income profile
-// @Description Mark an income profile as verified (user confirmed actual receipt)
-// @Tags income-profiles
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Income Profile ID"
-// @Param request body dto.VerifyIncomeRequest true "Verification data"
-// @Success 200 {object} dto.IncomeProfileResponse
-// @Failure 400 {object} shared.ErrorResponse
-// @Failure 401 {object} shared.ErrorResponse
-// @Failure 404 {object} shared.ErrorResponse
-// @Router /api/v1/income-profiles/{id}/verify [post]
-func (h *Handler) verifyIncomeProfile(c *gin.Context) {
-	// Get user from context
-	user, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
-
-	// Get income profile ID from path
-	profileID := c.Param("id")
-
-	// Parse request
-	var req dto.VerifyIncomeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		shared.RespondWithError(c, http.StatusBadRequest, "invalid request data: "+err.Error())
-		return
-	}
-
-	// Verify income profile
-	ip, err := h.service.VerifyIncomeProfile(c.Request.Context(), user.ID.String(), profileID, req.Verified)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	// Convert to response
-	response := dto.ToIncomeProfileResponse(ip, true)
-	shared.RespondWithSuccess(c, http.StatusOK, "Income profile verification updated", response)
-}
-
 // ArchiveIncomeProfile godoc
 // @Summary Archive an income profile
 // @Description Manually archive an income profile
@@ -420,6 +375,42 @@ func (h *Handler) archiveIncomeProfile(c *gin.Context) {
 	}
 
 	shared.RespondWithSuccessNoData(c, http.StatusOK, "Income profile archived successfully")
+}
+
+// EndIncomeProfile godoc
+// @Summary Mark income profile as ended
+// @Description Mark an income profile as ended
+// @Tags income-profiles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Income Profile ID"
+// @Success 200 {object} dto.IncomeProfileResponse
+// @Failure 400 {object} shared.ErrorResponse
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 404 {object} shared.ErrorResponse
+// @Router /api/v1/income-profiles/{id}/end [post]
+func (h *Handler) endIncomeProfile(c *gin.Context) {
+	// Get user from context
+	user, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	// Get income profile ID from path
+	profileID := c.Param("id")
+
+	// End income profile
+	ip, err := h.service.EndIncomeProfile(c.Request.Context(), user.ID.String(), profileID)
+	if err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	// Convert to response
+	response := dto.ToIncomeProfileResponse(ip, true)
+	shared.RespondWithSuccess(c, http.StatusOK, "Income profile marked as ended", response)
 }
 
 // UpdateDSSMetadata godoc
@@ -467,8 +458,8 @@ func (h *Handler) updateDSSMetadata(c *gin.Context) {
 }
 
 // CheckAndArchiveEnded godoc
-// @Summary Check and archive ended incomes
-// @Description Automatically check and archive income profiles that have reached their end date
+// @Summary Check and mark ended incomes
+// @Description Automatically check and mark income profiles as ended that have reached their end date
 // @Tags income-profiles
 // @Accept json
 // @Produce json
@@ -484,15 +475,15 @@ func (h *Handler) checkAndArchiveEnded(c *gin.Context) {
 		return
 	}
 
-	// Check and archive ended incomes
+	// Check and mark ended incomes
 	count, err := h.service.CheckAndArchiveEnded(c.Request.Context(), user.ID.String())
 	if err != nil {
 		shared.HandleError(c, err)
 		return
 	}
 
-	shared.RespondWithSuccess(c, http.StatusOK, "Ended income profiles checked and archived", gin.H{
-		"archived_count": count,
+	shared.RespondWithSuccess(c, http.StatusOK, "Ended income profiles checked and marked", gin.H{
+		"ended_count": count,
 	})
 }
 

@@ -123,13 +123,6 @@ func setupBudgetService() (*budgetService, *MockRepository) {
 		db:     db,
 	}
 
-	// Initialize sub-services
-	service.creator = NewBudgetCreator(service)
-	service.reader = NewBudgetReader(service)
-	service.updater = NewBudgetUpdater(service)
-	service.deleter = NewBudgetDeleter(service)
-	service.calculator = NewBudgetCalculator(service)
-
 	return service, mockRepo
 }
 

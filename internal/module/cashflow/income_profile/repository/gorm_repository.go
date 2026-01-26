@@ -201,9 +201,6 @@ func (r *gormRepository) List(ctx context.Context, userID uuid.UUID, query dto.L
 	if query.IsRecurring != nil {
 		db = db.Where("is_recurring = ?", *query.IsRecurring)
 	}
-	if query.IsVerified != nil {
-		db = db.Where("is_verified = ?", *query.IsVerified)
-	}
 	if query.Source != nil {
 		db = db.Where("source = ?", *query.Source)
 	}

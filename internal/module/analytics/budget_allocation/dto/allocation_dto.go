@@ -63,23 +63,35 @@ type ActionItem struct {
 	Error       string    `json:"error,omitempty"`
 }
 
+// CustomScenarioParams allows customizing scenario parameters
+type CustomScenarioParams struct {
+	ScenarioType           string  `json:"scenario_type" binding:"required,oneof=safe balanced"` // "safe" or "balanced" (matches domain.ScenarioType)
+	GoalContributionFactor float64 `json:"goal_contribution_factor" binding:"gte=0,lte=2"`
+	FlexibleSpendingLevel  float64 `json:"flexible_spending_level" binding:"gte=0,lte=1"`
+	EmergencyFundPercent   float64 `json:"emergency_fund_percent" binding:"gte=0,lte=1"`
+	GoalsPercent           float64 `json:"goals_percent" binding:"gte=0,lte=1"`
+	FlexiblePercent        float64 `json:"flexible_percent" binding:"gte=0,lte=1"`
+}
+
 // BudgetAllocationModelInput is the input for the MBMS budget allocation model
 // This is the standardized input format for the model interface
 type BudgetAllocationModelInput struct {
-	UserID          uuid.UUID `json:"user_id" binding:"required"`
-	Year            int       `json:"year" binding:"required,min=2000,max=2100"`
-	Month           int       `json:"month" binding:"required,min=1,max=12"`
-	OverrideIncome  *float64  `json:"override_income,omitempty"`
-	UseAllScenarios bool      `json:"use_all_scenarios"` // If true, return all 3 scenarios; false returns only balanced
-	RunSensitivity  bool      `json:"run_sensitivity"`   // If true, run sensitivity analysis
+	UserID               uuid.UUID              `json:"user_id" binding:"required"`
+	Year                 int                    `json:"year" binding:"required,min=2000,max=2100"`
+	Month                int                    `json:"month" binding:"required,min=1,max=12"`
+	OverrideIncome       *float64               `json:"override_income,omitempty"`
+	UseAllScenarios      bool                   `json:"use_all_scenarios"`                // If true, return 2 scenarios (Safe and Balanced); false returns only balanced
+	RunSensitivity       bool                   `json:"run_sensitivity"`                  // If true, run sensitivity analysis
+	CustomScenarioParams []CustomScenarioParams `json:"custom_scenario_params,omitempty"` // Optional: custom parameters for scenarios
 
 	// Financial data for allocation
-	TotalIncome        float64             `json:"total_income" binding:"required,gt=0"`
-	MandatoryExpenses  []MandatoryExpense  `json:"mandatory_expenses"`
-	FlexibleExpenses   []FlexibleExpense   `json:"flexible_expenses"`
-	Debts              []DebtInput         `json:"debts"`
-	Goals              []GoalInput         `json:"goals"`
-	SensitivityOptions *SensitivityOptions `json:"sensitivity_options,omitempty"`
+	TotalIncome         float64             `json:"total_income" binding:"required,gt=0"`
+	MandatoryExpenses   []MandatoryExpense  `json:"mandatory_expenses"`
+	FlexibleExpenses    []FlexibleExpense   `json:"flexible_expenses"`
+	Debts               []DebtInput         `json:"debts"`
+	Goals               []GoalInput         `json:"goals"`
+	SensitivityOptions  *SensitivityOptions `json:"sensitivity_options,omitempty"`
+	DebtStrategyPreview interface{}         `json:"debt_strategy_preview,omitempty"` // Debt strategy output to get PayoffMonth for each debt
 }
 
 // MandatoryExpense represents a fixed expense category

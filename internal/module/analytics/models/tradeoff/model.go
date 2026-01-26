@@ -36,9 +36,12 @@ func (m *TradeoffModel) Validate(ctx context.Context, input interface{}) error {
 	if !ok {
 		return errors.New("input must be *dto.TradeoffInput type")
 	}
+
+	// If no debts, return early (no validation needed)
 	if len(ti.Debts) == 0 {
-		return errors.New("at least one debt required")
+		return nil
 	}
+
 	if ti.MonthlyIncome <= 0 {
 		return errors.New("monthly income must be positive")
 	}
@@ -58,6 +61,38 @@ func (m *TradeoffModel) Validate(ctx context.Context, input interface{}) error {
 
 func (m *TradeoffModel) Execute(ctx context.Context, input interface{}) (interface{}, error) {
 	ti := input.(*dto.TradeoffInput)
+
+	// If no debts, recommend aggressive savings strategy
+	if len(ti.Debts) == 0 {
+		config := ti.GetSimulationConfig()
+		extraMoney := ti.CalculateExtraMoney()
+
+		// All strategies become savings-focused when no debts
+		results := []domain.StrategyResult{
+			{
+				Strategy: domain.StrategyAggressiveSavings,
+				Ratio:    domain.AllocationRatio{DebtPercent: 0, SavingsPercent: 1.0},
+				Score:    100,
+			},
+		}
+
+		rec := results[0]
+		mc := m.runMonteCarlo(rec.Ratio, ti, config)
+		proj := m.generateProjections(rec.Ratio, extraMoney, ti, config)
+		recs := m.generateRecommendations(rec, ti, mc)
+
+		return &dto.TradeoffOutput{
+			RecommendedStrategy: domain.StrategyAggressiveSavings,
+			RecommendedRatio:    rec.Ratio,
+			StrategyAnalysis:    results,
+			Reasoning:           "No debts to pay off. Focus on aggressive savings.",
+			KeyFactors:          []string{"No debt obligations", "Full allocation to savings"},
+			ProjectedTimelines:  proj,
+			MonteCarloResults:   mc,
+			Recommendations:     recs,
+		}, nil
+	}
+
 	config := ti.GetSimulationConfig()
 	extraMoney := ti.CalculateExtraMoney()
 

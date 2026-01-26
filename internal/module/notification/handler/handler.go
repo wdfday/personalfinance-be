@@ -30,7 +30,6 @@ func (h *Handler) RegisterRoutes(r *gin.Engine, authMiddleware *middleware.Middl
 	{
 		notifications.GET("", h.listNotifications)
 		notifications.GET("/unread-count", h.getUnreadCount)
-		notifications.GET("/:id", h.getNotification)
 		notifications.PUT("/:id/read", h.markAsRead)
 		notifications.PUT("/read-all", h.markAllAsRead)
 	}
@@ -141,50 +140,6 @@ func (h *Handler) getUnreadCount(c *gin.Context) {
 	})
 }
 
-// getNotification godoc
-// @Summary Get notification by ID
-// @Description Get a single notification by ID for authenticated user
-// @Tags notifications
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Notification ID"
-// @Success 200 {object} notificationdto.NotificationResponse
-// @Failure 401 {object} shared.ErrorResponse
-// @Failure 404 {object} shared.ErrorResponse
-// @Failure 500 {object} shared.ErrorResponse
-// @Router /api/v1/notifications/{id} [get]
-func (h *Handler) getNotification(c *gin.Context) {
-	currentUser, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
-
-	notificationID := c.Param("id")
-	if notificationID == "" {
-		shared.RespondWithError(c, http.StatusBadRequest, "notification id is required")
-		return
-	}
-
-	notification, err := h.userNotificationService.GetNotificationByID(
-		c.Request.Context(),
-		notificationID,
-	)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	// Verify ownership
-	if notification.UserID != currentUser.ID {
-		shared.RespondWithError(c, http.StatusForbidden, "access denied")
-		return
-	}
-
-	shared.RespondWithSuccess(c, http.StatusOK, "Notification retrieved successfully", notificationdto.ToNotificationResponse(*notification))
-}
-
 // markAsRead godoc
 // @Summary Mark notification as read
 // @Description Mark a single notification as read for authenticated user
@@ -211,23 +166,8 @@ func (h *Handler) markAsRead(c *gin.Context) {
 		return
 	}
 
-	// Verify ownership first
-	notification, err := h.userNotificationService.GetNotificationByID(
-		c.Request.Context(),
-		notificationID,
-	)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	if notification.UserID != currentUser.ID {
-		shared.RespondWithError(c, http.StatusForbidden, "access denied")
-		return
-	}
-
-	// Mark as read
-	if err := h.userNotificationService.MarkAsRead(c.Request.Context(), notificationID); err != nil {
+	// Mark as read (ownership verification will be done in repository)
+	if err := h.userNotificationService.MarkAsRead(c.Request.Context(), currentUser.ID.String(), notificationID); err != nil {
 		shared.HandleError(c, err)
 		return
 	}

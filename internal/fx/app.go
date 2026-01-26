@@ -20,7 +20,8 @@ import (
 	goalHandler "personalfinancedss/internal/module/cashflow/goal/handler"
 	incomeProfileHandler "personalfinancedss/internal/module/cashflow/income_profile/handler"
 	transactionHandler "personalfinancedss/internal/module/cashflow/transaction/handler"
-	chatbotHandler "personalfinancedss/internal/module/chatbot/handler"
+
+	// chatbotHandler "personalfinancedss/internal/module/chatbot/handler" // Temporarily disabled
 	authHandler "personalfinancedss/internal/module/identify/auth/handler"
 	authService "personalfinancedss/internal/module/identify/auth/service"
 	brokerHandler "personalfinancedss/internal/module/identify/broker/handler"
@@ -77,7 +78,7 @@ func RegisterRoutes(
 	monthH *monthHandler.Handler,
 	allocationH *allocationHandler.Handler,
 	ahpH *ahpHandler.Handler,
-	chatbotH *chatbotHandler.Handler,
+	// chatbotH *chatbotHandler.Handler, // Temporarily disabled
 	brokerH *brokerHandler.BrokerConnectionHandler,
 	authMiddleware *middleware.Middleware,
 	emailVerificationMiddleware *middleware.EmailVerificationMiddleware,
@@ -146,8 +147,8 @@ func RegisterRoutes(
 	logger.Info("Registering goal prioritization (AHP) routes...")
 	ahpH.RegisterRoutes(router)
 
-	logger.Info("Registering chatbot routes...")
-	chatbotH.RegisterRoutes(router, authMiddleware)
+	// logger.Info("Registering chatbot routes...")
+	// chatbotH.RegisterRoutes(router, authMiddleware) // Temporarily disabled
 
 	logger.Info("Registering calendar event routes...")
 	eventH.RegisterRoutes(router, authMiddleware)

@@ -83,10 +83,10 @@ func (r *repository) FindByUserIDAndCategory(ctx context.Context, userID, catego
 	return budgets, err
 }
 
-func (r *repository) FindByUserIDAndAccount(ctx context.Context, userID, accountID uuid.UUID) ([]domain.Budget, error) {
+func (r *repository) FindByConstraintID(ctx context.Context, userID, constraintID uuid.UUID) ([]domain.Budget, error) {
 	var budgets []domain.Budget
 	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND account_id = ?", userID, accountID).
+		Where("user_id = ? AND constraint_id = ?", userID, constraintID).
 		Order("created_at DESC").
 		Find(&budgets).Error
 	return budgets, err

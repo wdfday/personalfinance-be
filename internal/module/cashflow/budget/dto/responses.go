@@ -3,7 +3,6 @@ package dto
 import (
 	"personalfinancedss/internal/module/cashflow/budget/domain"
 	"personalfinancedss/internal/module/cashflow/budget/repository"
-	"personalfinancedss/internal/module/cashflow/budget/service"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,8 +23,8 @@ type BudgetResponse struct {
 	StartDate time.Time           `json:"start_date"`
 	EndDate   *time.Time          `json:"end_date,omitempty"`
 
-	CategoryID *uuid.UUID `json:"category_id,omitempty"`
-	AccountID  *uuid.UUID `json:"account_id,omitempty"`
+	CategoryID   *uuid.UUID `json:"category_id,omitempty"`
+	ConstraintID *uuid.UUID `json:"constraint_id,omitempty"` // FK to budget_constraint (if created from DSS)
 
 	SpentAmount      float64             `json:"spent_amount"`
 	RemainingAmount  float64             `json:"remaining_amount"`
@@ -52,15 +51,82 @@ type BudgetResponse struct {
 
 // BudgetSummaryResponse represents a budget summary in API responses
 type BudgetSummaryResponse struct {
-	TotalBudgets      int                                   `json:"total_budgets"`
-	ActiveBudgets     int                                   `json:"active_budgets"`
-	ExceededBudgets   int                                   `json:"exceeded_budgets"`
-	WarningBudgets    int                                   `json:"warning_budgets"`
-	TotalAmount       float64                               `json:"total_amount"`
-	TotalSpent        float64                               `json:"total_spent"`
-	TotalRemaining    float64                               `json:"total_remaining"`
-	AveragePercentage float64                               `json:"average_percentage"`
-	BudgetsByCategory map[string]*service.CategoryBudgetSum `json:"budgets_by_category"`
+	TotalBudgets      int                           `json:"total_budgets"`
+	ActiveBudgets     int                           `json:"active_budgets"`
+	ExceededBudgets   int                           `json:"exceeded_budgets"`
+	WarningBudgets    int                           `json:"warning_budgets"`
+	TotalAmount       float64                       `json:"total_amount"`
+	TotalSpent        float64                       `json:"total_spent"`
+	TotalRemaining    float64                       `json:"total_remaining"`
+	AveragePercentage float64                       `json:"average_percentage"`
+	BudgetsByCategory map[string]*CategoryBudgetSum `json:"budgets_by_category"`
+}
+
+// BudgetSummary represents a summary of budget performance (internal service type)
+type BudgetSummary struct {
+	TotalBudgets      int                           `json:"total_budgets"`
+	ActiveBudgets     int                           `json:"active_budgets"`
+	ExceededBudgets   int                           `json:"exceeded_budgets"`
+	WarningBudgets    int                           `json:"warning_budgets"`
+	TotalAmount       float64                       `json:"total_amount"`
+	TotalSpent        float64                       `json:"total_spent"`
+	TotalRemaining    float64                       `json:"total_remaining"`
+	AveragePercentage float64                       `json:"average_percentage"`
+	BudgetsByCategory map[string]*CategoryBudgetSum `json:"budgets_by_category"`
+}
+
+// CategoryBudgetSum represents budget summary for a category (internal service type)
+type CategoryBudgetSum struct {
+	CategoryID   uuid.UUID `json:"category_id"`
+	CategoryName string    `json:"category_name"`
+	Amount       float64   `json:"amount"`
+	Spent        float64   `json:"spent"`
+	Remaining    float64   `json:"remaining"`
+	Percentage   float64   `json:"percentage"`
+}
+
+// BudgetVsActual represents budget vs actual comparison (internal service type)
+type BudgetVsActual struct {
+	BudgetID     uuid.UUID  `json:"budget_id"`
+	CategoryID   *uuid.UUID `json:"category_id,omitempty"`
+	CategoryName string     `json:"category_name,omitempty"`
+	BudgetAmount float64    `json:"budget_amount"`
+	ActualSpent  float64    `json:"actual_spent"`
+	Difference   float64    `json:"difference"`
+	Percentage   float64    `json:"percentage"`
+	Status       string     `json:"status"` // under, on_track, over
+}
+
+// BudgetProgress represents detailed budget progress (internal service type)
+type BudgetProgress struct {
+	BudgetID         uuid.UUID           `json:"budget_id"`
+	Name             string              `json:"name"`
+	Period           domain.BudgetPeriod `json:"period"`
+	StartDate        time.Time           `json:"start_date"`
+	EndDate          *time.Time          `json:"end_date,omitempty"`
+	Amount           float64             `json:"amount"`
+	SpentAmount      float64             `json:"spent_amount"`
+	RemainingAmount  float64             `json:"remaining_amount"`
+	PercentageSpent  float64             `json:"percentage_spent"`
+	Status           domain.BudgetStatus `json:"status"`
+	DaysElapsed      int                 `json:"days_elapsed"`
+	DaysRemaining    int                 `json:"days_remaining"`
+	DailyAverage     float64             `json:"daily_average"`
+	ProjectedTotal   float64             `json:"projected_total"`
+	OnTrack          bool                `json:"on_track"`
+	TransactionCount int                 `json:"transaction_count"`
+	LastTransaction  *time.Time          `json:"last_transaction,omitempty"`
+}
+
+// BudgetAnalytics represents budget analytics (internal service type)
+type BudgetAnalytics struct {
+	BudgetID          uuid.UUID `json:"budget_id"`
+	HistoricalAverage float64   `json:"historical_average"`
+	Trend             string    `json:"trend"` // increasing, stable, decreasing
+	Volatility        float64   `json:"volatility"`
+	ComplianceRate    float64   `json:"compliance_rate"`
+	RecommendedAmount float64   `json:"recommended_amount"`
+	OptimizationScore float64   `json:"optimization_score"`
 }
 
 // ToBudgetResponse converts a domain budget to response DTO
@@ -80,14 +146,14 @@ func ToBudgetResponse(budget *domain.Budget) *BudgetResponse {
 		StartDate:            budget.StartDate,
 		EndDate:              budget.EndDate,
 		CategoryID:           budget.CategoryID,
-		AccountID:            budget.AccountID,
+		ConstraintID:         budget.ConstraintID,
 		SpentAmount:          budget.SpentAmount,
 		RemainingAmount:      budget.RemainingAmount,
 		PercentageSpent:      budget.PercentageSpent,
 		Status:               budget.Status,
 		LastCalculatedAt:     budget.LastCalculatedAt,
 		EnableAlerts:         budget.EnableAlerts,
-		AlertThresholds:      budget.AlertThresholds,
+		AlertThresholds:      []domain.AlertThreshold(budget.AlertThresholds),
 		NotificationSent:     budget.NotificationSent,
 		AllowRollover:        budget.AllowRollover,
 		RolloverAmount:       budget.RolloverAmount,
@@ -109,8 +175,8 @@ func ToBudgetResponseList(budgets []domain.Budget) []*BudgetResponse {
 	return responses
 }
 
-// ToBudgetSummaryResponse converts a service budget summary to response DTO
-func ToBudgetSummaryResponse(summary *service.BudgetSummary) *BudgetSummaryResponse {
+// ToBudgetSummaryResponse converts a budget summary to response DTO
+func ToBudgetSummaryResponse(summary *BudgetSummary) *BudgetSummaryResponse {
 	if summary == nil {
 		return nil
 	}
@@ -173,8 +239,8 @@ type BudgetProgressResponse struct {
 	LastTransaction  *time.Time          `json:"last_transaction,omitempty"`
 }
 
-// ToBudgetProgressResponse converts service BudgetProgress to response DTO
-func ToBudgetProgressResponse(progress *service.BudgetProgress) *BudgetProgressResponse {
+// ToBudgetProgressResponse converts BudgetProgress to response DTO
+func ToBudgetProgressResponse(progress *BudgetProgress) *BudgetProgressResponse {
 	if progress == nil {
 		return nil
 	}
@@ -211,8 +277,8 @@ type BudgetAnalyticsResponse struct {
 	OptimizationScore float64   `json:"optimization_score"`
 }
 
-// ToBudgetAnalyticsResponse converts service BudgetAnalytics to response DTO
-func ToBudgetAnalyticsResponse(analytics *service.BudgetAnalytics) *BudgetAnalyticsResponse {
+// ToBudgetAnalyticsResponse converts BudgetAnalytics to response DTO
+func ToBudgetAnalyticsResponse(analytics *BudgetAnalytics) *BudgetAnalyticsResponse {
 	if analytics == nil {
 		return nil
 	}

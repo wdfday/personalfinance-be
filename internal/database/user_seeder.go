@@ -130,7 +130,7 @@ func (s *Seeder) seedSampleUsers(tx *gorm.DB) error {
 			FullName:      "Bob Wilson",
 			Role:          userdomain.UserRoleUser,
 			Status:        userdomain.UserStatusPendingVerification,
-			EmailVerified: false,
+			EmailVerified: true,
 		},
 	}
 

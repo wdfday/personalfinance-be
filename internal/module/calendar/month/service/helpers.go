@@ -8,7 +8,7 @@ import (
 // calculateMonthBoundaries calculates start and end dates for a calendar month
 // Input: "2024-02" or "2024-2"
 // Output: (2024-02-01, 2024-02-29) for February 2024
-func calculateMonthBoundaries(monthStr string) (time.Time, time.Time) {
+func CalculateMonthBoundaries(monthStr string) (time.Time, time.Time) {
 	// Parse month string (YYYY-MM format)
 	startDate, err := time.Parse("2006-01", monthStr)
 	if err != nil {
@@ -33,7 +33,7 @@ func calculateMonthBoundaries(monthStr string) (time.Time, time.Time) {
 
 // calculatePayPeriod calculates start and end dates for a pay period
 // This will be used when user has custom budget period settings
-func calculatePayPeriod(baseDate time.Time, startDay int, lengthDays int) (time.Time, time.Time) {
+func CalculatePayPeriod(baseDate time.Time, startDay int, lengthDays int) (time.Time, time.Time) {
 	// Find the current or next period start date
 	year := baseDate.Year()
 	month := baseDate.Month()
@@ -54,7 +54,7 @@ func calculatePayPeriod(baseDate time.Time, startDay int, lengthDays int) (time.
 
 // formatMonthDisplay generates a display name for a month period
 // Examples: "2024-02", "Pay Period 2/15-3/14", "Q1 2024"
-func formatMonthDisplay(startDate, endDate time.Time, periodType string) string {
+func FormatMonthDisplay(startDate, endDate time.Time, periodType string) string {
 	switch periodType {
 	case "calendar_month":
 		return startDate.Format("2006-01")

@@ -4,7 +4,6 @@ go 1.24.0
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/benbjohnson/clock v1.3.5
 	github.com/draffensperger/golp v0.0.0-20250721104811-2d405f0b4e68
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.3.0

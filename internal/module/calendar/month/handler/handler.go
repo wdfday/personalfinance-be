@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/calendar/month/dto"
@@ -34,15 +36,11 @@ func (h *Handler) RegisterRoutes(router *gin.Engine, auth *middleware.Middleware
 	months.Use(auth.AuthMiddleware(middleware.WithEmailVerified()))
 	{
 		months.GET("", h.listMonths)
+		months.POST("", h.createMonth)            // POST /api/v1/months - create new month
 		months.GET("/current", h.getCurrentMonth) // Must be before /:month
 		months.GET("/:month", h.getMonthView)
-		months.POST("/:month/assign", h.assignCategory)
-		months.POST("/:month/move", h.moveMoney)
 		months.POST("/:month/income", h.receiveIncome)
 		months.POST("/:month/close", h.closeMonth)
-
-		// Planning iterations
-		months.POST("/:month/recalculate", h.recalculatePlanning)
 	}
 
 	// Sequential DSS Workflow routes
@@ -94,75 +92,6 @@ func (h *Handler) listMonths(c *gin.Context) {
 		"months": months,
 		"count":  len(months),
 	})
-}
-
-// assignCategory assigns money to a category
-// POST /api/v1/months/:month/assign
-func (h *Handler) assignCategory(c *gin.Context) {
-
-	monthStr := c.Param("month")
-
-	currentUser, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
-
-	// First get the month ID
-	monthView, err := h.service.GetMonth(c.Request.Context(), currentUser.ID, monthStr)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	var req dto.AssignCategoryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	req.MonthID = monthView.MonthID
-
-	if err := h.service.AssignCategory(c.Request.Context(), req, &currentUser.ID); err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	shared.RespondWithSuccess(c, http.StatusOK, "Category assigned successfully", gin.H{})
-}
-
-// moveMoney moves money between categories
-// POST /api/v1/months/:month/move
-func (h *Handler) moveMoney(c *gin.Context) {
-
-	monthStr := c.Param("month")
-
-	currentUser, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
-
-	monthView, err := h.service.GetMonth(c.Request.Context(), currentUser.ID, monthStr)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	var req dto.MoveMoneyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	req.MonthID = monthView.MonthID
-
-	if err := h.service.MoveMoney(c.Request.Context(), req, &currentUser.ID); err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	shared.RespondWithSuccess(c, http.StatusOK, "Money moved successfully", gin.H{})
 }
 
 // receiveIncome adds income to TBB
@@ -223,6 +152,36 @@ func (h *Handler) closeMonth(c *gin.Context) {
 	shared.RespondWithSuccess[any](c, http.StatusOK, "Month closed successfully", nil)
 }
 
+// createMonth creates a new month
+// POST /api/v1/months
+func (h *Handler) createMonth(c *gin.Context) {
+	currentUser, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	var req dto.CreateMonthRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	month, err := h.service.CreateMonth(c.Request.Context(), currentUser.ID, req.Month)
+	if err != nil {
+		// Check if it's a "month already exists" error
+		if err.Error() != "" && (err.Error() == fmt.Sprintf("month already exists: %s", req.Month) ||
+			strings.Contains(err.Error(), "month already exists")) {
+			shared.RespondWithError(c, http.StatusConflict, err.Error())
+			return
+		}
+		shared.HandleError(c, err)
+		return
+	}
+
+	shared.RespondWithSuccess(c, http.StatusCreated, "Month created successfully", month)
+}
+
 // getCurrentMonth gets or creates the current month
 // GET /api/v1/months/current
 func (h *Handler) getCurrentMonth(c *gin.Context) {
@@ -240,39 +199,4 @@ func (h *Handler) getCurrentMonth(c *gin.Context) {
 	}
 
 	shared.RespondWithSuccess(c, http.StatusOK, "Current month retrieved successfully", view)
-}
-
-// recalculatePlanning creates a new planning iteration
-// POST /api/v1/months/:month/recalculate
-func (h *Handler) recalculatePlanning(c *gin.Context) {
-
-	monthStr := c.Param("month")
-
-	currentUser, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
-
-	monthView, err := h.service.GetMonth(c.Request.Context(), currentUser.ID, monthStr)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	var req dto.RecalculatePlanningRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	req.MonthID = monthView.MonthID
-
-	result, err := h.service.RecalculatePlanning(c.Request.Context(), req, &currentUser.ID)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	shared.RespondWithSuccess(c, http.StatusOK, "Planning iteration created successfully", result)
 }

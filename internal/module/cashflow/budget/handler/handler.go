@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"personalfinancedss/internal/middleware"
@@ -39,6 +41,7 @@ func (h *Handler) RegisterRoutes(router *gin.Engine, authMiddleware *middleware.
 		budgets.GET("", h.GetUserBudgets)
 		budgets.GET("/active", h.GetActiveBudgets)
 		budgets.GET("/summary", h.GetBudgetSummary)
+		budgets.GET("/constraint/:constraint_id", h.GetBudgetsByConstraint)
 		budgets.GET("/:id", h.GetBudgetByID)
 		budgets.GET("/:id/progress", h.GetBudgetProgress)
 		budgets.GET("/:id/analytics", h.GetBudgetAnalytics)
@@ -71,36 +74,61 @@ func (h *Handler) CreateBudget(c *gin.Context) {
 
 	var req dto.CreateBudgetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// Log validation error for debugging
+		h.logger.Error("Budget request validation failed", zap.Error(err))
 		shared.RespondWithError(c, http.StatusBadRequest, "invalid request data: "+err.Error())
 		return
 	}
 
-	budget := &domain.Budget{
-		UserID:               user.ID,
-		Name:                 req.Name,
-		Description:          req.Description,
-		Amount:               req.Amount,
-		Currency:             req.Currency,
-		Period:               req.Period,
-		StartDate:            req.StartDate,
-		EndDate:              req.EndDate,
-		CategoryID:           req.CategoryID,
-		AccountID:            req.AccountID,
-		EnableAlerts:         req.EnableAlerts,
-		AlertThresholds:      req.AlertThresholds,
-		AllowRollover:        req.AllowRollover,
-		CarryOverPercent:     req.CarryOverPercent,
-		AutoAdjust:           req.AutoAdjust,
-		AutoAdjustPercentage: req.AutoAdjustPercentage,
-		AutoAdjustBasedOn:    req.AutoAdjustBasedOn,
-	}
-
-	if err := h.service.CreateBudget(c.Request.Context(), budget); err != nil {
-		shared.HandleError(c, err)
+	budget, err := h.service.CreateBudget(c.Request.Context(), user.ID, req)
+	if err != nil {
+		fmt.Printf("ERROR CreateBudget: %v\n", err)
+		h.logger.Error("CreateBudget failed",
+			zap.Error(err),
+			zap.String("create_budget_error", err.Error()),
+		)
+		appErr := budgetCreateErrorToAppError(err)
+		shared.RespondWithAppError(c, appErr)
 		return
 	}
 
 	shared.RespondWithSuccess(c, http.StatusCreated, "Budget created successfully", dto.ToBudgetResponse(budget))
+}
+
+// budgetCreateErrorToAppError maps CreateBudget service errors to AppErrors for proper HTTP responses.
+func budgetCreateErrorToAppError(err error) *shared.AppError {
+	msg := err.Error()
+	msgLower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(msg, "user ID is required"),
+		strings.Contains(msg, "budget name is required"),
+		strings.Contains(msg, "amount must be greater"),
+		strings.Contains(msg, "invalid budget period"),
+		strings.Contains(msg, "unknown budget period"),
+		strings.Contains(msg, "start date is required"),
+		strings.Contains(msg, "end date must be after"),
+		strings.Contains(msg, "cannot calculate end date"),
+		strings.Contains(msg, "failed to auto-calculate"),
+		strings.Contains(msg, "alert thresholds"):
+		return shared.ErrValidation.WithError(err).WithDetails("reason", msg)
+	case strings.Contains(msg, "conflicts with existing budget"),
+		strings.Contains(msg, "another recurring budget"):
+		return shared.ErrConflict.WithError(err).WithDetails("reason", msg)
+	// DB constraint / schema errors -> 400 validation
+	case strings.Contains(msgLower, "null value"),
+		strings.Contains(msgLower, "violates not-null"),
+		strings.Contains(msgLower, "not null"),
+		strings.Contains(msgLower, "foreign key"),
+		strings.Contains(msgLower, "violates foreign key"):
+		return shared.ErrValidation.WithError(err).WithDetails("reason", msg)
+	// Duplicate / unique -> 409 conflict
+	case strings.Contains(msgLower, "duplicate key"),
+		strings.Contains(msgLower, "unique constraint"),
+		strings.Contains(msgLower, "already exists"):
+		return shared.ErrConflict.WithError(err).WithDetails("reason", msg)
+	default:
+		return shared.ErrInternal.WithError(err)
+	}
 }
 
 // GetUserBudgets godoc
@@ -171,6 +199,41 @@ func (h *Handler) GetActiveBudgets(c *gin.Context) {
 	}
 
 	shared.RespondWithSuccess(c, http.StatusOK, "Active budgets retrieved successfully", dto.ToBudgetResponseList(budgets))
+}
+
+// GetBudgetsByConstraint godoc
+// @Summary Get budgets by constraint ID
+// @Description Get all budgets for a specific constraint
+// @Tags budgets
+// @Produce json
+// @Security BearerAuth
+// @Param constraint_id path string true "Constraint ID"
+// @Success 200 {array} dto.BudgetResponse
+// @Failure 400 {object} shared.ErrorResponse
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 500 {object} shared.ErrorResponse
+// @Router /api/v1/budgets/constraint/{constraint_id} [get]
+func (h *Handler) GetBudgetsByConstraint(c *gin.Context) {
+	user, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	constraintIDStr := c.Param("constraint_id")
+	constraintID, err := uuid.Parse(constraintIDStr)
+	if err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, "invalid constraint ID")
+		return
+	}
+
+	budgets, err := h.service.GetBudgetsByConstraint(c.Request.Context(), user.ID, constraintID)
+	if err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	shared.RespondWithSuccess(c, http.StatusOK, "Budgets retrieved successfully", dto.ToBudgetResponseList(budgets))
 }
 
 // GetBudgetByID godoc

@@ -14,6 +14,9 @@ import (
 // Goals and income are read from cached DSS state (initialized via POST /dss/initialize)
 type PreviewAutoScoringRequest struct {
 	MonthID uuid.UUID `json:"month_id" binding:"required"`
+	// Optional: Thử số tiền cấp phát cho goals để tính toán scoring với context budget
+	// Nếu có, sẽ dùng để adjust MonthlyIncome context (ví dụ: goal_allocation_pct = 60% => dùng 60% income)
+	GoalAllocationPct *float64 `json:"goal_allocation_pct,omitempty"` // 0-100, optional
 	// No goals or income needed - read from Redis cache
 }
 

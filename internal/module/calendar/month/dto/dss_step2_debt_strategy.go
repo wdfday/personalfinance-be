@@ -12,10 +12,13 @@ import (
 
 // PreviewDebtStrategyRequest requests debt strategy preview
 // Debts are read from cached DSS state (initialized via POST /dss/initialize)
+// User provides allocation percentages to calculate debt budget
 type PreviewDebtStrategyRequest struct {
 	MonthID           uuid.UUID `json:"month_id" binding:"required"`
 	PreferredStrategy string    `json:"preferred_strategy,omitempty"` // "avalanche" | "snowball" | "hybrid"
-	// No debts or budget needed - read from Redis cache
+	// User input: allocation percentages for goals and debts (from sliders)
+	GoalAllocationPct *float64 `json:"goal_allocation_pct,omitempty"` // 0-100, optional - % of income for goals
+	DebtAllocationPct *float64 `json:"debt_allocation_pct,omitempty"` // 0-100, optional - % of income for debts (USER INPUT)
 }
 
 // PreviewDebtStrategyResponse type alias to analytics output

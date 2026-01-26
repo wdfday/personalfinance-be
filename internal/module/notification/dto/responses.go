@@ -86,41 +86,6 @@ type NotificationPreferenceResponse struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
-// AlertRuleResponse represents an alert rule in API responses
-type AlertRuleResponse struct {
-	ID              string                 `json:"id"`
-	Name            string                 `json:"name"`
-	Type            string                 `json:"type"`
-	Enabled         bool                   `json:"enabled"`
-	Description     string                 `json:"description"`
-	Conditions      map[string]interface{} `json:"conditions"`
-	Channels        []string               `json:"channels,omitempty"`
-	Schedule        *string                `json:"schedule,omitempty"`
-	LastTriggeredAt *time.Time             `json:"last_triggered_at,omitempty"`
-	NextTriggerAt   *time.Time             `json:"next_trigger_at,omitempty"`
-	CreatedAt       time.Time              `json:"created_at"`
-	UpdatedAt       time.Time              `json:"updated_at"`
-}
-
-// NotificationAnalyticsResponse represents notification analytics in API responses
-type NotificationAnalyticsResponse struct {
-	ID             string                 `json:"id"`
-	NotificationID string                 `json:"notification_id"`
-	Type           string                 `json:"type"`
-	Channel        string                 `json:"channel"`
-	QueuedAt       time.Time              `json:"queued_at"`
-	SentAt         *time.Time             `json:"sent_at,omitempty"`
-	DeliveredAt    *time.Time             `json:"delivered_at,omitempty"`
-	ReadAt         *time.Time             `json:"read_at,omitempty"`
-	ClickedAt      *time.Time             `json:"clicked_at,omitempty"`
-	FailedAt       *time.Time             `json:"failed_at,omitempty"`
-	Status         string                 `json:"status"`
-	FailureReason  *string                `json:"failure_reason,omitempty"`
-	OpenCount      int                    `json:"open_count"`
-	ClickCount     int                    `json:"click_count"`
-	Metadata       map[string]interface{} `json:"metadata,omitempty"`
-}
-
 // ToNotificationPreferenceResponse converts domain.NotificationPreference to NotificationPreferenceResponse
 func ToNotificationPreferenceResponse(p domain.NotificationPreference) NotificationPreferenceResponse {
 	channels := make([]string, len(p.PreferredChannels))
@@ -139,49 +104,5 @@ func ToNotificationPreferenceResponse(p domain.NotificationPreference) Notificat
 		Timezone:          p.Timezone,
 		CreatedAt:         p.CreatedAt,
 		UpdatedAt:         p.UpdatedAt,
-	}
-}
-
-// ToAlertRuleResponse converts domain.AlertRule to AlertRuleResponse
-func ToAlertRuleResponse(r domain.AlertRule) AlertRuleResponse {
-	channels := make([]string, len(r.Channels))
-	for i, ch := range r.Channels {
-		channels[i] = string(ch)
-	}
-
-	return AlertRuleResponse{
-		ID:              r.ID.String(),
-		Name:            r.Name,
-		Type:            string(r.Type),
-		Enabled:         r.Enabled,
-		Description:     r.Description,
-		Conditions:      r.Conditions,
-		Channels:        channels,
-		Schedule:        r.Schedule,
-		LastTriggeredAt: r.LastTriggeredAt,
-		NextTriggerAt:   r.NextTriggerAt,
-		CreatedAt:       r.CreatedAt,
-		UpdatedAt:       r.UpdatedAt,
-	}
-}
-
-// ToNotificationAnalyticsResponse converts domain.NotificationAnalytics to NotificationAnalyticsResponse
-func ToNotificationAnalyticsResponse(a domain.NotificationAnalytics) NotificationAnalyticsResponse {
-	return NotificationAnalyticsResponse{
-		ID:             a.ID.String(),
-		NotificationID: a.NotificationID.String(),
-		Type:           string(a.Type),
-		Channel:        string(a.Channel),
-		QueuedAt:       a.QueuedAt,
-		SentAt:         a.SentAt,
-		DeliveredAt:    a.DeliveredAt,
-		ReadAt:         a.ReadAt,
-		ClickedAt:      a.ClickedAt,
-		FailedAt:       a.FailedAt,
-		Status:         a.Status,
-		FailureReason:  a.FailureReason,
-		OpenCount:      a.OpenCount,
-		ClickCount:     a.ClickCount,
-		Metadata:       a.Metadata,
 	}
 }

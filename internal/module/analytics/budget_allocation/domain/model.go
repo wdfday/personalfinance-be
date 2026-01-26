@@ -33,6 +33,7 @@ type DebtConstraint struct {
 	DebtID         uuid.UUID
 	DebtName       string
 	MinimumPayment float64
+	FixedPayment   float64 // If > 0, force this payment amount (user's desired payment). If 0, use MinimumPayment
 	CurrentBalance float64
 	InterestRate   float64
 	Priority       int // Calculated based on interest rate and balance

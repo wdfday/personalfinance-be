@@ -49,60 +49,6 @@ func TestMonth_CanBeModified(t *testing.T) {
 	}
 }
 
-func TestMonth_GetCategoryState_Success(t *testing.T) {
-	categoryID := uuid.New()
-	month := &Month{
-		States: []MonthState{
-			{
-				CategoryStates: map[uuid.UUID]*CategoryState{
-					categoryID: {
-						CategoryID: categoryID,
-						Assigned:   5000,
-					},
-				},
-			},
-		},
-	}
-
-	catState, err := month.GetCategoryState(categoryID)
-	require.NoError(t, err)
-	assert.Equal(t, float64(5000), catState.Assigned)
-}
-
-func TestMonth_GetCategoryState_NotFound(t *testing.T) {
-	month := &Month{
-		States: []MonthState{
-			{
-				CategoryStates: make(map[uuid.UUID]*CategoryState),
-			},
-		},
-	}
-
-	_, err := month.GetCategoryState(uuid.New())
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
-}
-
-func TestMonth_UpdateCategoryState(t *testing.T) {
-	categoryID := uuid.New()
-	month := &Month{
-		States: []MonthState{
-			{
-				CategoryStates: make(map[uuid.UUID]*CategoryState),
-			},
-		},
-	}
-
-	newCatState := &CategoryState{
-		CategoryID: categoryID,
-		Assigned:   10000,
-	}
-
-	month.UpdateCategoryState(categoryID, newCatState)
-
-	assert.Equal(t, float64(10000), month.CurrentState().CategoryStates[categoryID].Assigned)
-}
-
 func TestMonth_IncrementVersion(t *testing.T) {
 	month := &Month{Version: 1}
 
@@ -119,14 +65,4 @@ func TestMonth_TableName(t *testing.T) {
 func TestMonthStatus_String(t *testing.T) {
 	assert.Equal(t, "OPEN", string(StatusOpen))
 	assert.Equal(t, "CLOSED", string(StatusClosed))
-}
-
-func TestMonth_Archive(t *testing.T) {
-	month := &Month{
-		Status: StatusClosed,
-	}
-
-	err := month.Archive()
-	assert.NoError(t, err)
-	// Archive logic TBD
 }

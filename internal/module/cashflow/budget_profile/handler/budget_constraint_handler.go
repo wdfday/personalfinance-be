@@ -31,10 +31,13 @@ func (h *Handler) RegisterRoutes(r *gin.Engine, authMiddleware *middleware.Middl
 		budgetConstraints.POST("", h.createBudgetConstraint)
 		budgetConstraints.GET("", h.listBudgetConstraints)
 		budgetConstraints.GET("/summary", h.getBudgetConstraintSummary)
-		budgetConstraints.GET("/:id", h.getBudgetConstraint)
 		budgetConstraints.GET("/category/:category_id", h.getBudgetConstraintByCategory)
+		// Specific routes must come before parameterized routes
+		budgetConstraints.GET("/:id/history", h.getBudgetConstraintHistory)
+		budgetConstraints.POST("/:id/archive", h.archiveBudgetConstraint)
+		budgetConstraints.POST("/:id/end", h.endBudgetConstraint)
+		budgetConstraints.GET("/:id", h.getBudgetConstraint)
 		budgetConstraints.PUT("/:id", h.updateBudgetConstraint)
-		budgetConstraints.DELETE("/:id", h.deleteBudgetConstraint)
 	}
 }
 
@@ -183,6 +186,39 @@ func (h *Handler) getBudgetConstraint(c *gin.Context) {
 	shared.RespondWithSuccess(c, http.StatusOK, "Budget constraint retrieved successfully", response)
 }
 
+// GetBudgetConstraintHistory godoc
+// @Summary Get budget constraint with version history
+// @Description Get a budget constraint together with its version history
+// @Tags budget-constraints
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Budget Constraint ID"
+// @Success 200 {object} dto.BudgetConstraintWithHistoryResponse
+// @Failure 400 {object} shared.ErrorResponse
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 404 {object} shared.ErrorResponse
+// @Router /api/v1/budget-constraints/{id}/history [get]
+func (h *Handler) getBudgetConstraintHistory(c *gin.Context) {
+	// Get user from context
+	user, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	constraintID := c.Param("id")
+
+	current, history, err := h.service.GetBudgetConstraintWithHistory(c.Request.Context(), user.ID.String(), constraintID)
+	if err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	response := dto.ToBudgetConstraintWithHistoryResponse(current, history, true)
+	shared.RespondWithSuccess(c, http.StatusOK, "Budget constraint history retrieved successfully", response)
+}
+
 // GetBudgetConstraintByCategory godoc
 // @Summary Get budget constraint by category
 // @Description Get budget constraint for a specific category
@@ -264,9 +300,9 @@ func (h *Handler) updateBudgetConstraint(c *gin.Context) {
 	shared.RespondWithSuccess(c, http.StatusOK, "Budget constraint updated successfully", response)
 }
 
-// DeleteBudgetConstraint godoc
-// @Summary Delete a budget constraint
-// @Description Delete a budget constraint
+// ArchiveBudgetConstraint godoc
+// @Summary Archive a budget constraint
+// @Description Archive a budget constraint (creates new version)
 // @Tags budget-constraints
 // @Accept json
 // @Produce json
@@ -275,10 +311,9 @@ func (h *Handler) updateBudgetConstraint(c *gin.Context) {
 // @Success 200 {object} shared.Success
 // @Failure 400 {object} shared.ErrorResponse
 // @Failure 401 {object} shared.ErrorResponse
-// @Failure 403 {object} shared.ErrorResponse
 // @Failure 404 {object} shared.ErrorResponse
-// @Router /api/v1/budget-constraints/{id} [delete]
-func (h *Handler) deleteBudgetConstraint(c *gin.Context) {
+// @Router /api/v1/budget-constraints/{id}/archive [post]
+func (h *Handler) archiveBudgetConstraint(c *gin.Context) {
 	// Get user from context
 	user, exists := middleware.GetCurrentUser(c)
 	if !exists {
@@ -289,11 +324,47 @@ func (h *Handler) deleteBudgetConstraint(c *gin.Context) {
 	// Get budget constraint ID from path
 	constraintID := c.Param("id")
 
-	// Delete budget constraint
-	if err := h.service.DeleteBudgetConstraint(c.Request.Context(), user.ID.String(), constraintID); err != nil {
+	// Archive budget constraint
+	if err := h.service.ArchiveBudgetConstraint(c.Request.Context(), user.ID.String(), constraintID); err != nil {
 		shared.HandleError(c, err)
 		return
 	}
 
-	shared.RespondWithSuccessNoData(c, http.StatusOK, "Budget constraint deleted successfully")
+	shared.RespondWithSuccessNoData(c, http.StatusOK, "Budget constraint archived successfully")
+}
+
+// EndBudgetConstraint godoc
+// @Summary Mark budget constraint as ended
+// @Description Mark a budget constraint as ended
+// @Tags budget-constraints
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Budget Constraint ID"
+// @Success 200 {object} dto.BudgetConstraintResponse
+// @Failure 400 {object} shared.ErrorResponse
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 404 {object} shared.ErrorResponse
+// @Router /api/v1/budget-constraints/{id}/end [post]
+func (h *Handler) endBudgetConstraint(c *gin.Context) {
+	// Get user from context
+	user, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	// Get budget constraint ID from path
+	constraintID := c.Param("id")
+
+	// End budget constraint
+	bc, err := h.service.EndBudgetConstraint(c.Request.Context(), user.ID.String(), constraintID)
+	if err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	// Convert to response
+	response := dto.ToBudgetConstraintResponse(bc, true)
+	shared.RespondWithSuccess(c, http.StatusOK, "Budget constraint marked as ended", response)
 }

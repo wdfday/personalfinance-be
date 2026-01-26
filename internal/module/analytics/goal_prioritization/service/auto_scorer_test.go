@@ -13,42 +13,43 @@ func TestAutoScorer_CalculateUrgency(t *testing.T) {
 	scorer := NewAutoScorer()
 
 	t.Run("Very urgent - 1 month deadline", func(t *testing.T) {
-		targetDate := time.Now().AddDate(0, 1, 0) // 1 month from now
+		targetDate := time.Now().AddDate(0, 1, 0) // 1 month from now (~30 days)
 		goal := &GoalLike{
 			TargetDate: &targetDate,
 		}
 
 		urgency := scorer.CalculateUrgency(goal)
 
-		// 30 days / 365 ≈ 0.082, so urgency ≈ 1 - 0.082 = 0.918
-		assert.InDelta(t, 0.918, urgency, 0.05, "1-month deadline should be very urgent")
-		assert.Greater(t, urgency, 0.8, "Should be > 0.8")
+		// Using exponential: exp(-30/365) ≈ 0.921
+		assert.InDelta(t, 0.921, urgency, 0.05, "1-month deadline should be very urgent")
+		assert.Greater(t, urgency, 0.85, "Should be > 0.85")
 	})
 
 	t.Run("Moderately urgent - 6 months deadline", func(t *testing.T) {
-		targetDate := time.Now().AddDate(0, 6, 0)
+		targetDate := time.Now().AddDate(0, 6, 0) // ~180 days
 		goal := &GoalLike{
 			TargetDate: &targetDate,
 		}
 
 		urgency := scorer.CalculateUrgency(goal)
 
-		// 180 days / 365 ≈ 0.493, so urgency ≈ 0.507
-		assert.InDelta(t, 0.507, urgency, 0.05, "6-month deadline")
-		assert.Greater(t, urgency, 0.4)
-		assert.Less(t, urgency, 0.6)
+		// Using exponential: exp(-180/365) ≈ 0.614
+		assert.InDelta(t, 0.614, urgency, 0.05, "6-month deadline")
+		assert.Greater(t, urgency, 0.5)
+		assert.Less(t, urgency, 0.7)
 	})
 
-	t.Run("Not urgent - 2 years deadline", func(t *testing.T) {
-		targetDate := time.Now().AddDate(2, 0, 0)
+	t.Run("Low urgency - 2 years deadline", func(t *testing.T) {
+		targetDate := time.Now().AddDate(2, 0, 0) // ~730 days
 		goal := &GoalLike{
 			TargetDate: &targetDate,
 		}
 
 		urgency := scorer.CalculateUrgency(goal)
 
-		// 730 days / 365 = 2.0, capped at 1.0, so urgency = 1 - 1 = 0.0
-		assert.InDelta(t, 0.0, urgency, 0.05, "2-year deadline should have low urgency")
+		// Using exponential: exp(-730/365) = exp(-2) ≈ 0.135
+		assert.InDelta(t, 0.135, urgency, 0.05, "2-year deadline should have low urgency")
+		assert.Less(t, urgency, 0.2)
 	})
 
 	t.Run("Overdue goal - maximum urgency", func(t *testing.T) {
@@ -106,10 +107,15 @@ func TestAutoScorer_CalculateFeasibility(t *testing.T) {
 
 		// Required: 960M / 12 months = 80M/month
 		// Income: 50M
-		// Feasibility: min(1, 50/80) = 0.625
+		// Base feasibility: min(1, 50/80) = 0.625
+		// Size penalty: 960M / (50M * 12) = 1.6 years of income
+		// Penalty: 0.3 * (1.6-1.0) / 2.0 = 0.09
+		// Result: 0.625 * (1.0 - 0.09) ≈ 0.569
 		feasibility := scorer.CalculateFeasibility(goal, 50_000_000)
 
-		assert.InDelta(t, 0.625, feasibility, 0.01, "Should be challenging")
+		// With size penalty, should be lower than base 0.625
+		assert.InDelta(t, 0.57, feasibility, 0.05, "Should be challenging with size penalty")
+		assert.Less(t, feasibility, 0.65, "Should account for size penalty")
 	})
 
 	t.Run("Already completed - very feasible", func(t *testing.T) {
@@ -133,7 +139,29 @@ func TestAutoScorer_CalculateFeasibility(t *testing.T) {
 
 		feasibility := scorer.CalculateFeasibility(goal, 50_000_000)
 
-		assert.Equal(t, 0.5, feasibility, "No deadline = neutral")
+		// Should be 0.5 for no deadline with no progress
+		assert.InDelta(t, 0.5, feasibility, 0.1, "No deadline = neutral")
+	})
+
+	t.Run("High progress bonus - near completion", func(t *testing.T) {
+		targetDate := time.Now().AddDate(0, 12, 0) // 12 months
+		goal := &GoalLike{
+			TargetAmount:    100_000_000, // 100M
+			CurrentAmount:   85_000_000,  // 85% complete
+			RemainingAmount: 15_000_000,
+			TargetDate:      &targetDate,
+			Status:          GoalStatusActive,
+		}
+
+		// Required: 15M / 12 = 1.25M/month
+		// Income: 50M
+		// Base: min(1, 50/1.25) = 1.0
+		// Progress bonus: 0.2 (80%+ complete)
+		// Result should be > 1.0 but capped at 1.0
+		feasibility := scorer.CalculateFeasibility(goal, 50_000_000)
+
+		assert.GreaterOrEqual(t, feasibility, 0.9, "Near completion should boost feasibility")
+		assert.LessOrEqual(t, feasibility, 1.0, "Should be capped at 1.0")
 	})
 
 	t.Run("Invalid income - not feasible", func(t *testing.T) {
@@ -148,6 +176,33 @@ func TestAutoScorer_CalculateFeasibility(t *testing.T) {
 
 		feasibility = scorer.CalculateFeasibility(goal, -1000)
 		assert.Equal(t, 0.0, feasibility, "Negative income")
+	})
+
+	t.Run("Very difficult - high required monthly vs low income", func(t *testing.T) {
+		// Test case: Goal cần 500M trong 3 tháng, income chỉ 50M
+		// Required: 500M / 3 = 166.67M/month
+		// Income: 50M
+		// Expected: min(1, 50/166.67) = 0.3 (rất thấp)
+		targetDate := time.Now().AddDate(0, 0, 90) // 90 days = 3 months
+		goal := &GoalLike{
+			TargetAmount:    500_000_000, // 500M VND
+			CurrentAmount:   0,
+			RemainingAmount: 500_000_000,
+			TargetDate:      &targetDate,
+			Status:          GoalStatusActive,
+		}
+
+		feasibility := scorer.CalculateFeasibility(goal, 50_000_000)
+
+		t.Logf("Test case: Goal 500M in 3 months, Income 50M")
+		t.Logf("  Required monthly: 500M / 3 = 166.67M")
+		t.Logf("  Base feasibility: min(1.0, 50/166.67) = %.3f", 50.0/166.67)
+		t.Logf("  Actual feasibility: %.3f", feasibility)
+		t.Logf("  Years of income: 500/(50*12) = %.3f", 500.0/(50.0*12.0))
+
+		// Feasibility should be around 0.3 (very low)
+		assert.InDelta(t, 0.3, feasibility, 0.05, "Should be very low feasibility (~0.3)")
+		assert.Less(t, feasibility, 0.4, "Should be less than 0.4")
 	})
 }
 
@@ -286,6 +341,39 @@ func TestAutoScorer_CalculateImportance(t *testing.T) {
 		// 1.00 × 1.10 = 1.10, but capped at 1.0
 		assert.Equal(t, 1.0, importance, "Should be capped at 1.0")
 	})
+
+	t.Run("Progress boost - near completion", func(t *testing.T) {
+		goal := &GoalLike{
+			Category:      GoalCategorySavings, // Base: 0.60
+			Priority:      GoalPriorityMedium,
+			TargetAmount:  100_000_000,
+			CurrentAmount: 85_000_000, // 85% complete
+		}
+
+		importance := scorer.CalculateImportance(goal)
+
+		// Base: 0.60
+		// Progress factor: 0.1 * (0.85-0.8)/0.2 = 0.025
+		// Result: 0.60 * 1.025 ≈ 0.615
+		assert.Greater(t, importance, 0.60, "Near completion should boost importance")
+		assert.LessOrEqual(t, importance, 1.0, "Should be <= 1.0")
+	})
+
+	t.Run("Scale boost - large goal", func(t *testing.T) {
+		goal := &GoalLike{
+			Category:     GoalCategorySavings, // Base: 0.60
+			Priority:     GoalPriorityMedium,
+			TargetAmount: 600_000_000, // 600M - large goal
+		}
+
+		importance := scorer.CalculateImportance(goal)
+
+		// Base: 0.60
+		// Scale factor: 0.05 (500M+)
+		// Result: 0.60 * 1.05 = 0.63
+		assert.Greater(t, importance, 0.60, "Large goal should get scale boost")
+		assert.InDelta(t, 0.63, importance, 0.01)
+	})
 }
 
 func TestAutoScorer_CalculateImpact(t *testing.T) {
@@ -358,12 +446,12 @@ func TestAutoScorer_CalculateAllCriteria(t *testing.T) {
 
 	criteria := scorer.CalculateAllCriteria(goal, monthlyIncome)
 
-	// Verify all 4 criteria are present
-	assert.Len(t, criteria, 4, "Should have 4 criteria")
+	// Verify 3 criteria are present (impact is temporarily disabled)
+	assert.Len(t, criteria, 3, "Should have 3 criteria (impact disabled)")
 	assert.Contains(t, criteria, "urgency")
 	assert.Contains(t, criteria, "feasibility")
 	assert.Contains(t, criteria, "importance")
-	assert.Contains(t, criteria, "impact")
+	// assert.Contains(t, criteria, "impact") // Temporarily disabled
 
 	// Verify all scores are in valid range [0, 1]
 	for criterion, score := range criteria {
@@ -376,5 +464,5 @@ func TestAutoScorer_CalculateAllCriteria(t *testing.T) {
 	t.Logf("  Urgency:     %.3f", criteria["urgency"])
 	t.Logf("  Feasibility: %.3f", criteria["feasibility"])
 	t.Logf("  Importance:  %.3f", criteria["importance"])
-	t.Logf("  Impact:      %.3f", criteria["impact"])
+	// t.Logf("  Impact:      %.3f", criteria["impact"]) // Temporarily disabled
 }

@@ -19,21 +19,9 @@ type IncomeProfileResponse struct {
 	Currency  string  `json:"currency"`
 	Frequency string  `json:"frequency"`
 
-	// Income components breakdown
-	BaseSalary  float64 `json:"base_salary"`
-	Bonus       float64 `json:"bonus"`
-	Commission  float64 `json:"commission"`
-	Allowance   float64 `json:"allowance"`
-	OtherIncome float64 `json:"other_income"`
-
-	// Computed fields
-	TotalIncome     float64            `json:"total_income"`
-	IncomeBreakdown map[string]float64 `json:"income_breakdown,omitempty"`
-
 	// Status and lifecycle
 	Status      string `json:"status"`
 	IsRecurring bool   `json:"is_recurring"`
-	IsVerified  bool   `json:"is_verified"`
 	IsActive    bool   `json:"is_active"`
 	IsArchived  bool   `json:"is_archived"`
 

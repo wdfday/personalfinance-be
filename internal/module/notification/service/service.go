@@ -45,25 +45,6 @@ type NotificationService interface {
 	NotifyMonthlySummary(userEmail, userName, month string, year int, summary map[string]interface{})
 }
 
-// SecurityLogger defines security event logging operations
-type SecurityLogger interface {
-	// LogEvent logs a security event
-	LogEvent(ctx context.Context, event domain.SecurityEvent)
-
-	// Convenience methods for cashflow security events
-	LogRegistration(ctx context.Context, userID, email, ipAddress string)
-	LogLoginSuccess(ctx context.Context, userID, email, ipAddress string)
-	LogLogout(ctx context.Context, userID, email, ipAddress string)
-	LogLoginFailed(ctx context.Context, email, ipAddress, reason string)
-	LogAccountLocked(ctx context.Context, userID, email, ipAddress string, lockedUntil time.Time)
-	LogPasswordChanged(ctx context.Context, userID, email string)
-	LogPasswordResetRequest(ctx context.Context, email, ipAddress string)
-	LogPasswordReset(ctx context.Context, userID, email string)
-	LogEmailVerified(ctx context.Context, userID, email string)
-	LogGoogleOAuthLogin(ctx context.Context, userID, email, ipAddress string, isNewUser bool)
-	LogTokenRefreshed(ctx context.Context, userID, email string)
-}
-
 // ScheduledReportService defines operations for generating scheduled financial reports
 type ScheduledReportService interface {
 	// GenerateDailyReport generates and sends daily summary report
@@ -89,33 +70,6 @@ type SchedulerService interface {
 
 	// IsRunning returns whether the scheduler is currently running
 	IsRunning() bool
-}
-
-// AlertRuleService defines operations for managing and evaluating alert rules
-type AlertRuleService interface {
-	// CreateRule creates a new alert rule
-	CreateRule(ctx context.Context, rule *domain.AlertRule) error
-
-	// GetRule retrieves an alert rule by ID
-	GetRule(ctx context.Context, ruleID string) (*domain.AlertRule, error)
-
-	// UpdateRule updates an existing alert rule
-	UpdateRule(ctx context.Context, rule *domain.AlertRule) error
-
-	// DeleteRule deletes an alert rule
-	DeleteRule(ctx context.Context, ruleID string) error
-
-	// ListUserRules lists all alert rules for a user
-	ListUserRules(ctx context.Context, userID string, limit, offset int) ([]domain.AlertRule, error)
-
-	// ListEnabledRules lists all enabled rules for a user
-	ListEnabledRules(ctx context.Context, userID string) ([]domain.AlertRule, error)
-
-	// EvaluateRule evaluates a rule and triggers notification if condition is met
-	EvaluateRule(ctx context.Context, rule *domain.AlertRule) (bool, error)
-
-	// EvaluateAllUserRules evaluates all enabled rules for a user
-	EvaluateAllUserRules(ctx context.Context, userID string) error
 }
 
 // NotificationPreferenceService defines operations for managing notification preferences
@@ -146,37 +100,4 @@ type NotificationPreferenceService interface {
 
 	// ShouldSendNotification checks if notification should be sent based on preferences
 	ShouldSendNotification(ctx context.Context, userID string, notifType domain.NotificationType) (bool, error)
-}
-
-// NotificationAnalyticsService defines operations for tracking notification analytics
-type NotificationAnalyticsService interface {
-	// TrackNotification creates an analytics record for a new notification
-	TrackNotification(ctx context.Context, notification *domain.Notification) error
-
-	// MarkDelivered marks a notification as delivered
-	MarkDelivered(ctx context.Context, notificationID string) error
-
-	// MarkRead marks a notification as read
-	MarkRead(ctx context.Context, notificationID string) error
-
-	// MarkClicked marks a notification as clicked
-	MarkClicked(ctx context.Context, notificationID string) error
-
-	// MarkFailed marks a notification as failed
-	MarkFailed(ctx context.Context, notificationID string, reason string) error
-
-	// TrackEmailOpen tracks email open via tracking pixel
-	TrackEmailOpen(ctx context.Context, notificationID string) error
-
-	// GetUserAnalytics retrieves analytics for a user
-	GetUserAnalytics(ctx context.Context, userID string, limit, offset int) ([]domain.NotificationAnalytics, error)
-
-	// GetAnalyticsByType retrieves analytics grouped by type
-	GetAnalyticsByType(ctx context.Context, userID string, startDate, endDate *time.Time) (map[string]interface{}, error)
-
-	// GetOverviewStats retrieves overall statistics
-	GetOverviewStats(ctx context.Context, userID string, startDate, endDate *time.Time) (map[string]interface{}, error)
-
-	// GetFailedNotifications retrieves failed notifications
-	GetFailedNotifications(ctx context.Context, userID string, limit, offset int) ([]domain.NotificationAnalytics, error)
 }

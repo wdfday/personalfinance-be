@@ -32,16 +32,14 @@ type BudgetConstraintUpdater interface {
 	// UpdateBudgetConstraint creates a NEW version and archives the old one
 	UpdateBudgetConstraint(ctx context.Context, userID string, constraintID string, req dto.UpdateBudgetConstraintRequest) (*domain.BudgetConstraint, error)
 
-	// ArchiveBudgetConstraint manually archives a constraint
+	// ArchiveBudgetConstraint manually archives a constraint (creates new version)
 	ArchiveBudgetConstraint(ctx context.Context, userID string, constraintID string) error
 
-	// CheckAndArchiveEnded checks and archives ended constraints
-	CheckAndArchiveEnded(ctx context.Context, userID string) (int, error)
-}
+	// EndBudgetConstraint marks a constraint as ended
+	EndBudgetConstraint(ctx context.Context, userID string, constraintID string) (*domain.BudgetConstraint, error)
 
-// BudgetConstraintDeleter defines budget constraint delete operations
-type BudgetConstraintDeleter interface {
-	DeleteBudgetConstraint(ctx context.Context, userID string, constraintID string) error
+	// CheckAndArchiveEnded checks and marks ended constraints (does not archive)
+	CheckAndArchiveEnded(ctx context.Context, userID string) (int, error)
 }
 
 // Service is the composite interface for all budget constraint operations
@@ -49,7 +47,6 @@ type Service interface {
 	BudgetConstraintCreator
 	BudgetConstraintReader
 	BudgetConstraintUpdater
-	BudgetConstraintDeleter
 }
 
 // budgetConstraintService implements all budget constraint use cases

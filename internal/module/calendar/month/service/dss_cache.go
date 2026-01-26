@@ -54,11 +54,9 @@ type DSSCachedState struct {
 	// ===== Step 2: Debt strategy =====
 	DebtStrategyPreview  interface{} `json:"debt_strategy_preview,omitempty"`
 	AcceptedDebtStrategy string      `json:"accepted_debt_strategy,omitempty"`
-
-	// ===== Step 3: Goal-Debt tradeoff =====
-	TradeoffPreview           interface{} `json:"tradeoff_preview,omitempty"`
-	AcceptedGoalAllocationPct float64     `json:"accepted_goal_allocation_pct,omitempty"`
-	AcceptedDebtAllocationPct float64     `json:"accepted_debt_allocation_pct,omitempty"`
+	// DebtAllocationWeights lưu phân bổ extra payment theo chiến lược:
+	//   strategy -> (debtID -> weight trong [0,1], tổng mỗi strategy = 1)
+	DebtAllocationWeights map[string]map[uuid.UUID]float64 `json:"debt_allocation_weights,omitempty"`
 
 	// ===== Step 4: Budget allocation =====
 	BudgetAllocationPreview interface{}           `json:"budget_allocation_preview,omitempty"`

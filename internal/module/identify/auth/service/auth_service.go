@@ -7,7 +7,6 @@ import (
 	"personalfinancedss/internal/module/identify/auth/repository"
 	"personalfinancedss/internal/module/identify/user/domain"
 	"personalfinancedss/internal/module/identify/user/service"
-	notificationservice "personalfinancedss/internal/module/notification/service"
 	"time"
 
 	"personalfinancedss/internal/config"
@@ -24,7 +23,6 @@ type Service struct {
 	passwordService    IPasswordService
 	googleOAuthService *GoogleOAuthService
 	tokenBlacklistRepo repository.ITokenBlacklistRepository
-	securityLogger     notificationservice.SecurityLogger
 	config             *config.Config
 	logger             *zap.Logger
 }
@@ -36,7 +34,6 @@ func NewService(
 	passwordService IPasswordService,
 	googleOAuthService *GoogleOAuthService,
 	tokenBlacklistRepo repository.ITokenBlacklistRepository,
-	securityLogger notificationservice.SecurityLogger,
 	cfg *config.Config,
 	logger *zap.Logger,
 ) *Service {
@@ -46,7 +43,6 @@ func NewService(
 		passwordService:    passwordService,
 		googleOAuthService: googleOAuthService,
 		tokenBlacklistRepo: tokenBlacklistRepo,
-		securityLogger:     securityLogger,
 		config:             cfg,
 		logger:             logger,
 	}
@@ -102,9 +98,6 @@ func (s *Service) Register(ctx context.Context, req dto.RegisterRequest) (*dto.A
 		return nil, shared.ErrInternal.WithError(err)
 	}
 
-	// Log registration event
-	s.securityLogger.LogRegistration(ctx, createdUser.ID.String(), createdUser.Email, "")
-
 	return &dto.AuthResult{
 		User:         createdUser,
 		AccessToken:  accessToken,
@@ -118,8 +111,6 @@ func (s *Service) Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthRes
 	// Get user by email
 	user, err := s.userService.GetByEmail(ctx, req.Email)
 	if err != nil {
-		// Log failed login attempt
-		s.securityLogger.LogLoginFailed(ctx, req.Email, req.IP, "user not found")
 		return nil, shared.ErrUnauthorized.WithDetails("message", "invalid credentials")
 	}
 
@@ -137,12 +128,6 @@ func (s *Service) Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthRes
 		if user.LoginAttempts >= 4 {
 			lockUntil := time.Now().Add(15 * time.Minute)
 			_ = s.userService.SetLockedUntil(ctx, user.ID.String(), &lockUntil)
-
-			// Log account locked
-			s.securityLogger.LogAccountLocked(ctx, user.ID.String(), user.Email, req.IP, lockUntil)
-		} else {
-			// Log failed password attempt
-			s.securityLogger.LogLoginFailed(ctx, req.Email, req.IP, "invalid password")
 		}
 
 		return nil, shared.ErrUnauthorized.WithDetails("message", "invalid credentials")
@@ -174,9 +159,6 @@ func (s *Service) Login(ctx context.Context, req dto.LoginRequest) (*dto.AuthRes
 	if err != nil {
 		return nil, shared.ErrInternal.WithError(err)
 	}
-
-	// Log successful login
-	s.securityLogger.LogLoginSuccess(ctx, user.ID.String(), user.Email, req.IP)
 
 	return &dto.AuthResult{
 		User:         user,
@@ -212,17 +194,6 @@ func (s *Service) Logout(ctx context.Context, userID, refreshToken, ipAddress st
 	if err := s.tokenBlacklistRepo.Add(ctx, refreshToken, userUUID, "logout", expiresAt); err != nil {
 		return err
 	}
-
-	// Get user for logging
-	user, err := s.userService.GetByID(ctx, userID)
-	if err != nil {
-		// Log with just userID if we can't get user
-		s.securityLogger.LogLogout(ctx, userID, "", ipAddress)
-		return nil
-	}
-
-	// Log successful logout
-	s.securityLogger.LogLogout(ctx, user.ID.String(), user.Email, ipAddress)
 
 	return nil
 }
@@ -338,12 +309,6 @@ func (s *Service) AuthenticateGoogle(ctx context.Context, req dto.GoogleAuthRequ
 	// Update last login
 	ip := ""
 	_ = s.userService.UpdateLastLogin(ctx, user.ID.String(), time.Now(), &ip)
-
-	// Determine if this is a new user for logging
-	isNewUser := user.CreatedAt.After(time.Now().Add(-5 * time.Second))
-
-	// Log Google OAuth login
-	s.securityLogger.LogGoogleOAuthLogin(ctx, user.ID.String(), user.Email, ip, isNewUser)
 
 	return &dto.AuthResult{
 		User:         user,

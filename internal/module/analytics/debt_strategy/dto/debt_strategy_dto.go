@@ -142,6 +142,9 @@ type DebtStrategyOutput struct {
 	RecommendedStrategy domain.Strategy      `json:"recommended_strategy"`
 	PaymentPlans        []domain.PaymentPlan `json:"payment_plans"`
 
+	// Fixed payments (installment/interest_only debts) - chỉ hiển thị, không cần chart
+	FixedPayments []domain.PaymentPlan `json:"fixed_payments,omitempty"` // Payment plans cho installment/interest_only debts
+
 	// Summary metrics
 	TotalInterest    float64   `json:"total_interest"`
 	MonthsToDebtFree int       `json:"months_to_debt_free"`

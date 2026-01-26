@@ -136,13 +136,11 @@ func TestService_CreateIncomeProfile(t *testing.T) {
 	userID := uuid.New()
 
 	req := dto.CreateIncomeProfileRequest{
-		Source:     "Salary - Company X",
-		Amount:     50000000,
-		Currency:   "VND",
-		Frequency:  "monthly",
-		StartDate:  time.Now(),
-		BaseSalary: floatPtr(40000000),
-		Bonus:      floatPtr(10000000),
+		Source:    "Salary - Company X",
+		Amount:    50000000,
+		Currency:  "VND",
+		Frequency: "monthly",
+		StartDate: time.Now(),
 	}
 
 	mockRepo.On("Create", ctx, mock.AnythingOfType("*domain.IncomeProfile")).Return(nil)
@@ -294,20 +292,17 @@ func TestService_UpdateIncomeProfile(t *testing.T) {
 	profileID := uuid.New()
 
 	existingProfile := &domain.IncomeProfile{
-		ID:         profileID,
-		UserID:     userID,
-		Source:     "Salary v1",
-		Amount:     50000000,
-		Frequency:  "monthly",
-		StartDate:  time.Now().Add(-30 * 24 * time.Hour),
-		Status:     domain.IncomeStatusActive,
-		BaseSalary: 40000000,
-		Bonus:      10000000,
+		ID:        profileID,
+		UserID:    userID,
+		Source:    "Salary v1",
+		Amount:    50000000,
+		Frequency: "monthly",
+		StartDate: time.Now().Add(-30 * 24 * time.Hour),
+		Status:    domain.IncomeStatusActive,
 	}
 
 	req := dto.UpdateIncomeProfileRequest{
-		Amount:     floatPtr(60000000),
-		BaseSalary: floatPtr(50000000),
+		Amount: floatPtr(60000000),
 	}
 
 	mockRepo.On("GetByID", ctx, profileID).Return(existingProfile, nil)
@@ -354,29 +349,7 @@ func TestService_UpdateIncomeProfile_AlreadyArchived(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-func TestService_VerifyIncomeProfile(t *testing.T) {
-	service, mockRepo := setupService()
-	ctx := context.Background()
-	userID := uuid.New()
-	profileID := uuid.New()
-
-	profile := &domain.IncomeProfile{
-		ID:         profileID,
-		UserID:     userID,
-		IsVerified: false,
-	}
-
-	mockRepo.On("GetByID", ctx, profileID).Return(profile, nil)
-	mockRepo.On("Update", ctx, mock.MatchedBy(func(ip *domain.IncomeProfile) bool {
-		return ip.ID == profileID && ip.IsVerified == true
-	})).Return(nil)
-
-	ip, err := service.VerifyIncomeProfile(ctx, userID.String(), profileID.String(), true)
-
-	assert.NoError(t, err)
-	assert.True(t, ip.IsVerified)
-	mockRepo.AssertExpectations(t)
-}
+// TestService_VerifyIncomeProfile - REMOVED: IsVerified field and VerifyIncomeProfile method have been removed
 
 func TestService_UpdateDSSMetadata(t *testing.T) {
 	service, mockRepo := setupService()

@@ -22,7 +22,7 @@ import (
 	"personalfinancedss/internal/module/cashflow/goal"
 	"personalfinancedss/internal/module/cashflow/income_profile"
 	"personalfinancedss/internal/module/cashflow/transaction"
-	"personalfinancedss/internal/module/chatbot"
+	// "personalfinancedss/internal/module/chatbot" // Temporarily disabled
 	"personalfinancedss/internal/module/identify/auth"
 	"personalfinancedss/internal/module/identify/broker"
 	"personalfinancedss/internal/module/identify/profile"
@@ -62,7 +62,7 @@ func Application() *fx.App {
 		analytics.Module,
 
 		// AI Chatbot module
-		chatbot.Module,
+		// chatbot.Module, // Temporarily disabled
 
 		// App module (wires everything together)
 		AppModule,

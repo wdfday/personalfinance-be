@@ -100,13 +100,7 @@ func (m *MockService) UpdateIncomeProfile(ctx context.Context, userID string, pr
 	return args.Get(0).(*domain.IncomeProfile), args.Error(1)
 }
 
-func (m *MockService) VerifyIncomeProfile(ctx context.Context, userID string, profileID string, verified bool) (*domain.IncomeProfile, error) {
-	args := m.Called(ctx, userID, profileID, verified)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*domain.IncomeProfile), args.Error(1)
-}
+// VerifyIncomeProfile - REMOVED: Method has been removed along with IsVerified field
 
 func (m *MockService) UpdateDSSMetadata(ctx context.Context, userID string, profileID string, req dto.UpdateDSSMetadataRequest) (*domain.IncomeProfile, error) {
 	args := m.Called(ctx, userID, profileID, req)
@@ -352,39 +346,10 @@ func TestHandlerLoadIncomeProfile(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestHandlerVerifyIncomeProfile(t *testing.T) {
-	r, mockService := setupRouter()
-	handler := NewHandler(mockService)
-
-	userID := uuid.New()
-	profileID := uuid.New()
-
-	verifyReq := dto.VerifyIncomeRequest{
-		Verified: true,
-	}
-
-	verifiedProfile := &domain.IncomeProfile{
-		ID:         profileID,
-		UserID:     userID,
-		IsVerified: true,
-	}
-
-	mockService.On("VerifyIncomeProfile", mock.Anything, userID.String(), profileID.String(), true).Return(verifiedProfile, nil)
-
-	r.POST(pathWithID+"/verify", func(c *gin.Context) {
-		setUserContext(c, userID)
-		handler.verifyIncomeProfile(c)
-	})
-
-	body, _ := json.Marshal(verifyReq)
-	w := httptest.NewRecorder()
-	request, _ := http.NewRequest("POST", basePath+"/"+profileID.String()+"/verify", bytes.NewBuffer(body))
-	request.Header.Set(contentTypeHeader, applicationJSON)
-
-	r.ServeHTTP(w, request)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	mockService.AssertExpectations(t)
+// TestHandlerVerifyIncomeProfile - REMOVED: VerifyIncomeProfile method and IsVerified field have been removed
+func TestHandlerVerifyIncomeProfile_Removed(t *testing.T) {
+	// This test has been removed as VerifyIncomeProfile method no longer exists
+	t.Skip("VerifyIncomeProfile method has been removed")
 }
 
 func TestHandlerArchiveIncomeProfile(t *testing.T) {

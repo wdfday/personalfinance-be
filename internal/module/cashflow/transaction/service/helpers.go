@@ -98,9 +98,8 @@ func validateCashTransaction(instrument domain.Instrument, source domain.Transac
 // validateBankTransaction validates business rules for bank transactions
 func validateBankTransaction(instrument domain.Instrument, source domain.TransactionSource, bankCode string) error {
 	if instrument == domain.InstrumentBankAccount {
-		if source != domain.SourceBankAPI && source != domain.SourceCsvImport && source != domain.SourceJsonImport {
-			return shared.ErrBadRequest.WithDetails("reason", "bank transactions should be from BANK_API or imports")
-		}
+		// Allow all sources: BANK_API, CSV_IMPORT, JSON_IMPORT, MANUAL
+		// Only require bankCode for BANK_API source
 		if bankCode == "" && source == domain.SourceBankAPI {
 			return shared.ErrBadRequest.WithDetails("reason", "bank transactions from BANK_API should have bankCode")
 		}
@@ -149,20 +148,16 @@ func buildCounterparty(name, accountNumber, bankName, cpType string) *domain.Cou
 	}
 }
 
-// buildClassification builds a Classification object from individual fields
-func buildClassification(systemCategory, userCategoryID string, isTransfer, isRefund bool, tags []string) *domain.Classification {
-	// Only create if at least one meaningful field is provided
-	if systemCategory == "" && userCategoryID == "" && !isTransfer && !isRefund && len(tags) == 0 {
-		return nil
+// parseUserCategoryID parses userCategoryID string to UUID pointer
+func parseUserCategoryID(userCategoryID string) (*uuid.UUID, error) {
+	if userCategoryID == "" {
+		return nil, nil
 	}
-
-	return &domain.Classification{
-		SystemCategory: systemCategory,
-		UserCategoryID: userCategoryID,
-		IsTransfer:     isTransfer,
-		IsRefund:       isRefund,
-		Tags:           tags,
+	parsed, err := uuid.Parse(userCategoryID)
+	if err != nil {
+		return nil, shared.ErrBadRequest.WithDetails("field", "userCategoryId").WithDetails("reason", "invalid UUID format")
 	}
+	return &parsed, nil
 }
 
 // buildMetadata builds a TransactionMeta object

@@ -63,6 +63,7 @@ func (cb *ConstraintBuilder) BuildConstraints(
 				DebtID:         debt.ID,
 				DebtName:       debt.Name,
 				MinimumPayment: debt.MinimumPayment,
+				FixedPayment:   0, // Not forcing - use MinimumPayment only
 				CurrentBalance: debt.CurrentBalance,
 				InterestRate:   debt.InterestRate,
 				Priority:       priority,

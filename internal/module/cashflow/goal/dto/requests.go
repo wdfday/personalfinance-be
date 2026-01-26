@@ -68,9 +68,10 @@ type UpdateGoalRequest struct {
 
 // AddContributionRequest represents a request to add a contribution to a goal (deposit)
 type AddContributionRequest struct {
-	Amount float64 `json:"amount" binding:"required,gt=0"`
-	Note   *string `json:"note"`
-	Source *string `json:"source"` // manual, auto, import (default: manual)
+	Amount    float64    `json:"amount" binding:"required,gt=0"`
+	AccountID *uuid.UUID `json:"accountId"` // Optional: if not provided, uses goal's accountId
+	Note      *string    `json:"note"`
+	Source    *string    `json:"source"` // manual, auto, import (default: manual)
 }
 
 // WithdrawContributionRequest represents a request to withdraw from a goal's contributions

@@ -40,13 +40,8 @@ func (h *Handler) RegisterDSSWorkflowRoutes(months *gin.RouterGroup, auth *middl
 	months.POST("/:month/dss/debt-strategy/preview", h.previewDebtStrategy)
 	months.POST("/:month/dss/debt-strategy/apply", h.applyDebtStrategy)
 
-	// Step 3: Goal-Debt Trade-off
-	months.POST("/:month/goal-debt-tradeoff/preview", h.previewGoalDebtTradeoff)
-	months.POST("/:month/goal-debt-tradeoff/apply", h.applyGoalDebtTradeoff)
-
-	// Step 4: Budget Allocation
+	// Step 3: Budget Allocation
 	months.POST("/:month/budget-allocation/preview", h.previewBudgetAllocation)
-	months.POST("/:month/budget-allocation/apply", h.applyBudgetAllocation)
 
 	// Workflow management
 	months.GET("/:month/workflow/status", h.getDSSWorkflowStatus)
@@ -307,93 +302,13 @@ func (h *Handler) applyDebtStrategy(c *gin.Context) {
 		return
 	}
 
-	shared.RespondWithSuccess(c, http.StatusOK, "Debt strategy applied (Step 2 complete)", gin.H{})
+	// Return response with selected strategy for frontend
+	shared.RespondWithSuccess(c, http.StatusOK, "Debt strategy applied (Step 2 complete)", gin.H{
+		"selected_strategy": req.SelectedStrategy,
+	})
 }
 
-// ==================== Step 3: Goal-Debt Trade-off ====================
-
-// previewGoalDebtTradeoff godoc
-// @Summary Preview goal-debt tradeoff
-// @Description Run Monte Carlo trade-off analysis
-// @Tags month-dss
-// @Accept json
-// @Produce json
-// @Param month path string true "Month (YYYY-MM)"
-// @Param request body dto.PreviewGoalDebtTradeoffRequest true "Preview request"
-// @Success 200 {object} dto.PreviewGoalDebtTradeoffResponse
-// @Router /api/v1/months/{month}/dss/goal-debt-tradeoff/preview [post]
-func (h *Handler) previewGoalDebtTradeoff(c *gin.Context) {
-	monthStr := c.Param("month")
-	currentUser, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
-
-	monthView, err := h.service.GetMonth(c.Request.Context(), currentUser.ID, monthStr)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	var req dto.PreviewGoalDebtTradeoffRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	req.MonthID = monthView.MonthID
-
-	result, err := h.service.PreviewGoalDebtTradeoff(c.Request.Context(), req, &currentUser.ID)
-	if err != nil {
-		handleDSSError(c, err)
-		return
-	}
-
-	shared.RespondWithSuccess(c, http.StatusOK, "Goal-debt trade-off preview generated", result)
-}
-
-// applyGoalDebtTradeoff godoc
-// @Summary Apply goal-debt tradeoff
-// @Description Save user's allocation decision to month state
-// @Tags month-dss
-// @Accept json
-// @Produce json
-// @Param month path string true "Month (YYYY-MM)"
-// @Param request body dto.ApplyGoalDebtTradeoffRequest true "Apply request"
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/months/{month}/dss/goal-debt-tradeoff/apply [post]
-func (h *Handler) applyGoalDebtTradeoff(c *gin.Context) {
-	monthStr := c.Param("month")
-	currentUser, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
-
-	monthView, err := h.service.GetMonth(c.Request.Context(), currentUser.ID, monthStr)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	var req dto.ApplyGoalDebtTradeoffRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	req.MonthID = monthView.MonthID
-
-	if err := h.service.ApplyGoalDebtTradeoff(c.Request.Context(), req, &currentUser.ID); err != nil {
-		handleDSSError(c, err)
-		return
-	}
-
-	shared.RespondWithSuccess(c, http.StatusOK, "Goal-debt trade-off applied (Step 3 complete)", gin.H{})
-}
-
-// ==================== Step 4: Budget Allocation ====================
+// ==================== Step 3: Budget Allocation ====================
 
 // previewBudgetAllocation godoc
 // @Summary Preview budget allocation
@@ -434,46 +349,6 @@ func (h *Handler) previewBudgetAllocation(c *gin.Context) {
 	}
 
 	shared.RespondWithSuccess(c, http.StatusOK, "Budget allocation preview generated", result)
-}
-
-// applyBudgetAllocation godoc
-// @Summary Apply budget allocation
-// @Description Apply selected allocation scenario to month state categories
-// @Tags month-dss
-// @Accept json
-// @Produce json
-// @Param month path string true "Month (YYYY-MM)"
-// @Param request body dto.ApplyBudgetAllocationRequest true "Apply request"
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/months/{month}/dss/budget-allocation/apply [post]
-func (h *Handler) applyBudgetAllocation(c *gin.Context) {
-	monthStr := c.Param("month")
-	currentUser, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
-
-	monthView, err := h.service.GetMonth(c.Request.Context(), currentUser.ID, monthStr)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	var req dto.ApplyBudgetAllocationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		shared.RespondWithError(c, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	req.MonthID = monthView.MonthID
-
-	if err := h.service.ApplyBudgetAllocation(c.Request.Context(), req, &currentUser.ID); err != nil {
-		handleDSSError(c, err)
-		return
-	}
-
-	shared.RespondWithSuccess(c, http.StatusOK, "Budget allocation applied - DSS workflow complete! (Step 4 complete)", gin.H{})
 }
 
 // ==================== Workflow Management ====================

@@ -3,7 +3,6 @@ package transaction
 import (
 	budgetService "personalfinancedss/internal/module/cashflow/budget/service"
 	debtService "personalfinancedss/internal/module/cashflow/debt/service"
-	goalService "personalfinancedss/internal/module/cashflow/goal/service"
 	incomeProfileService "personalfinancedss/internal/module/cashflow/income_profile/service"
 	"personalfinancedss/internal/module/cashflow/transaction/handler"
 	"personalfinancedss/internal/module/cashflow/transaction/repository"
@@ -38,11 +37,10 @@ var Module = fx.Module("transaction",
 
 // NewLinkProcessor creates a new link processor with all required dependencies
 func NewLinkProcessor(
-	goalSvc goalService.Service,
 	budgetSvc budgetService.Service,
 	debtSvc debtService.Service,
 	incomeProfileSvc incomeProfileService.Service,
 	logger *zap.Logger,
 ) *service.LinkProcessor {
-	return service.NewLinkProcessor(goalSvc, budgetSvc, debtSvc, incomeProfileSvc, logger)
+	return service.NewLinkProcessor(budgetSvc, debtSvc, incomeProfileSvc, logger)
 }

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	// External services
+	budgetService "personalfinancedss/internal/module/cashflow/budget/service"
 	categoryservice "personalfinancedss/internal/module/cashflow/category/service"
 	incomeprofilerepo "personalfinancedss/internal/module/cashflow/income_profile/repository"
 
@@ -26,17 +27,8 @@ import (
 type MonthCreator interface {
 	// CreateMonth creates a new month with deep copy from previous month
 	CreateMonth(ctx context.Context, userID uuid.UUID, month string) (*domain.Month, error)
-}
 
-// MonthCommandHandler defines the interface for month command operations
-type MonthCommandHandler interface {
-	// AssignCategory assigns money from TBB to a specific category
-	AssignCategory(ctx context.Context, req dto.AssignCategoryRequest, userID *uuid.UUID) error
-
-	// MoveMoney moves money between categories
-	MoveMoney(ctx context.Context, req dto.MoveMoneyRequest, userID *uuid.UUID) error
-
-	// ReceiveIncome adds income to TBB
+	// ReceiveIncome adds income to To Be Budgeted
 	ReceiveIncome(ctx context.Context, req dto.IncomeReceivedRequest, userID *uuid.UUID) error
 
 	// CloseMonth closes a month by month string and user ID
@@ -57,21 +49,12 @@ type MonthReader interface {
 	ListMonths(ctx context.Context, userID uuid.UUID) ([]*dto.MonthResponse, error)
 }
 
-// MonthPlanningHandler defines the interface for planning iteration operations
-type MonthPlanningHandler interface {
-	// RecalculatePlanning creates a new planning iteration by collecting fresh snapshots
-	// This APPENDS a new state to Month.States (does not modify existing states)
-	RecalculatePlanning(ctx context.Context, req dto.RecalculatePlanningRequest, userID *uuid.UUID) (*dto.PlanningIterationResponse, error)
-}
-
 // Service is the composite interface for all month operations
 // It composes all use case interfaces for convenience
 type Service interface {
 	MonthCreator
-	MonthCommandHandler
 	MonthReader
 	MonthDSSWorkflowHandler // Sequential 5-step DSS workflow (0-4)
-	MonthPlanningHandler
 }
 
 // monthService implements the Service interface
@@ -79,6 +62,7 @@ type monthService struct {
 	repo              repository.Repository
 	categoryService   categoryservice.Service
 	incomeProfileRepo incomeprofilerepo.Repository
+	budgetService     budgetService.Service
 	logger            *zap.Logger
 
 	// Analytics services for DSS pipeline
@@ -98,6 +82,7 @@ func NewService(
 	repo repository.Repository,
 	categoryService categoryservice.Service,
 	incomeProfileRepo incomeprofilerepo.Repository,
+	budgetService budgetService.Service,
 	goalPrioritization goalService.Service,
 	debtStrategy debtStrategyService.Service,
 	debtTradeoff debtTradeoffService.Service,
@@ -110,6 +95,7 @@ func NewService(
 		repo:               repo,
 		categoryService:    categoryService,
 		incomeProfileRepo:  incomeProfileRepo,
+		budgetService:      budgetService,
 		goalPrioritization: goalPrioritization,
 		debtStrategy:       debtStrategy,
 		debtTradeoff:       debtTradeoff,

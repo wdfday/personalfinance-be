@@ -44,6 +44,8 @@ func (h *Handler) RegisterRoutes(router *gin.Engine, authMiddleware *middleware.
 		goals.PUT("/:id/unarchive", h.UnarchiveGoal)
 		goals.DELETE("/:id", h.DeleteGoal)
 		goals.POST("/:id/contribute", h.AddContribution)
+		goals.POST("/:id/withdraw", h.WithdrawContribution)
+		goals.GET("/:id/contributions", h.GetContributions)
 		goals.POST("/:id/complete", h.MarkAsCompleted)
 	}
 }
@@ -342,13 +344,91 @@ func (h *Handler) AddContribution(c *gin.Context) {
 		source = *req.Source
 	}
 
-	goal, err := h.service.AddContribution(c.Request.Context(), id, req.Amount, req.Note, source)
+	goal, err := h.service.AddContribution(c.Request.Context(), id, req.Amount, req.AccountID, req.Note, source)
 	if err != nil {
 		shared.HandleError(c, err)
 		return
 	}
 
 	shared.RespondWithSuccess(c, http.StatusOK, "Contribution added successfully", dto.ToGoalResponse(goal))
+}
+
+// WithdrawContribution godoc
+// @Summary Withdraw from goal
+// @Description Withdraw an amount from a goal's contributions
+// @Tags goals
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Goal ID"
+// @Param withdrawal body dto.WithdrawContributionRequest true "Withdrawal details"
+// @Success 200 {object} dto.GoalResponse
+// @Failure 400 {object} shared.ErrorResponse
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 500 {object} shared.ErrorResponse
+// @Router /api/v1/goals/{id}/withdraw [post]
+func (h *Handler) WithdrawContribution(c *gin.Context) {
+	_, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, "invalid goal ID")
+		return
+	}
+
+	var req dto.WithdrawContributionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, "invalid request data: "+err.Error())
+		return
+	}
+
+	goal, err := h.service.WithdrawContribution(c.Request.Context(), id, req.Amount, req.Note, req.ReversingContributionID)
+	if err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	shared.RespondWithSuccess(c, http.StatusOK, "Withdrawal successful", dto.ToGoalResponse(goal))
+}
+
+// GetContributions godoc
+// @Summary Get goal contributions
+// @Description Get all contributions (deposits and withdrawals) for a goal
+// @Tags goals
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Goal ID"
+// @Success 200 {object} dto.ContributionListResponse
+// @Failure 400 {object} shared.ErrorResponse
+// @Failure 401 {object} shared.ErrorResponse
+// @Failure 500 {object} shared.ErrorResponse
+// @Router /api/v1/goals/{id}/contributions [get]
+func (h *Handler) GetContributions(c *gin.Context) {
+	_, exists := middleware.GetCurrentUser(c)
+	if !exists {
+		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
+		return
+	}
+
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		shared.RespondWithError(c, http.StatusBadRequest, "invalid goal ID")
+		return
+	}
+
+	contributions, err := h.service.GetContributions(c.Request.Context(), id)
+	if err != nil {
+		shared.HandleError(c, err)
+		return
+	}
+
+	shared.RespondWithSuccess(c, http.StatusOK, "Contributions retrieved successfully", dto.ToContributionResponseList(contributions))
 }
 
 // MarkAsCompleted godoc

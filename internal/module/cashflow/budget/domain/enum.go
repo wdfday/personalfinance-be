@@ -1,5 +1,11 @@
 package domain
 
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+)
+
 // BudgetPeriod represents the period type for a budget
 type BudgetPeriod string
 
@@ -10,12 +16,13 @@ const (
 	BudgetPeriodQuarterly BudgetPeriod = "quarterly"
 	BudgetPeriodYearly    BudgetPeriod = "yearly"
 	BudgetPeriodCustom    BudgetPeriod = "custom"
+	BudgetPeriodOneTime   BudgetPeriod = "one-time"
 )
 
 // IsValid checks if the budget period is valid
 func (bp BudgetPeriod) IsValid() bool {
 	switch bp {
-	case BudgetPeriodDaily, BudgetPeriodWeekly, BudgetPeriodMonthly, BudgetPeriodQuarterly, BudgetPeriodYearly, BudgetPeriodCustom:
+	case BudgetPeriodDaily, BudgetPeriodWeekly, BudgetPeriodMonthly, BudgetPeriodQuarterly, BudgetPeriodYearly, BudgetPeriodCustom, BudgetPeriodOneTime:
 		return true
 	}
 	return false
@@ -30,6 +37,7 @@ const (
 	BudgetStatusWarning  BudgetStatus = "warning" // 80-100% spent
 	BudgetStatusPaused   BudgetStatus = "paused"
 	BudgetStatusExpired  BudgetStatus = "expired"
+	BudgetStatusEnded    BudgetStatus = "ended"
 )
 
 // IsValid checks if the budget status is valid
@@ -73,4 +81,47 @@ func (at AlertThreshold) ToFloat64() float64 {
 		return 100.0
 	}
 	return 0.0
+}
+
+// AlertThresholdsJSON stores []AlertThreshold as JSONB. Implements driver.Valuer and sql.Scanner
+// so PostgreSQL jsonb column receives ["75","90"] instead of record ('75','90').
+type AlertThresholdsJSON []AlertThreshold
+
+// Value implements driver.Valuer. Serializes to JSON for jsonb.
+func (a AlertThresholdsJSON) Value() (driver.Value, error) {
+	if a == nil || len(a) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(a)
+}
+
+// Scan implements sql.Scanner. Deserializes from jsonb []byte.
+func (a *AlertThresholdsJSON) Scan(value interface{}) error {
+	if value == nil {
+		*a = nil
+		return nil
+	}
+	var b []byte
+	switch v := value.(type) {
+	case []byte:
+		b = v
+	case string:
+		b = []byte(v)
+	default:
+		return fmt.Errorf("cannot scan %T into AlertThresholdsJSON", value)
+	}
+	if len(b) == 0 {
+		*a = nil
+		return nil
+	}
+	var s []string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	out := make(AlertThresholdsJSON, len(s))
+	for i, v := range s {
+		out[i] = AlertThreshold(v)
+	}
+	*a = out
+	return nil
 }

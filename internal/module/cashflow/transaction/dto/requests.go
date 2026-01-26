@@ -38,11 +38,7 @@ type CreateTransactionRequest struct {
 	CounterpartyType          string `json:"counterpartyType,omitempty" binding:"omitempty,oneof=MERCHANT PERSON INTERNAL UNKNOWN"`
 
 	// Classification (optional)
-	SystemCategory string   `json:"systemCategory,omitempty"` // e.g., "SPENDING:GROCERIES"
-	UserCategoryID string   `json:"userCategoryId,omitempty" binding:"omitempty,uuid"`
-	IsTransfer     bool     `json:"isTransfer,omitempty"` // Transfer between user's accounts
-	IsRefund       bool     `json:"isRefund,omitempty"`   // Refund transaction
-	Tags           []string `json:"tags,omitempty"`       // Free-form tags
+	UserCategoryID string `json:"userCategoryId,omitempty" binding:"omitempty,uuid"`
 
 	// Links to other entities (optional)
 	Links []TransactionLinkDTO `json:"links,omitempty"`
@@ -87,11 +83,7 @@ type UpdateTransactionRequest struct {
 	CounterpartyType          *string `json:"counterpartyType,omitempty" binding:"omitempty,oneof=MERCHANT PERSON INTERNAL UNKNOWN"`
 
 	// Classification
-	SystemCategory *string   `json:"systemCategory,omitempty"`
-	UserCategoryID *string   `json:"userCategoryId,omitempty" binding:"omitempty,uuid"`
-	IsTransfer     *bool     `json:"isTransfer,omitempty"`
-	IsRefund       *bool     `json:"isRefund,omitempty"`
-	Tags           *[]string `json:"tags,omitempty"`
+	UserCategoryID *string `json:"userCategoryId,omitempty" binding:"omitempty,uuid"`
 
 	// Links
 	Links *[]TransactionLinkDTO `json:"links,omitempty"`
@@ -133,9 +125,6 @@ type ListTransactionsQuery struct {
 
 	// Classification filters
 	UserCategoryID *string `form:"categoryId" binding:"omitempty,uuid"`
-	IsTransfer     *bool   `form:"isTransfer"`
-	IsRefund       *bool   `form:"isRefund"`
-	Tag            *string `form:"tag"` // Filter by a specific tag
 
 	// Text search (searches in description, userNote, counterparty name)
 	Search *string `form:"search"`

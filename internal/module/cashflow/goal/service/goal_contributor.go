@@ -14,6 +14,7 @@ func (s *goalService) AddContribution(
 	ctx context.Context,
 	goalID uuid.UUID,
 	amount float64,
+	accountID *uuid.UUID,
 	note *string,
 	source string,
 ) (*domain.Goal, error) {
@@ -36,8 +37,14 @@ func (s *goalService) AddContribution(
 		source = "manual"
 	}
 
+	// Use provided accountID or fallback to goal's accountID
+	contributionAccountID := goal.AccountID
+	if accountID != nil {
+		contributionAccountID = *accountID
+	}
+
 	// Create contribution record
-	contribution := domain.NewDeposit(goalID, goal.AccountID, goal.UserID, amount, note)
+	contribution := domain.NewDeposit(goalID, contributionAccountID, goal.UserID, amount, note)
 	contribution.Currency = goal.Currency
 	contribution.Source = source
 
@@ -60,10 +67,10 @@ func (s *goalService) AddContribution(
 	}
 
 	// Update account's available balance
-	netContributions, err := s.repo.GetNetContributionsByAccountID(ctx, goal.AccountID)
+	netContributions, err := s.repo.GetNetContributionsByAccountID(ctx, contributionAccountID)
 	if err != nil {
 		s.logger.Error("Failed to get net contributions for account",
-			zap.String("account_id", goal.AccountID.String()),
+			zap.String("account_id", contributionAccountID.String()),
 			zap.Error(err),
 		)
 		return nil, err
@@ -85,7 +92,7 @@ func (s *goalService) AddContribution(
 		// For now, we'll just update the balance directly
 		// TODO: Implement RecalculateAvailableBalance in account service
 		s.logger.Warn("Account balance update not yet fully implemented",
-			zap.String("account_id", goal.AccountID.String()),
+			zap.String("account_id", contributionAccountID.String()),
 			zap.Float64("net_contributions", netContributions),
 		)
 	}

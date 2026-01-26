@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// MonthDSSWorkflowHandler defines the interface for the new sequential 5-step DSS workflow
-// Initialize → Step 0: Auto-Scoring → Step 1: Goal Prioritization → Step 2: Debt Strategy → Step 3: Trade-off → Step 4: Budget → Finalize
+// MonthDSSWorkflowHandler defines the interface for the DSS workflow
+// Initialize → Step 0: Auto-Scoring → Step 1: Goal Prioritization → Step 2: Debt Strategy → Step 3: Budget Allocation → Finalize
 type MonthDSSWorkflowHandler interface {
 	// ===== Initialize DSS Workflow =====
 
@@ -17,7 +17,7 @@ type MonthDSSWorkflowHandler interface {
 	// This MUST be called FIRST before any preview/apply steps
 	InitializeDSS(ctx context.Context, req dto.InitializeDSSRequest, userID *uuid.UUID) (*dto.InitializeDSSResponse, error)
 
-	// ===== Step 0: Auto-Scoring Preview (Optional) =====
+	// ===== Step 0: Auto-Scoring Preview (Optional, Preview-Only) =====
 
 	// PreviewAutoScoring runs goal auto-scoring and returns scored goals (preview only, not saved)
 	PreviewAutoScoring(ctx context.Context, req dto.PreviewAutoScoringRequest, userID *uuid.UUID) (*dto.PreviewAutoScoringResponse, error)
@@ -38,21 +38,10 @@ type MonthDSSWorkflowHandler interface {
 	// ApplyDebtStrategy saves the user's selected debt strategy to MonthState
 	ApplyDebtStrategy(ctx context.Context, req dto.ApplyDebtStrategyRequest, userID *uuid.UUID) error
 
-	// ===== Step 3: Goal-Debt Trade-off =====
+	// ===== Step 3: Budget Allocation =====
 
-	// PreviewGoalDebtTradeoff runs Monte Carlo trade-off analysis
-	PreviewGoalDebtTradeoff(ctx context.Context, req dto.PreviewGoalDebtTradeoffRequest, userID *uuid.UUID) (*dto.PreviewGoalDebtTradeoffResponse, error)
-
-	// ApplyGoalDebtTradeoff saves the user's allocation decision to MonthState
-	ApplyGoalDebtTradeoff(ctx context.Context, req dto.ApplyGoalDebtTradeoffRequest, userID *uuid.UUID) error
-
-	// ===== Step 4: Budget Allocation =====
-
-	// PreviewBudgetAllocation runs Goal Programming allocation with results from steps 1-3
+	// PreviewBudgetAllocation runs Goal Programming allocation with 3 scenarios
 	PreviewBudgetAllocation(ctx context.Context, req dto.PreviewBudgetAllocationRequest, userID *uuid.UUID) (*dto.PreviewBudgetAllocationResponse, error)
-
-	// ApplyBudgetAllocation applies the selected allocation scenario to MonthState categories
-	ApplyBudgetAllocation(ctx context.Context, req dto.ApplyBudgetAllocationRequest, userID *uuid.UUID) error
 
 	// ===== Workflow Management =====
 

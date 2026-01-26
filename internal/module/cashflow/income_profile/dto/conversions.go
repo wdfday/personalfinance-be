@@ -15,7 +15,7 @@ func FromCreateIncomeProfileRequest(req CreateIncomeProfileRequest, userID uuid.
 		req.Source,
 		req.Amount,
 		req.Frequency,
-		req.StartDate,
+		req.StartDate.Time,
 	)
 	if err != nil {
 		return nil, err
@@ -26,39 +26,11 @@ func FromCreateIncomeProfileRequest(req CreateIncomeProfileRequest, userID uuid.
 		ip.Currency = req.Currency
 	}
 	if req.EndDate != nil {
-		ip.EndDate = req.EndDate
+		endTime := req.EndDate.Time
+		ip.EndDate = &endTime
 	}
 	if req.IsRecurring != nil {
 		ip.IsRecurring = *req.IsRecurring
-	}
-
-	// Set income component breakdown if provided
-	if req.BaseSalary != nil || req.Bonus != nil || req.Commission != nil || req.Allowance != nil || req.OtherIncome != nil {
-		baseSalary := float64(0)
-		bonus := float64(0)
-		commission := float64(0)
-		allowance := float64(0)
-		otherIncome := float64(0)
-
-		if req.BaseSalary != nil {
-			baseSalary = *req.BaseSalary
-		}
-		if req.Bonus != nil {
-			bonus = *req.Bonus
-		}
-		if req.Commission != nil {
-			commission = *req.Commission
-		}
-		if req.Allowance != nil {
-			allowance = *req.Allowance
-		}
-		if req.OtherIncome != nil {
-			otherIncome = *req.OtherIncome
-		}
-
-		if err := ip.UpdateComponents(baseSalary, bonus, commission, allowance, otherIncome); err != nil {
-			return nil, err
-		}
 	}
 
 	if req.Description != nil {
@@ -88,39 +60,16 @@ func ApplyUpdateIncomeProfileRequest(req UpdateIncomeProfileRequest, existing *d
 		newVersion.IsRecurring = *req.Frequency != "one-time"
 	}
 	if req.EndDate != nil {
-		newVersion.EndDate = req.EndDate
+		endTime := req.EndDate.Time
+		newVersion.EndDate = &endTime
 	}
 	if req.IsRecurring != nil {
 		newVersion.IsRecurring = *req.IsRecurring
 	}
 
-	// Update income components if provided
-	if req.BaseSalary != nil || req.Bonus != nil || req.Commission != nil || req.Allowance != nil || req.OtherIncome != nil {
-		baseSalary := newVersion.BaseSalary
-		bonus := newVersion.Bonus
-		commission := newVersion.Commission
-		allowance := newVersion.Allowance
-		otherIncome := newVersion.OtherIncome
-
-		if req.BaseSalary != nil {
-			baseSalary = *req.BaseSalary
-		}
-		if req.Bonus != nil {
-			bonus = *req.Bonus
-		}
-		if req.Commission != nil {
-			commission = *req.Commission
-		}
-		if req.Allowance != nil {
-			allowance = *req.Allowance
-		}
-		if req.OtherIncome != nil {
-			otherIncome = *req.OtherIncome
-		}
-
-		if err := newVersion.UpdateComponents(baseSalary, bonus, commission, allowance, otherIncome); err != nil {
-			return nil, err
-		}
+	// Update Amount if provided
+	if req.Amount != nil {
+		newVersion.Amount = *req.Amount
 	}
 
 	if req.Description != nil {
@@ -147,15 +96,8 @@ func ToIncomeProfileResponse(ip *domain.IncomeProfile, includeBreakdown bool) In
 		Amount:      ip.Amount,
 		Currency:    ip.Currency,
 		Frequency:   ip.Frequency,
-		BaseSalary:  ip.BaseSalary,
-		Bonus:       ip.Bonus,
-		Commission:  ip.Commission,
-		Allowance:   ip.Allowance,
-		OtherIncome: ip.OtherIncome,
-		TotalIncome: ip.TotalIncome(),
 		Status:      string(ip.Status),
 		IsRecurring: ip.IsRecurring,
-		IsVerified:  ip.IsVerified,
 		IsActive:    ip.IsActive(),
 		IsArchived:  ip.IsArchived(),
 		DSSScore:    ip.GetDSSScore(),
@@ -163,11 +105,6 @@ func ToIncomeProfileResponse(ip *domain.IncomeProfile, includeBreakdown bool) In
 		CreatedAt:   ip.CreatedAt,
 		UpdatedAt:   ip.UpdatedAt,
 		ArchivedAt:  ip.ArchivedAt,
-	}
-
-	// Include breakdown if requested
-	if includeBreakdown && ip.HasMultipleComponents() {
-		response.IncomeBreakdown = ip.GetIncomeBreakdown()
 	}
 
 	// Parse DSS metadata

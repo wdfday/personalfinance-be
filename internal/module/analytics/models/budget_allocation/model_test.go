@@ -173,16 +173,15 @@ func TestBudgetAllocationModel_Execute_AllScenarios(t *testing.T) {
 	require.NoError(t, err)
 
 	output := result.(*dto.BudgetAllocationModelOutput)
-	assert.Len(t, output.Scenarios, 3) // Conservative, Balanced, Aggressive
+	assert.Len(t, output.Scenarios, 2) // Safe, Balanced
 
 	// Verify scenario types
 	scenarioTypes := make(map[string]bool)
 	for _, s := range output.Scenarios {
 		scenarioTypes[string(s.ScenarioType)] = true
 	}
-	assert.True(t, scenarioTypes["conservative"])
+	assert.True(t, scenarioTypes["safe"])
 	assert.True(t, scenarioTypes["balanced"])
-	assert.True(t, scenarioTypes["aggressive"])
 }
 
 func TestBudgetAllocationModel_Execute_InfeasibleBudget(t *testing.T) {

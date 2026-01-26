@@ -4,8 +4,8 @@ import "github.com/google/uuid"
 
 // CreateMonthRequest is the request to create a new month
 type CreateMonthRequest struct {
-	UserID uuid.UUID `json:"user_id" binding:"required"`
-	Month  string    `json:"month" binding:"required"` // YYYY-MM format
+	Month string `json:"month" binding:"required"` // YYYY-MM format
+	// UserID is taken from auth context, not from request body
 }
 
 // AssignCategoryRequest is the request to assign money to a category

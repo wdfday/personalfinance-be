@@ -11,7 +11,7 @@ import (
 	goaldomain "personalfinancedss/internal/module/cashflow/goal/domain"
 	incomeprofiledomain "personalfinancedss/internal/module/cashflow/income_profile/domain"
 	transactiondomain "personalfinancedss/internal/module/cashflow/transaction/domain"
-	chatbotdomain "personalfinancedss/internal/module/chatbot/domain"
+	// chatbotdomain "personalfinancedss/internal/module/chatbot/domain" // Temporarily disabled
 	authdomain "personalfinancedss/internal/module/identify/auth/domain"
 	brokerdomain "personalfinancedss/internal/module/identify/broker/domain"
 	profiledomain "personalfinancedss/internal/module/identify/profile/domain"
@@ -52,19 +52,14 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		&debtdomain.Debt{},
 		// &calendareventdomain.Event{},
 		&notificationdomain.Notification{},
-		&notificationdomain.AlertRule{},
 		&notificationdomain.NotificationPreference{},
 		&assetdomain.InvestmentAsset{},
 		&snapshotdomain.PortfolioSnapshot{},
 
 		// 3. Independent tables (optional user reference)
 		&categorydomain.Category{},
-		&notificationdomain.SecurityEvent{},
 
-		// 4. Tables with foreign keys to notifications
-		&notificationdomain.NotificationAnalytics{},
-
-		// 5. Tables with multiple foreign keys
+		// 4. Tables with multiple foreign keys
 		&transactiondomain.Transaction{},
 		&investmenttransactiondomain.InvestmentTransaction{},
 
@@ -77,8 +72,8 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 		&budgetprofiledomain.BudgetConstraint{},
 
 		// 7. Chatbot tables (FK to User)
-		&chatbotdomain.Conversation{},
-		&chatbotdomain.Message{},
+		// &chatbotdomain.Conversation{}, // Temporarily disabled
+		// &chatbotdomain.Message{}, // Temporarily disabled
 	}
 
 	log.Info("Migrating entities", zap.Int("entity_count", len(entities)))
@@ -102,16 +97,14 @@ func AutoMigrate(db *gorm.DB, log *zap.Logger) error {
 			"investment_assets",
 			"portfolio_snapshots",
 			"categories",
-			"security_events",
-			"notification_analytics",
 			"transactions",
 			"investment_transactions",
 			"budgets",
 			"goals",
 			"income_profiles",
 			"budget_constraints",
-			"chatbot_conversations",
-			"chatbot_messages",
+			// "chatbot_conversations", // Temporarily disabled
+			// "chatbot_messages", // Temporarily disabled
 		}),
 	)
 
@@ -141,8 +134,8 @@ func DropAllTables(db *gorm.DB, log *zap.Logger) error {
 	// Drop in reverse dependency order (opposite of migration order)
 	entities := []interface{}{
 		// Chatbot tables (drop first - have FK to User)
-		&chatbotdomain.Message{},
-		&chatbotdomain.Conversation{},
+		// &chatbotdomain.Message{}, // Temporarily disabled
+		// &chatbotdomain.Conversation{}, // Temporarily disabled
 
 		// Budget and Goals tables (drop first - have FKs to User, Category, Account)
 		&monthdomain.Month{},
@@ -157,18 +150,13 @@ func DropAllTables(db *gorm.DB, log *zap.Logger) error {
 		&investmenttransactiondomain.InvestmentTransaction{},
 		&transactiondomain.Transaction{},
 
-		// Tables with FK to notifications
-		&notificationdomain.NotificationAnalytics{},
-
 		// Independent or single FK tables
-		&notificationdomain.SecurityEvent{},
 		&categorydomain.Category{},
 
 		// Tables with FK to User
 		&snapshotdomain.PortfolioSnapshot{},
 		&assetdomain.InvestmentAsset{},
 		&notificationdomain.NotificationPreference{},
-		&notificationdomain.AlertRule{},
 		&notificationdomain.Notification{},
 		&debtdomain.Debt{},
 		&accountdomain.Account{},

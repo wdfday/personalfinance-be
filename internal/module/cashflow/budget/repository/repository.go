@@ -46,8 +46,8 @@ type Repository interface {
 	// FindByUserIDAndCategory retrieves budgets for a specific category
 	FindByUserIDAndCategory(ctx context.Context, userID, categoryID uuid.UUID) ([]domain.Budget, error)
 
-	// FindByUserIDAndAccount retrieves budgets for a specific account
-	FindByUserIDAndAccount(ctx context.Context, userID, accountID uuid.UUID) ([]domain.Budget, error)
+	// FindByConstraintID retrieves budgets for a specific constraint
+	FindByConstraintID(ctx context.Context, userID, constraintID uuid.UUID) ([]domain.Budget, error)
 
 	// FindByPeriod retrieves budgets for a specific period
 	FindByPeriod(ctx context.Context, userID uuid.UUID, startDate, endDate time.Time) ([]domain.Budget, error)
