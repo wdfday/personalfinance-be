@@ -11,7 +11,7 @@ import (
 // Module provides account module dependencies.
 var Module = fx.Module("account",
 	fx.Provide(
-		// Repository - provide as interface
+		// Repository - provide as interface (không dùng name; accountRepo vs transactionRepo khác type nên Fx phân biệt được)
 		fx.Annotate(
 			repository.New,
 			fx.As(new(repository.Repository)),

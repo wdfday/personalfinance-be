@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"personalfinancedss/internal/module/cashflow/account/domain"
+
+	"gorm.io/gorm"
 )
 
 // Repository defines data access methods for accounts.
@@ -16,6 +18,12 @@ type Repository interface {
 	UpdateColumns(ctx context.Context, id string, columns map[string]any) error
 	SoftDelete(ctx context.Context, id string) error
 	CountByUserID(ctx context.Context, userID string, filters domain.ListAccountsFilter) (int64, error)
+
+	// UpdateBalance updates account balance atomically (for ACID transactions)
+	UpdateBalance(ctx context.Context, accountID string, balanceDelta float64) error
+
+	// UpdateBalanceWithTx updates account balance within an existing database transaction
+	UpdateBalanceWithTx(tx *gorm.DB, accountID string, balanceDelta float64) error
 
 	// Broker sync methods
 	GetAccountsNeedingSync(ctx context.Context) ([]*domain.Account, error)

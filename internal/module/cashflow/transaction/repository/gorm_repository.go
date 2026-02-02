@@ -31,6 +31,14 @@ func (r *gormRepository) Create(ctx context.Context, transaction *domain.Transac
 	return nil
 }
 
+// CreateWithTx creates a new transaction within an existing database transaction
+func (r *gormRepository) CreateWithTx(tx *gorm.DB, transaction *domain.Transaction) error {
+	if err := tx.Create(transaction).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetByID retrieves a transaction by ID
 func (r *gormRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Transaction, error) {
 	var transaction domain.Transaction

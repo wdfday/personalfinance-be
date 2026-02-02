@@ -24,7 +24,7 @@ var Module = fx.Module("transaction",
 		// LinkProcessor - handles transaction link processing
 		NewLinkProcessor,
 
-		// Service - provide as interface
+		// Service - provide as interface (account repo + txn repo khác type, không cần ParamTags)
 		fx.Annotate(
 			service.NewService,
 			fx.As(new(service.Service)),

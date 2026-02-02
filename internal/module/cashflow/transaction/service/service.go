@@ -3,9 +3,12 @@ package service
 import (
 	"context"
 
+	accountRepo "personalfinancedss/internal/module/cashflow/account/repository"
 	"personalfinancedss/internal/module/cashflow/transaction/domain"
 	"personalfinancedss/internal/module/cashflow/transaction/dto"
-	"personalfinancedss/internal/module/cashflow/transaction/repository"
+	transactionRepo "personalfinancedss/internal/module/cashflow/transaction/repository"
+
+	"gorm.io/gorm"
 )
 
 // TransactionCreator defines transaction creation operations
@@ -43,14 +46,23 @@ type Service interface {
 
 // transactionService implements all transaction use cases
 type transactionService struct {
-	repo          repository.Repository
+	repo          transactionRepo.Repository
+	accountRepo   accountRepo.Repository
+	db            *gorm.DB
 	linkProcessor *LinkProcessor
 }
 
 // NewService creates a new transaction service
-func NewService(repo repository.Repository, linkProcessor *LinkProcessor) Service {
+func NewService(
+	repo transactionRepo.Repository,
+	accountRepo accountRepo.Repository,
+	db *gorm.DB,
+	linkProcessor *LinkProcessor,
+) Service {
 	return &transactionService{
 		repo:          repo,
+		accountRepo:   accountRepo,
+		db:            db,
 		linkProcessor: linkProcessor,
 	}
 }

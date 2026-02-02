@@ -124,6 +124,27 @@ func (r *gormRepository) SoftDelete(ctx context.Context, id string) error {
 	return nil
 }
 
+// UpdateBalance updates account balance atomically
+// balanceDelta: positive for credit, negative for debit
+// This method uses the repository's db connection. For ACID transactions, use UpdateBalanceWithTx instead.
+func (r *gormRepository) UpdateBalance(ctx context.Context, accountID string, balanceDelta float64) error {
+	return r.UpdateBalanceWithTx(r.db.WithContext(ctx), accountID, balanceDelta)
+}
+
+// UpdateBalanceWithTx updates account balance within an existing database transaction
+func (r *gormRepository) UpdateBalanceWithTx(tx *gorm.DB, accountID string, balanceDelta float64) error {
+	result := tx.Model(&domain.Account{}).
+		Where("id = ? AND deleted_at IS NULL", accountID).
+		Update("current_balance", gorm.Expr("current_balance + ?", balanceDelta))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return shared.ErrNotFound
+	}
+	return nil
+}
+
 // GetAccountsNeedingSync retrieves accounts that need broker syncing
 func (r *gormRepository) GetAccountsNeedingSync(ctx context.Context) ([]*domain.Account, error) {
 	var accounts []*domain.Account

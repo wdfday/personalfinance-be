@@ -127,17 +127,42 @@ func (s *transactionService) CreateTransaction(ctx context.Context, userID strin
 	// Build metadata
 	transaction.Meta = buildMetadata(req.CheckImageAvailability, nil)
 
-	// Create transaction in repository
-	if err := s.repo.Create(ctx, transaction); err != nil {
+	// Begin database transaction for ACID guarantee
+	tx := s.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+
+	// 1. Create transaction within database transaction
+	if err := s.repo.CreateWithTx(tx, transaction); err != nil {
+		tx.Rollback()
 		return nil, shared.ErrInternal.WithError(err)
 	}
 
-	// Process links after transaction is created
+	// 2. Update account balance atomically (within same transaction)
+	balanceDelta := float64(req.Amount)
+	if direction == domain.DirectionDebit {
+		balanceDelta = -balanceDelta
+	}
+	if err := s.accountRepo.UpdateBalanceWithTx(tx, accountUUID.String(), balanceDelta); err != nil {
+		tx.Rollback()
+		return nil, shared.ErrInternal.WithError(err)
+	}
+
+	// Commit transaction (ACID: transaction + account balance update)
+	if err := tx.Commit().Error; err != nil {
+		return nil, shared.ErrInternal.WithError(err)
+	}
+
+	// 3. Process links after transaction is committed (side effect, not part of ACID)
+	// If this fails, transaction and account balance are already committed
 	if s.linkProcessor != nil && len(links) > 0 {
 		if err := s.linkProcessor.ProcessLinks(ctx, userUUID, req.Amount, direction, links); err != nil {
-			// Log the error but don't fail the transaction creation
-			// The link processing is a side effect
-			// TODO: Consider rollback strategy
+			// Log the error but don't fail - transaction and balance are already committed
+			// TODO: Consider implementing compensation/rollback for link processing failures
 		}
 	}
 

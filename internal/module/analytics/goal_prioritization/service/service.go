@@ -5,7 +5,10 @@ import (
 	"personalfinancedss/internal/module/analytics/goal_prioritization/dto"
 	"personalfinancedss/internal/module/analytics/models/ahp"
 
+	"fmt"
 	"go.uber.org/zap"
+	"math"
+	"personalfinancedss/internal/module/analytics/goal_prioritization/domain"
 )
 
 // Service interface for AHP operations

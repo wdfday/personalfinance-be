@@ -125,7 +125,8 @@ func clearFromStep(state *DSSCachedState, step int) {
 		state.DebtStrategyPreview = nil
 		// state.AcceptedDebtStrategy = "" // KHÔNG clear - user đã apply rồi
 	}
-	if step <= 4 {
+	if step <= 3 {
+		// Step 3: Budget Allocation
 		state.BudgetAllocationPreview = nil
 		state.AcceptedScenario = ""
 		state.AcceptedAllocations = nil
@@ -891,8 +892,8 @@ func (s *monthService) PreviewBudgetAllocation(ctx context.Context, req dto.Prev
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DSS state: %w", err)
 	}
-	// Re-calc step4 => clear step4
-	clearFromStep(cachedState, 4)
+	// Re-calc step 3 (Budget Allocation) => clear step 3
+	clearFromStep(cachedState, 3)
 
 	// 3. Nếu user chưa chọn tỉ lệ goal/debt (0-0) thì set default theo ngữ cảnh
 	goalPct := req.GoalAllocationPct

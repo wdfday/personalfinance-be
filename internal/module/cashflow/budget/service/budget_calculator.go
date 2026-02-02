@@ -141,12 +141,12 @@ func (s *budgetService) recalculateSpending(ctx context.Context, budget *domain.
 	var spentAmount float64
 	query := s.db.Table("transactions").
 		Where("user_id = ?", budget.UserID).
-		Where("direction = ?", "DEBIT").
-		Where("booking_date >= ?", budget.StartDate)
+		Where("direction = ?", "DEBIT")
+	// 	Where("booking_date >= ?", budget.StartDate)
 
-	if budget.EndDate != nil {
-		query = query.Where("booking_date <= ?", budget.EndDate)
-	}
+	// if budget.EndDate != nil {
+	// 	query = query.Where("booking_date <= ?", budget.EndDate)
+	// }
 
 	// Only count transactions that have a link to this budget
 	// Use PostgreSQL JSONB @> operator to check if links array contains the budget link

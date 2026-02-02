@@ -8,12 +8,16 @@ import (
 	"personalfinancedss/internal/module/cashflow/transaction/dto"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // Repository defines transaction data access operations
 type Repository interface {
 	// Create creates a new transaction
 	Create(ctx context.Context, transaction *domain.Transaction) error
+
+	// CreateWithTx creates a new transaction within an existing database transaction
+	CreateWithTx(tx *gorm.DB, transaction *domain.Transaction) error
 
 	// GetByID retrieves a transaction by ID
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Transaction, error)
