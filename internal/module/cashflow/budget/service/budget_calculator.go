@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"personalfinancedss/internal/module/cashflow/budget/domain"
-	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -52,84 +51,6 @@ func (s *budgetService) RecalculateAllBudgets(ctx context.Context, userID uuid.U
 	s.logger.Info("Finished recalculating budgets",
 		zap.Int("success", successCount),
 		zap.Int("errors", errorCount),
-	)
-
-	return nil
-}
-
-// RolloverBudgets processes budget rollovers for the new period
-func (s *budgetService) RolloverBudgets(ctx context.Context, userID uuid.UUID) error {
-	s.logger.Info("Processing budget rollovers", zap.String("user_id", userID.String()))
-
-	// Find budgets that allow rollover and have ended
-	budgets, err := s.repo.FindByUserID(ctx, userID)
-	if err != nil {
-		return err
-	}
-
-	now := time.Now()
-	rolloverCount := 0
-
-	for _, budget := range budgets {
-		// Skip if not allowing rollover or hasn't ended yet
-		if !budget.AllowRollover || budget.EndDate == nil || budget.EndDate.After(now) {
-			continue
-		}
-
-		// Calculate rollover amount
-		rolloverAmount := budget.RemainingAmount
-		if budget.CarryOverPercent != nil {
-			rolloverAmount = budget.RemainingAmount * float64(*budget.CarryOverPercent) / 100
-		}
-
-		// Create new budget for next period
-		newBudget := &domain.Budget{
-			UserID:           budget.UserID,
-			Name:             budget.Name,
-			Description:      budget.Description,
-			Amount:           budget.Amount,
-			Currency:         budget.Currency,
-			Period:           budget.Period,
-			CategoryID:       budget.CategoryID,
-			EnableAlerts:     budget.EnableAlerts,
-			AlertThresholds:  budget.AlertThresholds,
-			AllowRollover:    budget.AllowRollover,
-			CarryOverPercent: budget.CarryOverPercent,
-			RolloverAmount:   rolloverAmount,
-		}
-
-		// Set new period dates
-		newBudget.StartDate = budget.EndDate.AddDate(0, 0, 1)
-		switch budget.Period {
-		case domain.BudgetPeriodMonthly:
-			endDate := newBudget.StartDate.AddDate(0, 1, -1)
-			newBudget.EndDate = &endDate
-		case domain.BudgetPeriodWeekly:
-			endDate := newBudget.StartDate.AddDate(0, 0, 6)
-			newBudget.EndDate = &endDate
-		case domain.BudgetPeriodYearly:
-			endDate := newBudget.StartDate.AddDate(1, 0, -1)
-			newBudget.EndDate = &endDate
-		case domain.BudgetPeriodQuarterly:
-			endDate := newBudget.StartDate.AddDate(0, 3, -1)
-			newBudget.EndDate = &endDate
-		}
-
-		// Add rollover to budget amount
-		newBudget.Amount += rolloverAmount
-
-		if err := s.CreateBudgetFromDomain(ctx, newBudget); err != nil {
-			s.logger.Error("Failed to rollover budget",
-				zap.String("budget_id", budget.ID.String()),
-				zap.Error(err),
-			)
-		} else {
-			rolloverCount++
-		}
-	}
-
-	s.logger.Info("Finished budget rollovers",
-		zap.Int("count", rolloverCount),
 	)
 
 	return nil

@@ -24,13 +24,6 @@ type CreateBudgetRequest struct {
 
 	EnableAlerts    bool                    `json:"enable_alerts"`
 	AlertThresholds []domain.AlertThreshold `json:"alert_thresholds"`
-
-	AllowRollover    bool `json:"allow_rollover"`
-	CarryOverPercent *int `json:"carry_over_percent" binding:"omitempty,min=0,max=100"`
-
-	AutoAdjust           bool    `json:"auto_adjust"`
-	AutoAdjustPercentage *int    `json:"auto_adjust_percentage" binding:"omitempty,min=0,max=100"`
-	AutoAdjustBasedOn    *string `json:"auto_adjust_based_on"`
 }
 
 // UpdateBudgetRequest represents a request to update an existing budget
@@ -104,21 +97,6 @@ func (req *UpdateBudgetRequest) ApplyTo(budget *domain.Budget) {
 	}
 	if len(req.AlertThresholds) > 0 {
 		budget.AlertThresholds = domain.AlertThresholdsJSON(req.AlertThresholds)
-	}
-	if req.AllowRollover != nil {
-		budget.AllowRollover = *req.AllowRollover
-	}
-	if req.CarryOverPercent != nil {
-		budget.CarryOverPercent = req.CarryOverPercent
-	}
-	if req.AutoAdjust != nil {
-		budget.AutoAdjust = *req.AutoAdjust
-	}
-	if req.AutoAdjustPercentage != nil {
-		budget.AutoAdjustPercentage = req.AutoAdjustPercentage
-	}
-	if req.AutoAdjustBasedOn != nil {
-		budget.AutoAdjustBasedOn = req.AutoAdjustBasedOn
 	}
 	if req.Status != nil {
 		budget.Status = *req.Status

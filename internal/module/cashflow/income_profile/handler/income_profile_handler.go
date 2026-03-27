@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-
 	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/cashflow/income_profile/dto"
 	"personalfinancedss/internal/module/cashflow/income_profile/service"
@@ -47,7 +46,6 @@ func (h *Handler) RegisterRoutes(r *gin.Engine, authMiddleware *middleware.Middl
 		// Actions
 		incomeProfiles.POST("/:id/archive", h.archiveIncomeProfile)
 		incomeProfiles.POST("/:id/end", h.endIncomeProfile)
-		incomeProfiles.POST("/:id/dss-metadata", h.updateDSSMetadata)
 		incomeProfiles.POST("/check-ended", h.checkAndArchiveEnded)
 	}
 }
@@ -411,50 +409,6 @@ func (h *Handler) endIncomeProfile(c *gin.Context) {
 	// Convert to response
 	response := dto.ToIncomeProfileResponse(ip, true)
 	shared.RespondWithSuccess(c, http.StatusOK, "Income profile marked as ended", response)
-}
-
-// UpdateDSSMetadata godoc
-// @Summary Update DSS analysis metadata
-// @Description Update DSS (Decision Support System) analysis metadata for an income profile
-// @Tags income-profiles
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Income Profile ID"
-// @Param metadata body dto.UpdateDSSMetadataRequest true "DSS metadata"
-// @Success 200 {object} dto.IncomeProfileResponse
-// @Failure 400 {object} shared.ErrorResponse
-// @Failure 401 {object} shared.ErrorResponse
-// @Failure 404 {object} shared.ErrorResponse
-// @Router /api/v1/income-profiles/{id}/dss-metadata [post]
-func (h *Handler) updateDSSMetadata(c *gin.Context) {
-	// Get user from context
-	user, exists := middleware.GetCurrentUser(c)
-	if !exists {
-		shared.RespondWithError(c, http.StatusUnauthorized, "user not found in context")
-		return
-	}
-
-	// Get income profile ID from path
-	profileID := c.Param("id")
-
-	// Parse request
-	var req dto.UpdateDSSMetadataRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		shared.RespondWithError(c, http.StatusBadRequest, "invalid request data: "+err.Error())
-		return
-	}
-
-	// Update DSS metadata
-	ip, err := h.service.UpdateDSSMetadata(c.Request.Context(), user.ID.String(), profileID, req)
-	if err != nil {
-		shared.HandleError(c, err)
-		return
-	}
-
-	// Convert to response
-	response := dto.ToIncomeProfileResponse(ip, true)
-	shared.RespondWithSuccess(c, http.StatusOK, "DSS metadata updated successfully", response)
 }
 
 // CheckAndArchiveEnded godoc

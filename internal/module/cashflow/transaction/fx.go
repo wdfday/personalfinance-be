@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"personalfinancedss/internal/middleware"
 	budgetService "personalfinancedss/internal/module/cashflow/budget/service"
 	debtService "personalfinancedss/internal/module/cashflow/debt/service"
 	incomeProfileService "personalfinancedss/internal/module/cashflow/income_profile/service"
@@ -8,6 +9,7 @@ import (
 	"personalfinancedss/internal/module/cashflow/transaction/repository"
 	"personalfinancedss/internal/module/cashflow/transaction/service"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
@@ -33,6 +35,7 @@ var Module = fx.Module("transaction",
 		// Handler
 		handler.NewHandler,
 	),
+	fx.Invoke(registerTransactionRoutes),
 )
 
 // NewLinkProcessor creates a new link processor with all required dependencies
@@ -43,4 +46,8 @@ func NewLinkProcessor(
 	logger *zap.Logger,
 ) *service.LinkProcessor {
 	return service.NewLinkProcessor(budgetSvc, debtSvc, incomeProfileSvc, logger)
+}
+
+func registerTransactionRoutes(router *gin.Engine, h *handler.Handler, authMiddleware *middleware.Middleware) {
+	h.RegisterRoutes(router, authMiddleware)
 }

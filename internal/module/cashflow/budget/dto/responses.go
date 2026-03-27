@@ -36,14 +36,6 @@ type BudgetResponse struct {
 	AlertThresholds  []domain.AlertThreshold `json:"alert_thresholds"`
 	NotificationSent bool                    `json:"notification_sent"`
 
-	AllowRollover    bool    `json:"allow_rollover"`
-	RolloverAmount   float64 `json:"rollover_amount"`
-	CarryOverPercent *int    `json:"carry_over_percent,omitempty"`
-
-	AutoAdjust           bool    `json:"auto_adjust"`
-	AutoAdjustPercentage *int    `json:"auto_adjust_percentage,omitempty"`
-	AutoAdjustBasedOn    *string `json:"auto_adjust_based_on,omitempty"`
-
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	DeletedAt *time.Time `json:"deleted_at,omitempty"`
@@ -136,33 +128,27 @@ func ToBudgetResponse(budget *domain.Budget) *BudgetResponse {
 	}
 
 	return &BudgetResponse{
-		ID:                   budget.ID,
-		UserID:               budget.UserID,
-		Name:                 budget.Name,
-		Description:          budget.Description,
-		Amount:               budget.Amount,
-		Currency:             budget.Currency,
-		Period:               budget.Period,
-		StartDate:            budget.StartDate,
-		EndDate:              budget.EndDate,
-		CategoryID:           budget.CategoryID,
-		ConstraintID:         budget.ConstraintID,
-		SpentAmount:          budget.SpentAmount,
-		RemainingAmount:      budget.RemainingAmount,
-		PercentageSpent:      budget.PercentageSpent,
-		Status:               budget.Status,
-		LastCalculatedAt:     budget.LastCalculatedAt,
-		EnableAlerts:         budget.EnableAlerts,
-		AlertThresholds:      []domain.AlertThreshold(budget.AlertThresholds),
-		NotificationSent:     budget.NotificationSent,
-		AllowRollover:        budget.AllowRollover,
-		RolloverAmount:       budget.RolloverAmount,
-		CarryOverPercent:     budget.CarryOverPercent,
-		AutoAdjust:           budget.AutoAdjust,
-		AutoAdjustPercentage: budget.AutoAdjustPercentage,
-		AutoAdjustBasedOn:    budget.AutoAdjustBasedOn,
-		CreatedAt:            budget.CreatedAt,
-		UpdatedAt:            budget.UpdatedAt,
+		ID:               budget.ID,
+		UserID:           budget.UserID,
+		Name:             budget.Name,
+		Description:      budget.Description,
+		Amount:           budget.Amount,
+		Currency:         budget.Currency,
+		Period:           budget.Period,
+		StartDate:        budget.StartDate,
+		EndDate:          budget.EndDate,
+		CategoryID:       budget.CategoryID,
+		ConstraintID:     budget.ConstraintID,
+		SpentAmount:      budget.SpentAmount,
+		RemainingAmount:  budget.RemainingAmount,
+		PercentageSpent:  budget.PercentageSpent,
+		Status:           budget.Status,
+		LastCalculatedAt: budget.LastCalculatedAt,
+		EnableAlerts:     budget.EnableAlerts,
+		AlertThresholds:  []domain.AlertThreshold(budget.AlertThresholds),
+		NotificationSent: budget.NotificationSent,
+		CreatedAt:        budget.CreatedAt,
+		UpdatedAt:        budget.UpdatedAt,
 	}
 }
 

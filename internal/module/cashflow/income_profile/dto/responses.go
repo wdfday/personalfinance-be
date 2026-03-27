@@ -25,10 +25,6 @@ type IncomeProfileResponse struct {
 	IsActive    bool   `json:"is_active"`
 	IsArchived  bool   `json:"is_archived"`
 
-	// DSS Analysis
-	DSSMetadata *DSSMetadataResponse `json:"dss_metadata,omitempty"`
-	DSSScore    float64              `json:"dss_score,omitempty"`
-
 	// Additional metadata
 	Description string   `json:"description,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
@@ -40,18 +36,6 @@ type IncomeProfileResponse struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 	ArchivedAt *time.Time `json:"archived_at,omitempty"`
-}
-
-// DSSMetadataResponse represents DSS analysis metadata
-type DSSMetadataResponse struct {
-	StabilityScore         float64 `json:"stability_score"`
-	RiskLevel              string  `json:"risk_level"`
-	Confidence             float64 `json:"confidence"`
-	Variance               float64 `json:"variance"`
-	Trend                  string  `json:"trend"`
-	RecommendedSavingsRate float64 `json:"recommended_savings_rate"`
-	LastAnalyzed           string  `json:"last_analyzed"`
-	AnalysisVersion        string  `json:"analysis_version"`
 }
 
 // IncomeProfileWithHistoryResponse includes version history
@@ -74,9 +58,4 @@ type IncomeSummaryResponse struct {
 	ActiveIncomeCount    int     `json:"active_income_count"`
 	RecurringIncomeCount int     `json:"recurring_income_count"`
 	AverageStability     float64 `json:"average_stability,omitempty"`
-}
-
-// MessageResponse represents a simple message response
-type MessageResponse struct {
-	Message string `json:"message"`
 }

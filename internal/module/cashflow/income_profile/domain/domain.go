@@ -2,9 +2,7 @@
 package domain
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,11 +10,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// ================================================================
 // INCOME PROFILE DOMAIN
-// ================================================================
 
-// IncomeProfile represents income data with period tracking and DSS analysis
+// IncomeProfile represents income data with period tracking
 type IncomeProfile struct {
 	ID     uuid.UUID `gorm:"type:uuid;default:uuidv7();primaryKey" json:"id"`
 	UserID uuid.UUID `gorm:"type:uuid;not null;index;column:user_id" json:"user_id"`
@@ -37,20 +33,6 @@ type IncomeProfile struct {
 	// Status and lifecycle
 	Status      IncomeStatus `gorm:"type:varchar(20);default:'active';column:status" json:"status"`
 	IsRecurring bool         `gorm:"column:is_recurring" json:"is_recurring"`
-
-	// DSS Analysis Metadata (JSONB)
-	DSSMetadata datatypes.JSON `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
-	// Structure:
-	// {
-	//   "stability_score": 0.95,           // 0-1, higher = more stable
-	//   "risk_level": "low",               // low, medium, high
-	//   "confidence": 0.85,                // confidence in predictions
-	//   "variance": 0.05,                  // income variance over time
-	//   "trend": "stable",                 // increasing, stable, decreasing
-	//   "recommended_savings_rate": 0.3,   // suggested % to save
-	//   "last_analyzed": "2024-01-15T10:00:00Z",
-	//   "analysis_version": "v1.0"
-	// }
 
 	// Additional metadata
 	Description string         `gorm:"type:text;column:description" json:"description,omitempty"`
@@ -155,7 +137,6 @@ func (ip *IncomeProfile) CreateNewVersion() *IncomeProfile {
 		Frequency:         ip.Frequency,
 		Status:            IncomeStatusActive,
 		IsRecurring:       ip.IsRecurring,
-		DSSMetadata:       ip.DSSMetadata,
 		Description:       ip.Description,
 		Tags:              ip.Tags,
 		PreviousVersionID: &ip.ID,
@@ -174,25 +155,6 @@ func (ip *IncomeProfile) CheckAndMarkAsEnded() bool {
 		}
 	}
 	return false
-}
-
-// UpdateDSSMetadata updates DSS analysis metadata
-func (ip *IncomeProfile) UpdateDSSMetadata(metadata map[string]interface{}) error {
-	if metadata == nil {
-		return ErrInvalidMetadata
-	}
-
-	// Add last_analyzed timestamp
-	metadata["last_analyzed"] = time.Now().Format(time.RFC3339)
-
-	jsonBytes, err := json.Marshal(metadata)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
-	}
-
-	ip.DSSMetadata = jsonBytes
-	ip.UpdatedAt = time.Now()
-	return nil
 }
 
 // Validate performs domain validation
@@ -278,22 +240,6 @@ func (ip *IncomeProfile) GetDuration() int {
 	return int(end.Sub(ip.StartDate).Hours() / 24)
 }
 
-// GetDSSScore returns the stability score from DSS metadata
-func (ip *IncomeProfile) GetDSSScore() float64 {
-	if len(ip.DSSMetadata) == 0 {
-		return 0.0
-	}
-
-	var metadata map[string]interface{}
-	if err := json.Unmarshal(ip.DSSMetadata, &metadata); err != nil {
-		return 0.0
-	}
-	if score, ok := metadata["stability_score"].(float64); ok {
-		return score
-	}
-	return 0.0
-}
-
 // ================================================================
 // HELPER FUNCTIONS
 // ================================================================
@@ -319,14 +265,6 @@ func isValidStatus(status IncomeStatus) bool {
 	}
 	return validStatuses[status]
 }
-
-// ================================================================
-// REPOSITORY INTERFACE
-// ================================================================
-
-// ================================================================
-// ERRORS
-// ================================================================
 
 var (
 	ErrIncomeProfileNotFound  = errors.New("income profile not found")

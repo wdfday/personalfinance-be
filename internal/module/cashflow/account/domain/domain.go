@@ -38,10 +38,6 @@ type Account struct {
 	// Broker Integration - New approach: Reference to broker_connections table
 	BrokerConnectionID *uuid.UUID `gorm:"type:uuid;column:broker_connection_id;index" json:"brokerConnectionId,omitempty"`
 
-	// Broker Integration (DEPRECATED - for backward compatibility)
-	// Will be migrated to broker_connections table
-	BrokerIntegration datatypes.JSON `gorm:"type:jsonb;column:broker_integration" json:"brokerIntegration,omitempty"`
-
 	// DSS Metadata for Analytics & Forecasting
 	DSSMetadata datatypes.JSON `gorm:"type:jsonb;column:dss_metadata" json:"dssMetadata,omitempty"`
 	// Structure:

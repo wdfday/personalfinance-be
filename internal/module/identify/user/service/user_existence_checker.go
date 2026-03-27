@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"personalfinancedss/internal/shared"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ func (s *UserService) ExistsByEmail(ctx context.Context, email string) (bool, er
 		if err == shared.ErrUserNotFound {
 			return false, nil
 		}
+		fmt.Println(err)
 		return false, err
 	}
 	return true, nil

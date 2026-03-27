@@ -60,11 +60,11 @@ func NewSyncWorker(
 // Start starts the sync worker
 func (w *SyncWorker) Start(ctx context.Context) error {
 	if !w.config.Enabled {
-		w.logger.Info("🔕 Broker sync worker is disabled")
+		w.logger.Info("Broker sync worker is disabled")
 		return nil
 	}
 
-	w.logger.Info("🚀 Starting broker sync worker",
+	w.logger.Info("Starting broker sync worker",
 		zap.Duration("interval", w.config.Interval),
 		zap.Int("max_concurrent", w.config.MaxConcurrent),
 		zap.Duration("sync_timeout", w.config.SyncTimeout),
@@ -79,7 +79,7 @@ func (w *SyncWorker) Start(ctx context.Context) error {
 
 // Stop stops the sync worker gracefully
 func (w *SyncWorker) Stop(ctx context.Context) error {
-	w.logger.Info("🛑 Stopping broker sync worker...")
+	w.logger.Info("Stopping broker sync worker...")
 
 	// Signal stop
 	close(w.stopChan)
@@ -93,10 +93,10 @@ func (w *SyncWorker) Stop(ctx context.Context) error {
 
 	select {
 	case <-done:
-		w.logger.Info("✅ Broker sync worker stopped gracefully")
+		w.logger.Info("Broker sync worker stopped gracefully")
 		return nil
 	case <-ctx.Done():
-		w.logger.Warn("⚠️  Broker sync worker shutdown timeout")
+		w.logger.Warn("Broker sync worker shutdown timeout")
 		return ctx.Err()
 	}
 }
@@ -108,7 +108,7 @@ func (w *SyncWorker) run(ctx context.Context) {
 	ticker := time.NewTicker(w.config.Interval)
 	defer ticker.Stop()
 
-	w.logger.Info("✅ Broker sync worker started")
+	w.logger.Info("Broker sync worker started")
 
 	// Run initial sync immediately
 	w.syncConnections(ctx)
@@ -147,7 +147,7 @@ func (w *SyncWorker) syncConnections(ctx context.Context) {
 		return
 	}
 
-	w.logger.Info("📊 Found broker connections needing sync",
+	w.logger.Info("Found broker connections needing sync",
 		zap.Int("count", len(connections)),
 	)
 
@@ -185,7 +185,7 @@ func (w *SyncWorker) syncConnections(ctx context.Context) {
 
 			if err != nil || !result.Success {
 				failureCount++
-				w.logger.Error("❌ Broker connection sync failed",
+				w.logger.Error("Broker connection sync failed",
 					zap.String("connection_id", connection.ID.String()),
 					zap.String("broker_type", string(connection.BrokerType)),
 					zap.Error(err),
@@ -193,7 +193,7 @@ func (w *SyncWorker) syncConnections(ctx context.Context) {
 				)
 			} else {
 				successCount++
-				w.logger.Info("✅ Broker connection synced successfully",
+				w.logger.Info("Broker connection synced successfully",
 					zap.String("connection_id", connection.ID.String()),
 					zap.String("broker_type", string(connection.BrokerType)),
 					zap.Int("assets_synced", result.AssetsCount),
@@ -209,7 +209,7 @@ func (w *SyncWorker) syncConnections(ctx context.Context) {
 	syncWg.Wait()
 
 	duration := time.Since(startTime)
-	w.logger.Info("📈 Sync cycle completed",
+	w.logger.Info("Sync cycle completed",
 		zap.Int("total_connections", len(connections)),
 		zap.Int("successful", successCount),
 		zap.Int("failed", failureCount),
@@ -219,6 +219,6 @@ func (w *SyncWorker) syncConnections(ctx context.Context) {
 
 // ForceSync triggers an immediate sync check (useful for testing or manual triggers)
 func (w *SyncWorker) ForceSync(ctx context.Context) {
-	w.logger.Info("🔧 Manual sync triggered")
+	w.logger.Info("Manual sync triggered")
 	w.syncConnections(ctx)
 }

@@ -1,7 +1,6 @@
 package budget_allocation
 
 import (
-	"personalfinancedss/internal/module/analytics/budget_allocation/handler"
 	"personalfinancedss/internal/module/analytics/budget_allocation/service"
 
 	"go.uber.org/fx"
@@ -14,8 +13,5 @@ var Module = fx.Module("budget_allocation",
 	fx.Provide(
 		// Service (wraps model, adds logging)
 		service.NewService,
-
-		// Handler (HTTP layer)
-		handler.NewHandler,
 	),
 )

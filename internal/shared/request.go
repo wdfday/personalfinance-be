@@ -8,5 +8,5 @@ type PageRequest struct {
 type Pagination struct {
 	Page    int
 	PerPage int
-	Sort    string // ví dụ: "created_at desc", "last_active_at desc"
+	Sort    string // ex: "created_at desc", "last_active_at desc"
 }

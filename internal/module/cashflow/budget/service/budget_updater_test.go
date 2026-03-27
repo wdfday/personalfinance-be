@@ -27,7 +27,7 @@ func TestBudgetUpdater_UpdateBudget_Success(t *testing.T) {
 
 	mockRepo.On("Update", ctx, budget).Return(nil)
 
-	err := service.UpdateBudget(ctx, budget)
+	err := service.UpdateBudgetForUser(ctx, budget, uuid.New())
 
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
@@ -46,7 +46,7 @@ func TestBudgetUpdater_UpdateBudget_ValidationError(t *testing.T) {
 		StartDate: time.Now(),
 	}
 
-	err := service.UpdateBudget(ctx, budget)
+	err := service.UpdateBudgetForUser(ctx, budget, uuid.New())
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "budget amount must be greater than 0")

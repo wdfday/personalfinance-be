@@ -28,16 +28,6 @@ type UpdateIncomeProfileRequest struct {
 	Description *string `json:"description,omitempty" binding:"omitempty,max=1000"`
 }
 
-// UpdateDSSMetadataRequest updates DSS analysis metadata
-type UpdateDSSMetadataRequest struct {
-	StabilityScore         *float64 `json:"stability_score,omitempty" binding:"omitempty,gte=0,lte=1"`
-	RiskLevel              *string  `json:"risk_level,omitempty" binding:"omitempty,oneof=low medium high"`
-	Confidence             *float64 `json:"confidence,omitempty" binding:"omitempty,gte=0,lte=1"`
-	Variance               *float64 `json:"variance,omitempty" binding:"omitempty,gte=0,lte=1"`
-	Trend                  *string  `json:"trend,omitempty" binding:"omitempty,oneof=increasing stable decreasing"`
-	RecommendedSavingsRate *float64 `json:"recommended_savings_rate,omitempty" binding:"omitempty,gte=0,lte=1"`
-}
-
 // ListIncomeProfilesQuery represents query parameters for listing income profiles
 type ListIncomeProfilesQuery struct {
 	Status          *string `form:"status" binding:"omitempty,oneof=active ended archived paused"`

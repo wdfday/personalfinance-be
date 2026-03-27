@@ -1,10 +1,12 @@
 package debt
 
 import (
+	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/cashflow/debt/handler"
 	"personalfinancedss/internal/module/cashflow/debt/repository"
 	"personalfinancedss/internal/module/cashflow/debt/service"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
@@ -26,4 +28,9 @@ var Module = fx.Module("debt",
 		// Handler
 		handler.NewHandler,
 	),
+	fx.Invoke(registerDebtRoutes),
 )
+
+func registerDebtRoutes(router *gin.Engine, h *handler.Handler, authMiddleware *middleware.Middleware) {
+	h.RegisterRoutes(router, authMiddleware)
+}

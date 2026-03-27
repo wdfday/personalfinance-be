@@ -48,9 +48,7 @@ const (
 	InstrumentCrypto      Instrument = "CRYPTO"
 )
 
-// =========================
 // Unified links (GOAL / BUDGET / DEBT / INCOME_PROFILE)
-// =========================
 type LinkType string
 
 const (

@@ -23,23 +23,18 @@ func (s *budgetService) CreateBudget(ctx context.Context, userID uuid.UUID, req 
 
 	// Create domain object from request
 	budget := &domain.Budget{
-		UserID:               userID,
-		Name:                 req.Name,
-		Description:          req.Description,
-		Amount:               req.Amount,
-		Currency:             req.Currency,
-		Period:               *period,
-		StartDate:            req.StartDate,
-		EndDate:              req.EndDate,
-		CategoryID:           req.CategoryID,
-		ConstraintID:         req.ConstraintID,
-		EnableAlerts:         req.EnableAlerts,
-		AlertThresholds:      domain.AlertThresholdsJSON(req.AlertThresholds),
-		AllowRollover:        req.AllowRollover,
-		CarryOverPercent:     req.CarryOverPercent,
-		AutoAdjust:           req.AutoAdjust,
-		AutoAdjustPercentage: req.AutoAdjustPercentage,
-		AutoAdjustBasedOn:    req.AutoAdjustBasedOn,
+		UserID:          userID,
+		Name:            req.Name,
+		Description:     req.Description,
+		Amount:          req.Amount,
+		Currency:        req.Currency,
+		Period:          *period,
+		StartDate:       req.StartDate,
+		EndDate:         req.EndDate,
+		CategoryID:      req.CategoryID,
+		ConstraintID:    req.ConstraintID,
+		EnableAlerts:    req.EnableAlerts,
+		AlertThresholds: domain.AlertThresholdsJSON(req.AlertThresholds),
 	}
 
 	// Auto-calculate end_date if not provided

@@ -1,11 +1,13 @@
 package event
 
 import (
-	"go.uber.org/fx"
-
+	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/calendar/event/handler"
 	"personalfinancedss/internal/module/calendar/event/repository"
 	"personalfinancedss/internal/module/calendar/event/service"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/fx"
 )
 
 // Module wires the calendar event feature.
@@ -21,5 +23,9 @@ var Module = fx.Module("calendar-event",
 		),
 		handler.NewHandler,
 	),
-	// Routes registered centrally in app.go RegisterRoutes
+	fx.Invoke(registerEventRoutes),
 )
+
+func registerEventRoutes(router *gin.Engine, h *handler.Handler, authMiddleware *middleware.Middleware) {
+	h.RegisterRoutes(router, authMiddleware)
+}

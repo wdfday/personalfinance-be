@@ -47,7 +47,6 @@ type BudgetDeleter interface {
 type BudgetCalculator interface {
 	RecalculateBudgetSpendingForUser(ctx context.Context, budgetID, userID uuid.UUID) error
 	RecalculateAllBudgets(ctx context.Context, userID uuid.UUID) error
-	RolloverBudgets(ctx context.Context, userID uuid.UUID) error
 }
 
 // Service is the composite interface for all budget operations

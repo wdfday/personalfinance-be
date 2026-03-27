@@ -2,35 +2,37 @@ package auth
 
 import (
 	"personalfinancedss/internal/config"
+	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/identify/auth/handler"
-	repository2 "personalfinancedss/internal/module/identify/auth/repository"
-	service2 "personalfinancedss/internal/module/identify/auth/service"
+	"personalfinancedss/internal/module/identify/auth/repository"
+	"personalfinancedss/internal/module/identify/auth/service"
 	userservice "personalfinancedss/internal/module/identify/user/service"
 	notificationservice "personalfinancedss/internal/module/notification/service"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 // ProvideJWTService creates a JWT service with configuration
-func ProvideJWTService(cfg *config.Config) service2.IJWTService {
-	return service2.NewJWTService(cfg.Auth.JWTSecret)
+func ProvideJWTService(cfg *config.Config) service.IJWTService {
+	return service.NewJWTService(cfg.Auth.JWTSecret)
 }
 
 // ProvidePasswordService creates a password service
 func ProvidePasswordService(
 	userService userservice.IUserService,
-	tokenRepo repository2.TokenRepository,
-	tokenService service2.ITokenService,
+	tokenRepo repository.TokenRepository,
+	tokenService service.ITokenService,
 	emailService notificationservice.EmailService,
 	logger *zap.Logger,
-) service2.IPasswordService {
-	return service2.NewPasswordService(userService, tokenRepo, tokenService, emailService, logger)
+) service.IPasswordService {
+	return service.NewPasswordService(userService, tokenRepo, tokenService, emailService, logger)
 }
 
 // ProvideTokenService creates a token service
-func ProvideTokenService() service2.ITokenService {
-	return service2.NewTokenService()
+func ProvideTokenService() service.ITokenService {
+	return service.NewTokenService()
 }
 
 // Module provides auth module dependencies
@@ -40,25 +42,35 @@ var Module = fx.Module("auth",
 		ProvideJWTService,
 		ProvidePasswordService,
 		ProvideTokenService,
-		service2.NewGoogleOAuthService,
+		service.NewGoogleOAuthService,
 
 		// Repositories
-		repository2.NewTokenRepository,
-		repository2.NewTokenBlacklistRepository,
+		repository.NewTokenRepository,
+		repository.NewTokenBlacklistRepository,
 
 		// Verification Service - provide as interface
 		fx.Annotate(
-			service2.NewVerificationService,
-			fx.As(new(service2.IVerificationService)),
+			service.NewVerificationService,
+			fx.As(new(service.IVerificationService)),
 		),
 
 		// Auth Service - provide as interface
 		fx.Annotate(
-			service2.NewService,
-			fx.As(new(service2.IAuthService)),
+			service.NewService,
+			fx.As(new(service.IAuthService)),
 		),
 
 		// Handler
 		handler.NewHandler,
 	),
+	fx.Invoke(registerAuthRoutes),
 )
+
+func registerAuthRoutes(
+	router *gin.Engine,
+	h *handler.Handler,
+	authMiddleware *middleware.Middleware,
+	emailVerificationMiddleware *middleware.EmailVerificationMiddleware,
+) {
+	h.RegisterRoutes(router, authMiddleware, emailVerificationMiddleware)
+}

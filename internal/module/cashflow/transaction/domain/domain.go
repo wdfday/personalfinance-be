@@ -68,9 +68,6 @@ type Transaction struct {
 
 	// Metadata & raw data from bank / wallet / external systems
 	Meta *TransactionMeta `gorm:"type:jsonb;column:meta" json:"meta,omitempty"`
-
-	// DSS Metadata for Analytics & Pattern Detection
-	DSSMetadata *TransactionDSSMetadata `gorm:"type:jsonb;column:dss_metadata" json:"dss_metadata,omitempty"`
 }
 
 // TableName specifies the database table name
@@ -166,86 +163,4 @@ func (tm *TransactionMeta) Scan(value interface{}) error {
 		return nil
 	}
 	return json.Unmarshal(bytes, tm)
-}
-
-// TransactionDSSMetadata: DSS analytics metadata for pattern detection and insights
-type TransactionDSSMetadata struct {
-	// Recurring Detection
-	IsRecurring         bool    `json:"is_recurring,omitempty"`
-	RecurringGroupID    string  `json:"recurring_group_id,omitempty"`
-	RecurringFrequency  string  `json:"recurring_frequency,omitempty"`  // daily, weekly, monthly, etc.
-	RecurringConfidence float64 `json:"recurring_confidence,omitempty"` // 0-1
-
-	// Anomaly Detection
-	IsAnomaly     bool    `json:"is_anomaly,omitempty"`
-	AnomalyScore  float64 `json:"anomaly_score,omitempty"`  // 0-1
-	AnomalyReason string  `json:"anomaly_reason,omitempty"` // Why flagged
-
-	// Amount Analysis
-	IsLargeTransaction bool    `json:"is_large_transaction,omitempty"`
-	AmountPercentile   float64 `json:"amount_percentile,omitempty"` // Percentile in user's transactions
-
-	// Categorization
-	CategoryConfidence float64 `json:"category_confidence,omitempty"` // 0-1
-	SuggestedCategory  string  `json:"suggested_category,omitempty"`  // AI suggested category ID
-
-	// Merchant Data
-	MerchantCategory string `json:"merchant_category,omitempty"` // MCC code
-	MerchantID       string `json:"merchant_id,omitempty"`
-
-	// Location
-	Location *TransactionLocation `json:"location,omitempty"`
-
-	// Time Analysis
-	TimeOfDay string `json:"time_of_day,omitempty"` // morning, afternoon, evening, night
-	DayOfWeek int    `json:"day_of_week,omitempty"` // 0-6
-	IsWeekend bool   `json:"is_weekend,omitempty"`
-	IsHoliday bool   `json:"is_holiday,omitempty"`
-
-	// Pattern
-	SpendingPattern string `json:"spending_pattern,omitempty"` // normal, impulse, planned
-
-	// Enrichment
-	EnrichmentData *TransactionEnrichment `json:"enrichment_data,omitempty"`
-
-	// Timestamps
-	LastAnalyzed string `json:"last_analyzed,omitempty"` // ISO 8601
-}
-
-// Value implements driver.Valuer for JSONB
-func (tdm *TransactionDSSMetadata) Value() (driver.Value, error) {
-	if tdm == nil {
-		return nil, nil
-	}
-	return json.Marshal(tdm)
-}
-
-// Scan implements sql.Scanner for JSONB
-func (tdm *TransactionDSSMetadata) Scan(value interface{}) error {
-	if value == nil {
-		*tdm = TransactionDSSMetadata{}
-		return nil
-	}
-	bytes, ok := value.([]byte)
-	if !ok {
-		return nil
-	}
-	return json.Unmarshal(bytes, tdm)
-}
-
-// TransactionLocation: Geographic location data
-type TransactionLocation struct {
-	City     string  `json:"city,omitempty"`
-	District string  `json:"district,omitempty"`
-	Country  string  `json:"country,omitempty"`
-	Lat      float64 `json:"lat,omitempty"`
-	Lng      float64 `json:"lng,omitempty"`
-}
-
-// TransactionEnrichment: Enriched data from external sources
-type TransactionEnrichment struct {
-	MerchantLogo     string `json:"merchant_logo,omitempty"`
-	MerchantWebsite  string `json:"merchant_website,omitempty"`
-	EnrichedAt       string `json:"enriched_at,omitempty"`       // ISO 8601
-	EnrichmentSource string `json:"enrichment_source,omitempty"` // AI_MODEL_V1, etc.
 }

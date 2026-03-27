@@ -4,9 +4,6 @@ import (
 	"personalfinancedss/internal/module/analytics/models/ahp"
 	"personalfinancedss/internal/module/analytics/models/budget_allocation"
 	"personalfinancedss/internal/module/analytics/models/debt_strategy"
-	"personalfinancedss/internal/module/analytics/models/emergency_fund"
-	"personalfinancedss/internal/module/analytics/models/lifestyle_inflation"
-	"personalfinancedss/internal/module/analytics/models/spending_decision"
 	"personalfinancedss/internal/module/analytics/models/tradeoff"
 
 	"go.uber.org/fx"
@@ -27,14 +24,5 @@ var Module = fx.Module("analytics-models",
 
 		// Tradeoff Model (Goal vs Debt vs Investment tradeoffs)
 		tradeoff.NewTradeoffModel,
-
-		// Spending Decision Model (Large purchase analysis)
-		spending_decision.NewSpendingDecisionModel,
-
-		// Emergency Fund Model
-		emergency_fund.NewEmergency_fundModel,
-
-		// Lifestyle Inflation Model
-		lifestyle_inflation.NewLifestyle_inflationModel,
 	),
 )

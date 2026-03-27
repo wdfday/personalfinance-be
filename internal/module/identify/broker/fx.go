@@ -2,20 +2,17 @@ package broker
 
 import (
 	"context"
-	"time"
-
 	"personalfinancedss/internal/config"
 	"personalfinancedss/internal/middleware"
 	accountRepo "personalfinancedss/internal/module/cashflow/account/repository"
 	transactionRepo "personalfinancedss/internal/module/cashflow/transaction/repository"
-	"personalfinancedss/internal/module/identify/broker/client/okx"
 	"personalfinancedss/internal/module/identify/broker/client/sepay"
-	"personalfinancedss/internal/module/identify/broker/client/ssi"
 	"personalfinancedss/internal/module/identify/broker/handler"
 	repository2 "personalfinancedss/internal/module/identify/broker/repository"
 	service2 "personalfinancedss/internal/module/identify/broker/service"
 	"personalfinancedss/internal/module/identify/broker/worker"
 	internalService "personalfinancedss/internal/service"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
@@ -26,9 +23,6 @@ import (
 // Module provides broker connection management dependencies
 var Module = fx.Module("broker",
 	fx.Provide(
-		// Broker clients
-		ssi.NewSSIClient,
-		okx.NewOKXClient,
 		sepay.NewClient,
 
 		// Repository
@@ -45,7 +39,7 @@ var Module = fx.Module("broker",
 		provideSyncWorker,
 	),
 	fx.Invoke(
-		// registerBrokerRoutes removed - routes registered centrally in app.go
+		registerBrokerRoutes,
 		registerSyncWorkerLifecycle,
 	),
 )
@@ -61,8 +55,6 @@ func provideSyncService(
 	accRepo accountRepo.Repository,
 	txnRepo transactionRepo.Repository,
 	encryptionService *internalService.EncryptionService,
-	ssiClient *ssi.SSIClient,
-	okxClient *okx.OKXClient,
 	sepayClient *sepay.Client,
 	logger *zap.Logger,
 ) *service2.SyncService {
@@ -71,8 +63,6 @@ func provideSyncService(
 		accRepo,
 		txnRepo,
 		encryptionService,
-		ssiClient,
-		okxClient,
 		sepayClient,
 		logger,
 	)
@@ -82,16 +72,12 @@ func provideSyncService(
 func provideBrokerConnectionService(
 	repo repository2.BrokerConnectionRepository,
 	encryptionService *internalService.EncryptionService,
-	ssiClient *ssi.SSIClient,
-	okxClient *okx.OKXClient,
 	sepayClient *sepay.Client,
 	syncService *service2.SyncService,
 ) service2.BrokerConnectionService {
 	return service2.NewBrokerConnectionService(
 		repo,
 		encryptionService,
-		ssiClient,
-		okxClient,
 		sepayClient,
 		syncService,
 	)
@@ -139,11 +125,11 @@ func registerSyncWorkerLifecycle(
 ) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Info("🚀 Starting broker sync worker...")
+			logger.Info("Starting broker sync worker...")
 			return w.Start(ctx)
 		},
 		OnStop: func(ctx context.Context) error {
-			logger.Info("🛑 Stopping broker sync worker...")
+			logger.Info("Stopping broker sync worker...")
 			return w.Stop(ctx)
 		},
 	})

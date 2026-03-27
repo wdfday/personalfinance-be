@@ -1,10 +1,12 @@
 package goal
 
 import (
+	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/cashflow/goal/handler"
 	"personalfinancedss/internal/module/cashflow/goal/repository"
 	"personalfinancedss/internal/module/cashflow/goal/service"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
@@ -26,4 +28,9 @@ var Module = fx.Module("goal",
 		// Handler
 		handler.NewHandler,
 	),
+	fx.Invoke(registerGoalRoutes),
 )
+
+func registerGoalRoutes(router *gin.Engine, h *handler.Handler, authMiddleware *middleware.Middleware) {
+	h.RegisterRoutes(router, authMiddleware)
+}

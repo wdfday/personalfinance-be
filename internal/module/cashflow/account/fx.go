@@ -1,10 +1,12 @@
 package account
 
 import (
+	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/cashflow/account/handler"
 	"personalfinancedss/internal/module/cashflow/account/repository"
 	"personalfinancedss/internal/module/cashflow/account/service"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
@@ -26,4 +28,9 @@ var Module = fx.Module("account",
 		// Handler
 		handler.NewHandler,
 	),
+	fx.Invoke(registerAccountRoutes),
 )
+
+func registerAccountRoutes(router *gin.Engine, h *handler.Handler, authMiddleware *middleware.Middleware) {
+	h.RegisterRoutes(router, authMiddleware)
+}

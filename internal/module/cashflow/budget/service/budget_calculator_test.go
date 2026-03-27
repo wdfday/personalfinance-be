@@ -23,15 +23,3 @@ func TestBudgetCalculator_RecalculateAllBudgets_Success(t *testing.T) {
 func TestBudgetCalculator_RecalculateAllBudgets_NoBudgets(t *testing.T) {
 	t.Skip("Skipping due to direct DB access requirement. Use integration tests instead.")
 }
-
-func TestBudgetCalculator_RolloverBudgets_Success(t *testing.T) {
-	t.Skip("Skipping due to direct DB access requirement. Use integration tests instead.")
-}
-
-func TestBudgetCalculator_RolloverBudgets_NoRollover(t *testing.T) {
-	t.Skip("Skipping due to direct DB access requirement. Use integration tests instead.")
-}
-
-func TestBudgetCalculator_RolloverBudgets_ExceededBudget(t *testing.T) {
-	t.Skip("Skipping due to direct DB access requirement. Use integration tests instead.")
-}

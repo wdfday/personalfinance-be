@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"personalfinancedss/internal/module/cashflow/goal/domain"
+	"personalfinancedss/internal/module/cashflow/goal/dto"
 	"time"
 
 	"github.com/google/uuid"
@@ -89,7 +90,7 @@ func (s *goalService) GetArchivedGoals(ctx context.Context, userID uuid.UUID) ([
 }
 
 // GetGoalSummary calculates and returns a summary of all goals for a user
-func (s *goalService) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*domain.GoalSummary, error) {
+func (s *goalService) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*dto.GoalSummary, error) {
 	goals, err := s.repo.FindByUserID(ctx, userID)
 	if err != nil {
 		s.logger.Error("Failed to get goals for summary",
@@ -99,8 +100,8 @@ func (s *goalService) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*do
 		return nil, err
 	}
 
-	summary := &domain.GoalSummary{
-		GoalsByCategory: make(map[string]*domain.GoalCategorySum),
+	summary := &dto.GoalSummary{
+		GoalsByCategory: make(map[string]*dto.GoalCategorySum),
 		GoalsByPriority: make(map[string]int),
 	}
 
@@ -126,7 +127,7 @@ func (s *goalService) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*do
 		// Sum by category
 		categoryKey := string(goal.Category)
 		if summary.GoalsByCategory[categoryKey] == nil {
-			summary.GoalsByCategory[categoryKey] = &domain.GoalCategorySum{}
+			summary.GoalsByCategory[categoryKey] = &dto.GoalCategorySum{}
 		}
 		categorySum := summary.GoalsByCategory[categoryKey]
 		categorySum.Count++
@@ -155,7 +156,7 @@ func (s *goalService) GetGoalSummary(ctx context.Context, userID uuid.UUID) (*do
 }
 
 // GetGoalProgress retrieves detailed progress information for a goal
-func (s *goalService) GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*domain.GoalProgress, error) {
+func (s *goalService) GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*dto.GoalProgress, error) {
 	goal, err := s.repo.FindByID(ctx, goalID)
 	if err != nil {
 		s.logger.Error("Failed to get goal for progress",
@@ -165,7 +166,7 @@ func (s *goalService) GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*d
 		return nil, err
 	}
 
-	progress := &domain.GoalProgress{
+	progress := &dto.GoalProgress{
 		GoalID:             goal.ID,
 		Name:               goal.Name,
 		Behavior:           goal.Behavior,
@@ -219,7 +220,7 @@ func (s *goalService) GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*d
 }
 
 // GetGoalAnalytics retrieves analytics for a goal
-func (s *goalService) GetGoalAnalytics(ctx context.Context, goalID uuid.UUID) (*domain.GoalAnalytics, error) {
+func (s *goalService) GetGoalAnalytics(ctx context.Context, goalID uuid.UUID) (*dto.GoalAnalytics, error) {
 	goal, err := s.repo.FindByID(ctx, goalID)
 	if err != nil {
 		s.logger.Error("Failed to get goal for analytics",
@@ -229,7 +230,7 @@ func (s *goalService) GetGoalAnalytics(ctx context.Context, goalID uuid.UUID) (*
 		return nil, err
 	}
 
-	analytics := &domain.GoalAnalytics{
+	analytics := &dto.GoalAnalytics{
 		GoalID:             goal.ID,
 		Name:               goal.Name,
 		Behavior:           goal.Behavior,

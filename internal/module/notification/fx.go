@@ -3,11 +3,13 @@ package notification
 import (
 	"context"
 	"personalfinancedss/internal/config"
+	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/notification/domain"
 	"personalfinancedss/internal/module/notification/handler"
 	"personalfinancedss/internal/module/notification/repository"
 	"personalfinancedss/internal/module/notification/service"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -90,7 +92,7 @@ func ProvideScheduledReportService(
 ) service.ScheduledReportService {
 	// Type assertion will be handled in actual wiring
 	// For now, return nil to avoid compilation errors
-	// This should be properly wired in internal/fx/application.go
+	// This should be properly wired in internal/app/application.go
 	return nil
 }
 
@@ -120,4 +122,17 @@ var Module = fx.Module("notification",
 		handler.NewWebSocketHandler,
 		handler.NewPreferenceHandler,
 	),
+	fx.Invoke(registerNotificationRoutes),
 )
+
+func registerNotificationRoutes(
+	router *gin.Engine,
+	h *handler.Handler,
+	wsH *handler.WebSocketHandler,
+	prefH *handler.PreferenceHandler,
+	authMiddleware *middleware.Middleware,
+) {
+	h.RegisterRoutes(router, authMiddleware)
+	wsH.RegisterRoutes(router, authMiddleware)
+	prefH.RegisterRoutes(router, authMiddleware)
+}

@@ -1,10 +1,12 @@
 package category
 
 import (
+	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/cashflow/category/handler"
 	"personalfinancedss/internal/module/cashflow/category/repository"
 	"personalfinancedss/internal/module/cashflow/category/service"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
@@ -26,4 +28,9 @@ var Module = fx.Module("category",
 		// Handler
 		handler.NewHandler,
 	),
+	fx.Invoke(registerCategoryRoutes),
 )
+
+func registerCategoryRoutes(router *gin.Engine, h *handler.Handler, authMiddleware *middleware.Middleware) {
+	h.RegisterRoutes(router, authMiddleware)
+}

@@ -1,9 +1,8 @@
-# ==================================================
-# Stage 1: Builder
-# ==================================================
-FROM golang:1.23-alpine AS builder
+#######################################################
+# Stage 1: Build binary
+#######################################################
+FROM golang:1.24-alpine AS builder
 
-# Install build dependencies
 RUN apk add --no-cache \
     git \
     make \
@@ -14,66 +13,52 @@ RUN apk add --no-cache \
 
 WORKDIR /build
 
-# Copy go mod files first for better caching
-COPY ../go.mod go.sum ./
+# Copy go.mod và go.sum trước để cache dependency
+COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
-# Copy source code
-COPY .. .
+# Copy toàn bộ source vào container build
+COPY . .
 
-# Build the application with optimizations
+# Build binary tối ưu cho production
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags='-w -s -extldflags "-static"' \
-    -a \
-    -installsuffix cgo \
+    -ldflags="-w -s" \
     -o app \
     ./cmd/server
 
-# Verify the binary
-RUN chmod +x /build/app
-
-# ==================================================
-# Stage 2: Runtime
-# ==================================================
+#######################################################
+# Stage 2: Runtime image
+#######################################################
 FROM alpine:3.19
 
-# Install runtime dependencies
 RUN apk --no-cache add \
     ca-certificates \
     tzdata \
     curl
 
-# Set timezone
+# Thiết lập timezone
 ENV TZ=Asia/Ho_Chi_Minh
 
-# Create non-root user
+# Tạo user không phải root
 RUN addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser appuser
 
-# Create app directory
 WORKDIR /app
 
-# Copy binary from builder
+# Copy binary và tài nguyên cần thiết
 COPY --from=builder /build/app .
-
-# Copy docs (Swagger)
 COPY --from=builder /build/docs ./docs
 
-# Copy migrations (optional, if you want to run migrations from container)
-COPY --from=builder /build/migrations ./migrations
-
-# Change ownership to non-root user
+# Phân quyền cho user không phải root
 RUN chown -R appuser:appuser /app
 
-# Switch to non-root user
 USER appuser
 
-# Expose port
 EXPOSE 8080
 
-# Health check
+# Healthcheck đơn giản (có thể chỉnh route cho đúng với app)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
-# Run the application
 CMD ["./app"]
+

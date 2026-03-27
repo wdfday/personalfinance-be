@@ -106,20 +106,20 @@ func ToGoalResponseList(goals []domain.Goal) []*GoalResponse {
 
 // GoalSummaryResponse represents a goal summary in API responses
 type GoalSummaryResponse struct {
-	TotalGoals         int                                `json:"totalGoals"`
-	ActiveGoals        int                                `json:"activeGoals"`
-	CompletedGoals     int                                `json:"completedGoals"`
-	OverdueGoals       int                                `json:"overdueGoals"`
-	TotalTargetAmount  float64                            `json:"totalTargetAmount"`
-	TotalCurrentAmount float64                            `json:"totalCurrentAmount"`
-	TotalRemaining     float64                            `json:"totalRemaining"`
-	AverageProgress    float64                            `json:"averageProgress"`
-	GoalsByCategory    map[string]*domain.GoalCategorySum `json:"goalsByCategory"`
-	GoalsByPriority    map[string]int                     `json:"goalsByPriority"`
+	TotalGoals         int                         `json:"totalGoals"`
+	ActiveGoals        int                         `json:"activeGoals"`
+	CompletedGoals     int                         `json:"completedGoals"`
+	OverdueGoals       int                         `json:"overdueGoals"`
+	TotalTargetAmount  float64                     `json:"totalTargetAmount"`
+	TotalCurrentAmount float64                     `json:"totalCurrentAmount"`
+	TotalRemaining     float64                     `json:"totalRemaining"`
+	AverageProgress    float64                     `json:"averageProgress"`
+	GoalsByCategory    map[string]*GoalCategorySum `json:"goalsByCategory"`
+	GoalsByPriority    map[string]int              `json:"goalsByPriority"`
 }
 
 // ToGoalSummaryResponse converts a service goal summary to response DTO
-func ToGoalSummaryResponse(summary *domain.GoalSummary) *GoalSummaryResponse {
+func ToGoalSummaryResponse(summary *GoalSummary) *GoalSummaryResponse {
 	if summary == nil {
 		return nil
 	}

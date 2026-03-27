@@ -1,12 +1,14 @@
 package month
 
 import (
-	"go.uber.org/fx"
-
 	"personalfinancedss/internal/config"
+	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/calendar/month/handler"
 	"personalfinancedss/internal/module/calendar/month/repository"
 	"personalfinancedss/internal/module/calendar/month/service"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/fx"
 )
 
 // Module wires the calendar month feature
@@ -39,5 +41,9 @@ var Module = fx.Module("calendar-month",
 		),
 		handler.NewHandler,
 	),
-	// Routes registered centrally in app.go RegisterRoutes
+	fx.Invoke(registerMonthRoutes),
 )
+
+func registerMonthRoutes(router *gin.Engine, h *handler.Handler, authMiddleware *middleware.Middleware) {
+	h.RegisterRoutes(router, authMiddleware)
+}

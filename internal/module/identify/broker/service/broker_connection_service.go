@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"personalfinancedss/internal/module/identify/broker/client"
-	"personalfinancedss/internal/module/identify/broker/client/okx"
 	"personalfinancedss/internal/module/identify/broker/client/sepay"
-	"personalfinancedss/internal/module/identify/broker/client/ssi"
 	"personalfinancedss/internal/module/identify/broker/domain"
 	"personalfinancedss/internal/module/identify/broker/dto"
 	"personalfinancedss/internal/module/identify/broker/repository"
@@ -21,8 +19,6 @@ import (
 type brokerConnectionService struct {
 	repo              repository.BrokerConnectionRepository
 	encryptionService *service.EncryptionService
-	ssiClient         *ssi.SSIClient
-	okxClient         *okx.OKXClient
 	sepayClient       *sepay.Client
 	syncService       *SyncService
 }
@@ -31,16 +27,12 @@ type brokerConnectionService struct {
 func NewBrokerConnectionService(
 	repo repository.BrokerConnectionRepository,
 	encryptionService *service.EncryptionService,
-	ssiClient *ssi.SSIClient,
-	okxClient *okx.OKXClient,
 	sepayClient *sepay.Client,
 	syncService *SyncService,
 ) BrokerConnectionService {
 	return &brokerConnectionService{
 		repo:              repo,
 		encryptionService: encryptionService,
-		ssiClient:         ssiClient,
-		okxClient:         okxClient,
 		sepayClient:       sepayClient,
 		syncService:       syncService,
 	}
@@ -459,10 +451,6 @@ func (s *brokerConnectionService) SyncNow(ctx context.Context, id uuid.UUID, use
 
 func (s *brokerConnectionService) getBrokerClient(brokerType domain.BrokerType) (client.BrokerClient, error) {
 	switch brokerType {
-	case domain.BrokerTypeSSI:
-		return s.ssiClient, nil
-	case domain.BrokerTypeOKX:
-		return s.okxClient, nil
 	case domain.BrokerTypeSePay:
 		return s.sepayClient, nil
 	default:
@@ -492,8 +480,4 @@ func (s *brokerConnectionService) matchesFilters(conn *domain.BrokerConnection, 
 	}
 
 	return true
-}
-
-func stringPtr(s string) *string {
-	return &s
 }

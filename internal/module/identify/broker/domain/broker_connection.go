@@ -23,7 +23,6 @@ const (
 	BrokerConnectionStatusActive       BrokerConnectionStatus = "active"
 	BrokerConnectionStatusDisconnected BrokerConnectionStatus = "disconnected"
 	BrokerConnectionStatusError        BrokerConnectionStatus = "error"
-	BrokerConnectionStatusPending      BrokerConnectionStatus = "pending"
 )
 
 // BrokerConnection represents a user's connection to an external broker/exchange

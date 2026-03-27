@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-
 	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/cashflow/budget_profile/dto"
 	"personalfinancedss/internal/module/cashflow/budget_profile/service"
@@ -37,7 +36,7 @@ func (h *Handler) RegisterRoutes(r *gin.Engine, authMiddleware *middleware.Middl
 		budgetConstraints.POST("/:id/archive", h.archiveBudgetConstraint)
 		budgetConstraints.POST("/:id/end", h.endBudgetConstraint)
 		budgetConstraints.GET("/:id", h.getBudgetConstraint)
-		budgetConstraints.PUT("/:id", h.updateBudgetConstraint)
+		budgetConstraints.PATCH("/:id", h.updateBudgetConstraint)
 	}
 }
 

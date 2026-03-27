@@ -22,9 +22,9 @@ type GoalReader interface {
 	GetGoalsByCategory(ctx context.Context, userID uuid.UUID, category domain.GoalCategory) ([]domain.Goal, error)
 	GetCompletedGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error)
 	GetArchivedGoals(ctx context.Context, userID uuid.UUID) ([]domain.Goal, error)
-	GetGoalSummary(ctx context.Context, userID uuid.UUID) (*domain.GoalSummary, error)
-	GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*domain.GoalProgress, error)
-	GetGoalAnalytics(ctx context.Context, goalID uuid.UUID) (*domain.GoalAnalytics, error)
+	GetGoalSummary(ctx context.Context, userID uuid.UUID) (*dto.GoalSummary, error)
+	GetGoalProgress(ctx context.Context, goalID uuid.UUID) (*dto.GoalProgress, error)
+	GetGoalAnalytics(ctx context.Context, goalID uuid.UUID) (*dto.GoalAnalytics, error)
 }
 
 // GoalUpdater defines the interface for updating goals

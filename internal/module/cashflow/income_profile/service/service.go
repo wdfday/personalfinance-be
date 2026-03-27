@@ -2,13 +2,10 @@ package service
 
 import (
 	"context"
-
 	"personalfinancedss/internal/module/cashflow/income_profile/domain"
 	"personalfinancedss/internal/module/cashflow/income_profile/dto"
-	"personalfinancedss/internal/module/cashflow/income_profile/repository"
 
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 // IncomeProfileCreator defines income profile creation operations
@@ -31,9 +28,6 @@ type IncomeProfileUpdater interface {
 	// UpdateIncomeProfile creates a NEW version and archives the old one
 	UpdateIncomeProfile(ctx context.Context, userID string, profileID string, req dto.UpdateIncomeProfileRequest) (*domain.IncomeProfile, error)
 
-	// UpdateDSSMetadata updates DSS analysis metadata
-	UpdateDSSMetadata(ctx context.Context, userID string, profileID string, req dto.UpdateDSSMetadataRequest) (*domain.IncomeProfile, error)
-
 	// ArchiveIncomeProfile manually archives an income profile
 	ArchiveIncomeProfile(ctx context.Context, userID string, profileID string) error
 
@@ -55,20 +49,6 @@ type Service interface {
 	IncomeProfileReader
 	IncomeProfileUpdater
 	IncomeProfileDeleter
-}
-
-// incomeProfileService implements all income profile use cases
-type incomeProfileService struct {
-	repo   repository.Repository
-	logger *zap.Logger
-}
-
-// NewService creates a new income profile service
-func NewService(repo repository.Repository, logger *zap.Logger) Service {
-	return &incomeProfileService{
-		repo:   repo,
-		logger: logger,
-	}
 }
 
 // parseUserID parses user ID string to UUID

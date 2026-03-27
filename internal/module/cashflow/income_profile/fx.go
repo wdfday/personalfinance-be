@@ -1,10 +1,12 @@
 package income_profile
 
 import (
+	"personalfinancedss/internal/middleware"
 	"personalfinancedss/internal/module/cashflow/income_profile/handler"
 	"personalfinancedss/internal/module/cashflow/income_profile/repository"
 	"personalfinancedss/internal/module/cashflow/income_profile/service"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
@@ -26,4 +28,9 @@ var Module = fx.Module("income_profile",
 		// Handler
 		handler.NewHandler,
 	),
+	fx.Invoke(registerIncomeProfileRoutes),
 )
+
+func registerIncomeProfileRoutes(router *gin.Engine, h *handler.Handler, authMiddleware *middleware.Middleware) {
+	h.RegisterRoutes(router, authMiddleware)
+}

@@ -100,19 +100,10 @@ func ToIncomeProfileResponse(ip *domain.IncomeProfile, includeBreakdown bool) In
 		IsRecurring: ip.IsRecurring,
 		IsActive:    ip.IsActive(),
 		IsArchived:  ip.IsArchived(),
-		DSSScore:    ip.GetDSSScore(),
 		Description: ip.Description,
 		CreatedAt:   ip.CreatedAt,
 		UpdatedAt:   ip.UpdatedAt,
 		ArchivedAt:  ip.ArchivedAt,
-	}
-
-	// Parse DSS metadata
-	if len(ip.DSSMetadata) > 0 {
-		var metadata map[string]interface{}
-		if err := json.Unmarshal(ip.DSSMetadata, &metadata); err == nil {
-			response.DSSMetadata = parseDSSMetadata(metadata)
-		}
 	}
 
 	// Parse tags
@@ -168,38 +159,6 @@ func ToIncomeProfileListResponse(profiles []*domain.IncomeProfile, includeBreakd
 	return result
 }
 
-// parseDSSMetadata parses DSS metadata map to response struct
-func parseDSSMetadata(metadata map[string]interface{}) *DSSMetadataResponse {
-	dss := &DSSMetadataResponse{}
-
-	if val, ok := metadata["stability_score"].(float64); ok {
-		dss.StabilityScore = val
-	}
-	if val, ok := metadata["risk_level"].(string); ok {
-		dss.RiskLevel = val
-	}
-	if val, ok := metadata["confidence"].(float64); ok {
-		dss.Confidence = val
-	}
-	if val, ok := metadata["variance"].(float64); ok {
-		dss.Variance = val
-	}
-	if val, ok := metadata["trend"].(string); ok {
-		dss.Trend = val
-	}
-	if val, ok := metadata["recommended_savings_rate"].(float64); ok {
-		dss.RecommendedSavingsRate = val
-	}
-	if val, ok := metadata["last_analyzed"].(string); ok {
-		dss.LastAnalyzed = val
-	}
-	if val, ok := metadata["analysis_version"].(string); ok {
-		dss.AnalysisVersion = val
-	}
-
-	return dss
-}
-
 // calculateSummary calculates summary statistics for income profiles
 func calculateSummary(profiles []*domain.IncomeProfile) *IncomeSummaryResponse {
 	summary := &IncomeSummaryResponse{}
@@ -223,13 +182,6 @@ func calculateSummary(profiles []*domain.IncomeProfile) *IncomeSummaryResponse {
 
 		if ip.IsRecurring {
 			recurringCount++
-		}
-
-		// Calculate average stability from DSS metadata
-		score := ip.GetDSSScore()
-		if score > 0 {
-			totalStability += score
-			stabilityCount++
 		}
 	}
 
@@ -263,40 +215,4 @@ func calculateMonthlyEquivalent(amount float64, frequency string) float64 {
 	default:
 		return amount
 	}
-}
-
-// FromUpdateDSSMetadataRequest converts request to metadata map
-func FromUpdateDSSMetadataRequest(req UpdateDSSMetadataRequest) map[string]interface{} {
-	metadata := make(map[string]interface{})
-
-	if req.StabilityScore != nil {
-		metadata["stability_score"] = *req.StabilityScore
-	}
-	if req.RiskLevel != nil {
-		metadata["risk_level"] = *req.RiskLevel
-	}
-	if req.Confidence != nil {
-		metadata["confidence"] = *req.Confidence
-	}
-	if req.Variance != nil {
-		metadata["variance"] = *req.Variance
-	}
-	if req.Trend != nil {
-		metadata["trend"] = *req.Trend
-	}
-	if req.RecommendedSavingsRate != nil {
-		metadata["recommended_savings_rate"] = *req.RecommendedSavingsRate
-	}
-
-	// Add version info
-	metadata["analysis_version"] = "v1.0"
-
-	return metadata
-}
-
-// Helper to convert JSON to map for debugging
-func JSONToMap(data []byte) (map[string]interface{}, error) {
-	var result map[string]interface{}
-	err := json.Unmarshal(data, &result)
-	return result, err
 }

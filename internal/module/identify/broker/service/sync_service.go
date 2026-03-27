@@ -9,9 +9,7 @@ import (
 	transactionDomain "personalfinancedss/internal/module/cashflow/transaction/domain"
 	transactionRepo "personalfinancedss/internal/module/cashflow/transaction/repository"
 	"personalfinancedss/internal/module/identify/broker/client"
-	"personalfinancedss/internal/module/identify/broker/client/okx"
 	"personalfinancedss/internal/module/identify/broker/client/sepay"
-	"personalfinancedss/internal/module/identify/broker/client/ssi"
 	"personalfinancedss/internal/module/identify/broker/domain"
 	"personalfinancedss/internal/module/identify/broker/repository"
 	internalService "personalfinancedss/internal/service"
@@ -27,8 +25,6 @@ type SyncService struct {
 	accountRepo       accountRepo.Repository
 	transactionRepo   transactionRepo.Repository
 	encryptionService *internalService.EncryptionService
-	ssiClient         *ssi.SSIClient
-	okxClient         *okx.OKXClient
 	sepayClient       *sepay.Client
 	logger            *zap.Logger
 }
@@ -39,8 +35,6 @@ func NewSyncService(
 	accountRepo accountRepo.Repository,
 	transactionRepo transactionRepo.Repository,
 	encryptionService *internalService.EncryptionService,
-	ssiClient *ssi.SSIClient,
-	okxClient *okx.OKXClient,
 	sepayClient *sepay.Client,
 	logger *zap.Logger,
 ) *SyncService {
@@ -49,8 +43,6 @@ func NewSyncService(
 		accountRepo:       accountRepo,
 		transactionRepo:   transactionRepo,
 		encryptionService: encryptionService,
-		ssiClient:         ssiClient,
-		okxClient:         okxClient,
 		sepayClient:       sepayClient,
 		logger:            logger.Named("broker.sync"),
 	}
@@ -64,7 +56,7 @@ func (s *SyncService) SyncBrokerConnection(ctx context.Context, connection *doma
 		Details:  make(map[string]interface{}),
 	}
 
-	s.logger.Info("🔄 Starting sync for broker connection",
+	s.logger.Info("Starting sync for broker connection",
 		zap.String("connection_id", connection.ID.String()),
 		zap.String("broker_type", string(connection.BrokerType)),
 		zap.String("broker_name", connection.BrokerName),
@@ -88,24 +80,6 @@ func (s *SyncService) SyncBrokerConnection(ctx context.Context, connection *doma
 
 	// Sync based on broker type
 	switch connection.BrokerType {
-	case domain.BrokerTypeSSI, domain.BrokerTypeOKX:
-		// Investment brokers: sync balance only with a single linked account
-		account, err := s.findOrCreateLinkedAccount(ctx, connection)
-		if err != nil {
-			errMsg := fmt.Sprintf("failed to get linked account: %v", err)
-			result.Error = &errMsg
-			return result, err
-		}
-
-		if connection.SyncBalance {
-			err = s.syncAccountBalance(ctx, brokerClient, accessToken, account)
-			if err != nil {
-				result.Details["balance_error"] = err.Error()
-			} else {
-				result.BalanceUpdated = true
-			}
-		}
-
 	case domain.BrokerTypeSePay:
 		// Banking: sync multiple accounts + transactions
 		bankingClient, ok := brokerClient.(client.BankingBrokerClient)
@@ -200,7 +174,7 @@ func (s *SyncService) SyncBrokerConnection(ctx context.Context, connection *doma
 		s.logger.Error("Failed to update connection after sync", zap.Error(err))
 	}
 
-	s.logger.Info("✅ Sync completed",
+	s.logger.Info("Sync completed",
 		zap.String("connection_id", connection.ID.String()),
 		zap.Bool("success", result.Success),
 		zap.Bool("balance_updated", result.BalanceUpdated),
@@ -407,10 +381,6 @@ func (s *SyncService) getDecryptedAccessToken(connection *domain.BrokerConnectio
 // getBrokerClient returns the appropriate broker client
 func (s *SyncService) getBrokerClient(brokerType domain.BrokerType) (client.BrokerClient, error) {
 	switch brokerType {
-	case domain.BrokerTypeSSI:
-		return s.ssiClient, nil
-	case domain.BrokerTypeOKX:
-		return s.okxClient, nil
 	case domain.BrokerTypeSePay:
 		return s.sepayClient, nil
 	default:
