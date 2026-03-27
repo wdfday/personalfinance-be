@@ -3,7 +3,6 @@ package analytics
 import (
 	"personalfinancedss/internal/module/analytics/budget_allocation"
 	budgetAllocationService "personalfinancedss/internal/module/analytics/budget_allocation/service"
-	"personalfinancedss/internal/module/analytics/cashflow_forecast/service"
 	"personalfinancedss/internal/module/analytics/debt_strategy"
 	debtStrategyService "personalfinancedss/internal/module/analytics/debt_strategy/service"
 	"personalfinancedss/internal/module/analytics/debt_tradeoff"
@@ -45,11 +44,6 @@ var Module = fx.Module("analytics",
 		fx.Annotate(
 			func(svc debtTradeoffService.Service) debtTradeoffService.Service { return svc },
 			fx.ResultTags(`name:"debtTradeoffService"`),
-		),
-		// Cashflow forecast - standalone service (no model dependency)
-		fx.Annotate(
-			service.NewService,
-			fx.ResultTags(`name:"cashflowForecastService"`),
 		),
 	),
 )
